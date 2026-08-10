@@ -1,11 +1,20 @@
 import { categories } from "@/data/categories";
+import { computeChart } from "@/lib/saju";
+import { radarStats, type Ctx, type ReportInput } from "@/lib/report";
 import SajuCharts from "@/components/ui/SajuCharts";
 import StatGrid from "@/components/ui/StatGrid";
+import RadarCard from "@/components/ui/RadarCard";
 import Reveal from "@/components/ui/Reveal";
 
 /** 리포트 예시 섹션 — 무료 미리보기와 결제 후 상세 리포트를 나란히 보여줌 */
 export default function ReportShowcase() {
   const loveLife = categories.find((c) => c.id === "love-life")!;
+
+  // 샘플 인물(지수, 2000-08-03) 기준 레이더 다이어그램
+  const sampleMe = { y: 2000, m: 8, d: 3 };
+  const sampleInput: ReportInput = { categoryId: "love-life", name: "지수", me: sampleMe, tier: "basic" };
+  const sampleCtx: Ctx = { me: computeChart(sampleMe), c: loveLife, input: sampleInput };
+
   return (
     <section className="border-t border-line">
       <div className="mx-auto max-w-5xl px-5 py-20 sm:py-28">
@@ -30,6 +39,13 @@ export default function ReportShowcase() {
               </span>
             </div>
             <SajuCharts me={{ y: 2000, m: 8, d: 3, knowsTime: false }} name="지수" />
+          </div>
+        </Reveal>
+
+        {/* 종합 지수 + 레이더 샘플 */}
+        <Reveal delay={0.1}>
+          <div className="mt-6">
+            <RadarCard stats={radarStats(sampleCtx)} />
           </div>
         </Reveal>
 
@@ -61,14 +77,14 @@ export default function ReportShowcase() {
                 항목마다 상세 풀이가 붙습니다.
               </p>
               <div className="mt-5 rounded-xl bg-paper-warm/60 p-5">
-                <p className="text-[11px] font-medium text-ink-faint">결혼 예상 나이 · 상세 풀이 일부</p>
+                <p className="text-[11px] font-medium text-ink-faint">운명의 상대의 특징과 외모 · 상세 풀이 일부</p>
                 <p className="mt-2 font-serif text-[14.5px] leading-[1.9] text-ink">
-                  지수님의 일간은 경금(庚金)으로, 오행 분포에서 금 기운이 가장 강하게 자리합니다.
-                  자미두수 부처궁에 천량성이 위치하는 구조는, 연애에서 상대에게 자유와 신뢰를 중요하게
-                  여기는 경향이 뚜렷하게 나타납니다. 이 두 흐름이 겹치면 좋아하는 마음이 있어도
-                  직접 표현하기보다 환경을 정리하며 기다리는 패턴이 반복되기 쉬운 구조예요.
-                  서른 이전보다 31세 전후 대운이 바뀌는 시기에 진지한 인연이 들어오기 쉬운
-                  흐름이 보입니다…
+                  지수님에게 맞는 인연은 목(木) 기운을 가진 사람이에요. 선이 부드럽고 편안한 인상이라
+                  표정이 자연스럽고, 꾸미지 않아도 정돈돼 보이는 스타일을 하고 있습니다. 자미두수
+                  부처궁의 천량성은 자유와 신뢰를 중요하게 여기는 성향이라, 지수님을 다그치지 않고
+                  곁에서 묵묵히 받아주는 쪽과 오래 갑니다. 첫눈에 강하게 끌리는 타입은 아닐
+                  가능성이 높아요. 오히려 처음엔 '이성으로는 아닌데' 했던 사람, 일이나 지인을 통해
+                  자연스럽게 반복해서 보게 되는 사람일 확률이 큽니다…
                 </p>
                 <p className="mt-2 text-[11px] text-brass">— 이 뒤로 항목당 약 1,500자 이상 이어져요 (연애·궁합·재회 총 1만자+)</p>
               </div>

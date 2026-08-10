@@ -95,9 +95,12 @@ export default function Hero() {
               {[
                 { label: "나의 타고난 인기", value: "상위 14%" },
                 { label: "결혼 예상 나이", value: "31세" },
-                { label: "운명 상대 유형", value: "말수 적은 실행형" },
+                { label: "운명의 상대의 특징과 외모", value: "말수 적은 실행형" },
                 { label: "나와 상대방의 바람기 지수", value: "낮음 / 중간" },
                 { label: "궁합 총점", value: "82 / 100" },
+                { label: "총 연애 횟수", value: "4회" },
+                { label: "헤어진 진짜 이유", value: "타이밍" },
+                { label: "재회 가능성", value: "61%" },
               ].map((item) => (
                 <div
                   key={item.label}
@@ -110,6 +113,12 @@ export default function Hero() {
                 </div>
               ))}
             </div>
+            <a
+              href="/reading/love/life"
+              className="mt-5 inline-flex items-center gap-1.5 text-[13.5px] font-medium text-brass underline decoration-brass/40 underline-offset-4 transition-colors hover:text-ink"
+            >
+              무료로 한 가지 항목 보러가기 →
+            </a>
           </motion.div>
         </div>
         <div className="hidden justify-end sm:flex">

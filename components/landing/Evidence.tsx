@@ -24,10 +24,13 @@ export default function Evidence() {
       <Reveal>
         <p className="text-sm font-medium tracking-widest text-brass">METHOD</p>
         <h2 className="mt-3 font-serif text-3xl font-semibold leading-snug tracking-tight sm:text-4xl">
-          찍는 게 아니라,
+          타고난 흐름을 읽는
           <br />
-          계산합니다
+          가장 정교한 방법
         </h2>
+        <p className="mt-2 text-[13px] text-ink-faint">
+          전통적인 세 가지 기법으로 정밀하고 정확하게 풀어냅니다.
+        </p>
         <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-ink-soft">
           세 체계는 모두 태어난 순간의 좌표를 정해진 규칙으로 계산하는 기록의
           학문입니다. 별:결은 여기에 수천 개 명반의 패턴 데이터를 더해, 세 기법이

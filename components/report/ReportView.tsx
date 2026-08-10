@@ -2,16 +2,17 @@
 
 /** 결제 후 상세 리포트 화면.
  *  - ID(URL)만으로 결정적 재생성 → 공유·저장·다시 보기가 그대로 성립
- *  - 리뷰 작성 후 deep 티어에서 추가 질문 1회 활성화
+ *  - 리뷰 작성 후 모든 카테고리에서 추가 질문 1회 활성화
  *  ⚠️ 결제 검증은 서버 연동 시 교체 */
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { decodeOrder, type Order } from "@/lib/order";
-import { type Report, type ReportInput } from "@/lib/report";
+import { radarStats, type Ctx, type Report, type ReportInput } from "@/lib/report";
 import { computeChart, BRANCHES } from "@/lib/saju";
 import { categories } from "@/data/categories";
 import SajuCharts from "@/components/ui/SajuCharts";
+import RadarCard from "@/components/ui/RadarCard";
 
 const TOPIC: Record<string, string> = {
   "love-life": "연애", "love-compatibility": "이 관계", "love-reunion": "재회",
@@ -81,6 +82,21 @@ function Body({ order, id }: { order: Order; id: string }) {
     [order]
   );
 
+  const chartCtx: Ctx | null = useMemo(() => {
+    if (!category) return null;
+    const ptChart = order.pt
+      ? computeChart({ y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h })
+      : undefined;
+    const input: ReportInput = {
+      categoryId: order.c,
+      name: order.n,
+      me: { y: order.me.y, m: order.me.m, d: order.me.d, hourBranch: order.me.h },
+      partner: order.pt ? { y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h } : undefined,
+      tier: order.t,
+    };
+    return { me: myChart, pt: ptChart, c: category, input };
+  }, [category, order, myChart]);
+
   /* 리뷰 작성 (localStorage) */
   const [review, setReview] = useState("");
   const [reviewed, setReviewed] = useState(false);
@@ -88,12 +104,12 @@ function Body({ order, id }: { order: Order; id: string }) {
     setReviewed(!!localStorage.getItem(`bz-review-${id.slice(0, 40)}`));
   }, [id]);
   const submitReview = () => {
-    if (review.trim().length < 5) return;
+    if (review.trim().length < 10) return;
     localStorage.setItem(`bz-review-${id.slice(0, 40)}`, review.trim());
     setReviewed(true);
   };
 
-  /* 리뷰 후 추가 질문 1회 (deep 티어 전용) */
+  /* 리뷰 후 추가 질문 1회 (전 카테고리 공통) */
   const [extraQ, setExtraQ] = useState("");
   const [extraAnswer, setExtraAnswer] = useState<string | null>(null);
   const [askingExtra, setAskingExtra] = useState(false);
@@ -134,7 +150,6 @@ function Body({ order, id }: { order: Order; id: string }) {
 
   /* unused — suppresses TS unused warning */
   void TOPIC;
-  void myChart;
 
   if (reportError) {
     return (
@@ -218,6 +233,13 @@ function Body({ order, id }: { order: Order; id: string }) {
           )}
         </div>
 
+        {/* 종합 지수 + 레이더 */}
+        {chartCtx && (
+          <div className="mt-6">
+            <RadarCard stats={radarStats(chartCtx)} />
+          </div>
+        )}
+
         {/* 목차 */}
         <div className="mt-6 rounded-2xl border border-line bg-white/70 p-5">
           <p className="text-xs font-medium text-ink-faint">이 리포트가 답하는 {sections.length}개 질문</p>
@@ -274,72 +296,64 @@ function Body({ order, id }: { order: Order; id: string }) {
         {/* 리뷰 + 추가 질문 */}
         <section className="mt-12 rounded-2xl border border-brass/40 bg-white p-6">
           <h3 className="font-serif text-lg font-semibold">
-            {reviewed
-              ? "리뷰를 남겨주셨어요"
-              : category.tier === "deep"
-                ? "리뷰 남기고 추가 질문권 받기"
-                : "리뷰 남기기"}
+            {reviewed ? "리뷰를 남겨주셨어요" : "리뷰 남기고 추가 질문권 받기"}
           </h3>
           {!reviewed ? (
             <>
-              {category.tier === "deep" && (
-                <p className="mt-1.5 text-[13px] text-ink-soft">
-                  리포트 이용 후기를 남기면 추가 질문 1회가 바로 활성화됩니다.
-                </p>
-              )}
+              <p className="mt-1.5 text-[13px] text-ink-soft">
+                리포트 이용 후기를 남기면 추가 질문 1회가 바로 활성화됩니다.
+              </p>
               <textarea
                 value={review}
                 onChange={(e) => setReview(e.target.value)}
-                placeholder="리포트가 어땠는지 5자 이상 남겨주세요"
+                placeholder="리포트가 어땠는지 10자 이상 남겨주세요"
                 className="mt-3 h-24 w-full resize-none rounded-xl border border-line bg-white px-4 py-3 text-[14px] outline-none focus:border-brass"
               />
               <button
                 onClick={submitReview}
-                disabled={review.trim().length < 5}
+                disabled={review.trim().length < 10}
                 className="mt-3 rounded-xl bg-brass px-6 py-3 text-[14px] font-semibold text-night transition-transform enabled:hover:scale-[1.02] disabled:opacity-40"
               >
-                {category.tier === "deep" ? "리뷰 제출하고 추가 질문권 받기" : "리뷰 제출하기"}
+                리뷰 제출하고 추가 질문권 받기
               </button>
             </>
           ) : (
             <>
               <p className="mt-2 text-[14px] text-ink-soft">감사해요. 정말 도움이 됩니다.</p>
-              {category.tier === "deep" && (
-                <div className="mt-5 rounded-xl border border-brass/30 bg-paper-warm/40 p-4">
-                  <p className="text-xs font-semibold text-brass">추가 질문 1회 사용 가능</p>
-                  {!extraAnswer ? (
-                    <div className="mt-3 flex gap-2">
-                      <input
-                        value={extraQ}
-                        onChange={(e) => setExtraQ(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && !askingExtra && void askExtraQuestion()}
-                        placeholder="궁금한 걸 물어보세요"
-                        disabled={askingExtra}
-                        className="flex-1 rounded-xl border border-line bg-white px-4 py-3 text-[14px] outline-none focus:border-brass disabled:opacity-60"
-                      />
-                      <button
-                        onClick={() => void askExtraQuestion()}
-                        disabled={extraQ.trim().length < 3 || askingExtra}
-                        className="rounded-xl bg-ink px-5 py-3 text-[14px] font-semibold text-paper transition-transform enabled:hover:scale-[1.02] enabled:active:scale-[0.98] disabled:opacity-40"
-                      >
-                        {askingExtra ? "답하는 중…" : "질문하기"}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="mt-4 space-y-3.5">
-                      <p className="text-[13px] font-medium text-ink">Q. {extraQ}</p>
-                      {extraAnswer
-                        .split("\n\n")
-                        .filter(Boolean)
-                        .map((para, pi) => (
-                          <p key={pi} className="text-[14.5px] leading-[1.95] text-ink-soft">
-                            {para}
-                          </p>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              <div className="mt-5 rounded-xl border border-brass/30 bg-paper-warm/40 p-4">
+                <p className="text-xs font-semibold text-brass">추가 질문 1회 사용 가능</p>
+                {!extraAnswer ? (
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      value={extraQ}
+                      onChange={(e) => setExtraQ(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && !askingExtra && void askExtraQuestion()}
+                      placeholder="궁금한 걸 물어보세요"
+                      disabled={askingExtra}
+                      className="flex-1 rounded-xl border border-line bg-white px-4 py-3 text-[14px] outline-none focus:border-brass disabled:opacity-60"
+                    />
+                    <button
+                      onClick={() => void askExtraQuestion()}
+                      disabled={extraQ.trim().length < 3 || askingExtra}
+                      className="rounded-xl bg-ink px-5 py-3 text-[14px] font-semibold text-paper transition-transform enabled:hover:scale-[1.02] enabled:active:scale-[0.98] disabled:opacity-40"
+                    >
+                      {askingExtra ? "답하는 중…" : "질문하기"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-4 space-y-3.5">
+                    <p className="text-[13px] font-medium text-ink">Q. {extraQ}</p>
+                    {extraAnswer
+                      .split("\n\n")
+                      .filter(Boolean)
+                      .map((para, pi) => (
+                        <p key={pi} className="text-[14.5px] leading-[1.95] text-ink-soft">
+                          {para}
+                        </p>
+                      ))}
+                  </div>
+                )}
+              </div>
             </>
           )}
         </section>

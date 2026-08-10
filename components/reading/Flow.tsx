@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Category } from "@/data/categories";
 import { encodeOrder, type Order } from "@/lib/order";
-import { hourBranchFromLabel } from "@/lib/saju";
+import { hourBranchFromLabel, computeChart } from "@/lib/saju";
+import { radarStats, values, type Ctx, type ReportInput } from "@/lib/report";
 import { IconCheck } from "@/components/ui/icons";
 import StatGrid from "@/components/ui/StatGrid";
 import SajuCharts from "@/components/ui/SajuCharts";
+import RadarCard from "@/components/ui/RadarCard";
 
 /* ---------- 타입 ---------- */
 
@@ -41,7 +43,33 @@ const HOURS = [
   "신시 (15:30~17:29)", "유시 (17:30~19:29)", "술시 (19:30~21:29)", "해시 (21:30~23:29)",
 ];
 
+const formatBirth = (p: Person) => {
+  if (!(+p.y >= 1900 && +p.y <= 2030 && +p.m >= 1 && +p.m <= 12 && +p.d >= 1 && +p.d <= 31)) return "입력 안 됨";
+  return `${p.y}년 ${p.m}월 ${p.d}일 (${p.calendar === "solar" ? "양력" : "음력"})`;
+};
+const formatTime = (p: Person) => (p.knowsTime ? p.time || "선택 안 됨" : "모름");
+const formatGender = (g: Person["gender"]) =>
+  g === "male" ? "남성" : g === "female" ? "여성" : g === "none" ? "밝히지 않음" : "입력 안 됨";
+
 /* ---------- 작은 부품 ---------- */
+
+function SummaryRow({ label, value, onEdit }: { label: string; value: string; onEdit: () => void }) {
+  return (
+    <div className="flex items-center justify-between border-b border-line px-4 py-3.5 last:border-b-0">
+      <div>
+        <p className="text-xs text-ink-faint">{label}</p>
+        <p className="mt-0.5 text-[15px] text-ink">{value}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onEdit}
+        className="shrink-0 rounded-full border border-line px-3 py-1.5 text-[12.5px] text-ink-soft transition-colors hover:border-ink-faint"
+      >
+        수정
+      </button>
+    </div>
+  );
+}
 
 function Toggle({
   options,
@@ -170,6 +198,11 @@ export default function Flow({ category }: { category: Category }) {
   const setMeP = (patch: Partial<Person>) => setMe((p) => ({ ...p, ...patch }));
   const setPartnerP = (patch: Partial<Person>) => setPartner((p) => ({ ...p, ...patch }));
 
+  const goTo = (idx: number) => {
+    setDir(idx < stepIdx ? -1 : 1);
+    setStepIdx(idx);
+  };
+
   const validBirth = (p: Person) => {
     const y = +p.y, m = +p.m, d = +p.d;
     return y >= 1900 && y <= 2030 && m >= 1 && m <= 12 && d >= 1 && d <= 31;
@@ -265,30 +298,67 @@ export default function Flow({ category }: { category: Category }) {
         }
       );
     }
+    const nameIdx = 0, birthIdx = 1, timeIdx = 2, genderIdx = 3;
+    const pBirthIdx = 4, pTimeIdx = 5, pGenderIdx = 6;
+    s.push({
+      key: "confirm",
+      title: "입력하신 정보가 맞나요?",
+      sub: "이 정보로 명반을 세워요. 틀린 부분이 있으면 수정해주세요.",
+      valid: true,
+      body: (
+        <div className="overflow-hidden rounded-2xl border border-line bg-white">
+          <SummaryRow label="이름/애칭" value={name || "입력 안 함"} onEdit={() => goTo(nameIdx)} />
+          <SummaryRow label="생년월일" value={formatBirth(me)} onEdit={() => goTo(birthIdx)} />
+          <SummaryRow label="태어난 시간" value={formatTime(me)} onEdit={() => goTo(timeIdx)} />
+          <SummaryRow label="성별" value={formatGender(me.gender)} onEdit={() => goTo(genderIdx)} />
+          {category.needsPartner && (
+            <>
+              <SummaryRow label="상대방 생년월일" value={formatBirth(partner)} onEdit={() => goTo(pBirthIdx)} />
+              <SummaryRow label="상대방 태어난 시간" value={formatTime(partner)} onEdit={() => goTo(pTimeIdx)} />
+              <SummaryRow label="상대방 성별" value={formatGender(partner.gender)} onEdit={() => goTo(pGenderIdx)} />
+            </>
+          )}
+        </div>
+      ),
+    });
     return s;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, me, partner, category.needsPartner]);
 
-  // 카테고리별 공개 지표 — 같은 입력이면 같은 값이 나오도록 결정적으로 산출.
-  // ⚠️ 실제 명반 분석 로직 연동 시 이 계산을 실제 결과값으로 교체할 것.
+  // 실제 명반(사주엔진) 기반 컨텍스트 — 생년월일이 유효할 때만 계산됨
+  const chartCtx: Ctx | null = useMemo(() => {
+    if (!validBirth(me)) return null;
+    if (category.needsPartner && !validBirth(partner)) return null;
+    const meChart = computeChart({
+      y: +me.y, m: +me.m, d: +me.d,
+      hourBranch: me.knowsTime ? hourBranchFromLabel(me.time) : undefined,
+    });
+    const ptChart = category.needsPartner
+      ? computeChart({
+          y: +partner.y, m: +partner.m, d: +partner.d,
+          hourBranch: partner.knowsTime ? hourBranchFromLabel(partner.time) : undefined,
+        })
+      : undefined;
+    const input: ReportInput = {
+      categoryId: category.id,
+      name: name || undefined,
+      me: { y: +me.y, m: +me.m, d: +me.d, hourBranch: me.knowsTime ? hourBranchFromLabel(me.time) : undefined },
+      partner: category.needsPartner
+        ? { y: +partner.y, m: +partner.m, d: +partner.d, hourBranch: partner.knowsTime ? hourBranchFromLabel(partner.time) : undefined }
+        : undefined,
+      tier: "basic",
+    };
+    return { me: meChart, pt: ptChart, c: category, input };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, partner, category, name]);
+
+  // 무료로 공개되는 지표 — 실제 명반 엔진(values())에서 그대로 가져와 유료 리포트와 값이 일치함
   const revealData = useMemo(() => {
-    const myN = (+me.y || 0) * 372 + (+me.m || 0) * 31 + (+me.d || 0);
-    if (category.id === "love-compatibility") {
-      // 궁합 총점: 62~95 범위
-      const ptN = (+partner.y || 0) * 317 + (+partner.m || 0) * 29 + (+partner.d || 0);
-      const score = 62 + ((myN + ptN) % 34);
-      return { value: String(score), gauge: score };
-    }
-    if (category.id === "love-reunion") {
-      // 재회 가능성: 38~77 범위
-      const ptN = (+partner.y || 0) * 317 + (+partner.m || 0) * 29 + (+partner.d || 0);
-      const pct = 38 + ((myN + ptN * 2) % 40);
-      return { value: String(pct), gauge: pct };
-    }
-    // 연애 총론 — 인기 상위 %: 3~30 범위
-    const pct = 3 + (myN % 28);
-    return { value: String(pct), gauge: 100 - pct };
-  }, [category.id, me.y, me.m, me.d, partner.y, partner.m, partner.d]);
+    if (!chartCtx) return { value: "", gauge: 0 };
+    const revealedStat = category.previewStats?.find((s) => s.revealed);
+    const val = revealedStat ? values(chartCtx)[revealedStat.label] : undefined;
+    return { value: val?.v ?? "", gauge: val?.gauge ?? 0 };
+  }, [chartCtx, category.previewStats]);
 
   const progress = stepIdx / steps.length;
   const checkedCount = Math.round(progress * category.questions.length);
@@ -508,7 +578,11 @@ export default function Flow({ category }: { category: Category }) {
                 disabled={!step.valid}
                 className="flex-1 rounded-xl bg-ink py-3.5 text-[15px] font-semibold text-paper transition-all enabled:hover:scale-[1.01] enabled:active:scale-[0.99] disabled:opacity-30"
               >
-                {isLast ? category.cta : step.optional && !name && step.key === "name" ? "건너뛰기" : "다음"}
+                {isLast
+                  ? "확인하고 계속하기"
+                  : step.optional && !name && step.key === "name"
+                    ? "건너뛰기"
+                    : "다음"}
               </button>
             </div>
           </>
@@ -577,6 +651,13 @@ export default function Flow({ category }: { category: Category }) {
                 name={name || undefined}
               />
             </div>
+
+            {/* 종합 지수 + 레이더 */}
+            {chartCtx && (
+              <div className="mt-6">
+                <RadarCard stats={radarStats(chartCtx)} />
+              </div>
+            )}
 
             {category.previewStats ? (
               <>
@@ -653,15 +734,17 @@ export default function Flow({ category }: { category: Category }) {
                       리뷰 작성 시 추가 질문 1회
                     </>
                   ) : (
-                    "핵심만 담은 요약 리딩"
+                    <>
+                      핵심만 담은 요약 리딩
+                      <br />
+                      리뷰 작성 시 추가 질문 1회
+                    </>
                   )}
                 </div>
               </div>
             </button>
             <p className="mt-4 text-center text-[13px] text-ink-soft">
-              {category.tier === "deep" && (
-                <>리뷰 작성 시 <span className="font-semibold text-ink">추가 질문 1회</span> 무료 · </>
-              )}
+              리뷰 작성 시 <span className="font-semibold text-ink">추가 질문 1회</span> 무료 ·{" "}
               리포트는 링크로 저장돼 언제든 다시 볼 수 있어요
             </p>
             <button
@@ -713,9 +796,7 @@ export default function Flow({ category }: { category: Category }) {
                   </span>
                 </div>
                 <p className="text-xs text-ink-faint">
-                  {category.tier === "deep"
-                    ? "리뷰 작성 시 추가 질문 1회 무료 · 리포트는 링크로 영구 보관"
-                    : "리포트는 링크로 영구 보관"}
+                  리뷰 작성 시 추가 질문 1회 무료 · 리포트는 링크로 영구 보관
                 </p>
               </div>
               <button

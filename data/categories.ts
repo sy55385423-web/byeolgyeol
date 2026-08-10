@@ -24,7 +24,7 @@ export type Category = {
   teaser: string;          // 랜딩 결과 티저 문구 (일반화된 문구만)
   cta: string;             // 카테고리별 동적 CTA
   price: number;           // KRW, 플레이스홀더 — 실제 가격으로 교체
-  tier: "deep" | "light";  // deep: 초상세 분량 + 추가 질문 / light: 컴팩트 요약, 추가 질문 미제공
+  tier: "deep" | "light";  // deep: 초상세 분량 / light: 컴팩트 요약 (리뷰 시 추가 질문 1회는 두 티어 공통)
   loadingSteps: string[];  // 분석 로딩 연출 단계 문구
   previewLine: string;     // Preview Lock에서 먼저 공개되는 핵심 한 줄 (샘플)
   previewStats?: PreviewStat[]; // 수치만 가린 다이어그램형 미리보기 (있으면 스탯 그리드로 렌더)
@@ -45,7 +45,7 @@ export const categories: Category[] = [
       "나를 몰래 좋아했던 사람 수",
       "총 연애 횟수 예상",
       "결혼 예상 나이",
-      "운명의 상대의 특징",
+      "운명의 상대의 특징과 외모",
       "연애하면 안 되는 사람의 특징",
       "나의 연애에서 주의할 점",
     ],
@@ -94,7 +94,7 @@ export const categories: Category[] = [
         suffix: "세 전후예요",
       },
       {
-        label: "운명의 상대의 특징",
+        label: "운명의 상대의 특징과 외모",
         prefix: "운명의 상대는 ",
         value: "말수 적은 실행",
         suffix: "형이에요",

@@ -15,6 +15,7 @@ export default function Pricing() {
   const lightFeatures = [
     "5~7개 핵심 항목 분석",
     "시기·행동 조언 포함",
+    "리뷰 작성 시 추가 질문 1회",
     "링크 저장 · 평생 다시 보기",
   ];
 
@@ -24,9 +25,9 @@ export default function Pricing() {
         <Reveal>
           <p className="text-center text-sm font-medium tracking-widest text-brass">PRICING</p>
           <h2 className="mt-3 text-center font-serif text-3xl font-semibold leading-snug tracking-tight sm:text-4xl">
-            점집 한 번 값이면,
+            대면 사주 상담의 1/10도 안 되는
             <br />
-            세 번을 교차로 봅니다
+            가격으로 더 정확하게
           </h2>
           <p className="mx-auto mt-5 max-w-md text-center text-[15px] leading-relaxed text-ink-soft">
             대면 상담 한 번이 5만 원. 별:결은 세 가지 기법의 교차 분석과
@@ -83,8 +84,7 @@ export default function Pricing() {
         <Reveal delay={0.12}>
           <div className="mt-3 rounded-2xl bg-night px-5 py-4 text-[13px] text-paper/70">
             리뷰를 남기면 <span className="font-semibold text-brass-soft">추가 질문 1회</span>가 활성화됩니다.
-            리포트 하단에서 바로 명반 기반 답변을 받을 수 있어요.{" "}
-            <span className="text-paper/40">(연애·궁합·재회 리딩만 해당)</span>
+            리포트 하단에서 바로 명반 기반 답변을 받을 수 있어요. 전 리딩 공통 혜택입니다.
           </div>
         </Reveal>
       </div>

@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
       });
 
     let extraAnswerPromise: Promise<Report["extraAnswer"]> = Promise.resolve(undefined);
-    if (category.tier === "deep" && input.extraQuestion) {
+    if (input.extraQuestion) {
       const extraQuestion = input.extraQuestion;
       const userPrompt = buildQuestionPrompt({
         category,

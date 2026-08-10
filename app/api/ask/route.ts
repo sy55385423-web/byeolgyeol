@@ -1,4 +1,4 @@
-/** 리뷰 후 추가 질문 1회 — 명반 기반 LLM 답변 */
+/** 리뷰 후 추가 질문 1회 (전 카테고리 공통) — 명반 기반 LLM 답변 */
 
 import { NextRequest, NextResponse } from "next/server";
 import { decodeOrder } from "@/lib/order";
@@ -21,9 +21,6 @@ export async function POST(req: NextRequest) {
 
     const category = categories.find((c) => c.id === order.c);
     if (!category) return NextResponse.json({ error: "알 수 없는 카테고리" }, { status: 400 });
-    if (category.tier !== "deep") {
-      return NextResponse.json({ error: "이 카테고리는 추가 질문이 지원되지 않습니다" }, { status: 400 });
-    }
 
     const me = computeChart({ y: order.me.y, m: order.me.m, d: order.me.d, hourBranch: order.me.h });
     const pt = order.pt

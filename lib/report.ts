@@ -167,6 +167,15 @@ const EL: LoveEl[] = [
   },
 ];
 
+/* 운명의 상대 외모 인상 — 부족한 오행(당신을 채워주는 쪽) 기준, ELEMENTS 순서(목화토금수)와 매칭 */
+const APPEARANCE_BY_EL = [
+  "선이 부드럽고 편안한 인상입니다. 표정이 자연스럽고, 꾸미지 않아도 정돈돼 보이는 스타일을 하고 있습니다.",
+  "생기 있고 화사한 인상입니다. 눈빛과 표정 변화가 또렷해서, 가만히 있어도 시선이 가는 쪽입니다.",
+  "편안하고 안정적인 인상입니다. 화려하진 않아도 단정하고, 옆에 있으면 마음이 놓이는 분위기를 냅니다.",
+  "이목구비가 또렷하고 세련된 인상입니다. 깔끔한 스타일을 선호하고, 자기관리가 몸에 밴 티가 납니다.",
+  "차분하고 분위기 있는 인상입니다. 눈빛에 깊이가 있고, 말수는 적어도 존재감이 은근히 강한 쪽입니다.",
+];
+
 /* 오행 상생/상극 관계 (연애 역학용) */
 function relation(a: Element, b: Element): "生나→상대" | "生상대→나" | "剋나→상대" | "剋상대→나" | "比" {
   if ((a + 1) % 5 === b) return "生나→상대";
@@ -237,9 +246,10 @@ function loveLife(q: string, me: Chart, name: string, v: string): Para[] {
         P("명반 근거", `부처궁의 ${g.buchoStar}성이 대운의 흐름과 맞물리는 시점이 그 무렵입니다. ${g.buchoWhy}. 그때 당신의 삶의 축이 한 번 바뀌면서 판단 기준이 또렷해지고, 이때 만난 사람과는 연애 기간이 짧아도 결론이 빨리 납니다.`),
         P("주의", `단, 그보다 ${3 + (me.seed % 2)}년쯤 앞선 시기에 들어오는 인연은 조건은 좋아 보여도 타이밍이 어긋나기 쉽습니다. 일지 ${g.ilji}가 관여하는 그 구간엔 서두르지 마세요.`),
       ];
-    case "운명의 상대의 특징":
+    case "운명의 상대의 특징과 외모":
       return [
         P("이런 사람입니다", `${e.bestMatch}`),
+        P("외모 인상", APPEARANCE_BY_EL[me.lacking]),
         P("명반 근거", `부처궁의 ${g.buchoStar}성으로 보면, ${g.buchoWhy}. 명리로는 당신에게 부족한 ${g.lackEl} 기운을 채워주는 사람일 확률이 높습니다. 당신의 일간 ${g.ilgan}이 강한 만큼, 그 강함을 눌러 이기려 들지 않고 자연스럽게 받아주는 쪽과 오래 갑니다.`),
         P("알아보는 법", `첫눈에 강하게 끌리는 타입은 아닐 가능성이 높습니다. 오히려 처음엔 '이성으로는 아닌데' 했던 사람, 일이나 지인을 통해 자연스럽게 반복해서 보게 되는 사람일 확률이 큽니다. 편안함을 설렘 없음으로 오해해 놓치지 않는 게 관건입니다.`),
         P("흐름", flow(me, 2, "운명의 상대")),
@@ -505,7 +515,7 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     "나를 몰래 좋아했던 사람 수": { v: `${2 + (s % 7)}` },
     "총 연애 횟수 예상": { v: `${2 + ((s >> 2) % 5)}` },
     "결혼 예상 나이": { v: `${28 + (s % 8)}` },
-    "운명의 상대의 특징": { v: EL[me.lacking].fromLabel },
+    "운명의 상대의 특징과 외모": { v: EL[me.lacking].fromLabel },
     "연애하면 안 되는 사람의 특징": { v: "확인을 강요하는 유형" },
     "나의 연애에서 주의할 점": { v: `${1 + ((s + 3) % 12)}월` },
     "나와 상대방의 타고난 특징": { v: pt ? `${ELEMENTS[me.dayMaster]}과 ${ELEMENTS[pt.dayMaster]}` : "" },
@@ -548,6 +558,94 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
   };
 }
 
+/* ───────────────────── 카테고리별 레이더 다이어그램 ─────────────────────
+ * 상단 원형 게이지 + 5축 레이더. 같은 입력이면 같은 값이 나오도록 결정적으로 산출. */
+
+export type RadarStats = {
+  title: string;          // 원형 게이지 위 라벨 (예: "타고난 인기")
+  score: number;          // 0~100
+  caption: string;        // 원형 게이지 아래 짧은 설명 (예: "상위 18%")
+  axes: { label: string; value: number }[]; // 5축, 각 0~100
+};
+
+const RADAR_AXES: Record<string, string[]> = {
+  "love-life": ["사교성", "감정표현", "독립성", "신뢰감", "책임감"],
+  "love-compatibility": ["케미", "신뢰", "소통", "안정감", "설렘"],
+  "love-reunion": ["미련", "소통 가능성", "감정 안정", "시기 적합도", "회복력"],
+  career: ["리더십", "전문성", "적응력", "협업력", "실행력"],
+  wealth: ["저축력", "투자 감각", "소비 관리", "수입 다각화", "재물 그릇"],
+  health: ["체력", "회복력", "면역력", "스트레스 관리", "생활 리듬"],
+};
+
+/** seed 기반 0~100 근사 의사난수 (42~96 사이로 눌러서 극단값 방지) */
+function seededAxisValue(seed: number, salt: number): number {
+  const n = Math.abs((seed * 131 + salt * 977) % 1000);
+  return 42 + (n % 55);
+}
+
+export function radarStats(ctx: Ctx): RadarStats {
+  const { me, pt, c: category } = ctx;
+  const s = me.seed;
+  const p = pt?.seed ?? 0;
+  const axesLabels = RADAR_AXES[category.id] ?? ["균형", "안정", "성장", "표현", "실행"];
+  const axes = axesLabels.map((label, i) => ({ label, value: seededAxisValue(s + p, i + 1) }));
+
+  const v = values(ctx);
+  let title: string, score: number, caption: string;
+
+  switch (category.id) {
+    case "love-life": {
+      const stat = v["나의 타고난 인기는 상위 몇 %?"];
+      const pct = Number(stat?.v ?? "14");
+      title = "타고난 인기";
+      score = stat?.gauge ?? 100 - pct;
+      caption = `상위 ${pct}%`;
+      break;
+    }
+    case "love-compatibility": {
+      const stat = v["궁합 총점수"];
+      title = "궁합 총점";
+      score = stat?.gauge ?? Number(stat?.v ?? "70");
+      caption = `${stat?.v ?? score}점`;
+      break;
+    }
+    case "love-reunion": {
+      const stat = v["재회 가능성"];
+      title = "재회 가능성";
+      score = stat?.gauge ?? Number(stat?.v ?? "50");
+      caption = `${stat?.v ?? score}% 가능성`;
+      break;
+    }
+    case "career": {
+      const stat = v["성취·승진 운의 흐름"];
+      title = "커리어 종합 지수";
+      score = stat?.gauge ?? 55 + (s % 40);
+      caption = stat?.v ?? "상승 흐름";
+      break;
+    }
+    case "wealth": {
+      const stat = v["타고난 재물의 그릇"];
+      title = "재물 종합 지수";
+      score = stat?.gauge ?? 50 + (s % 45);
+      caption = stat?.v ?? "성장형";
+      break;
+    }
+    case "health": {
+      title = "건강 밸런스 지수";
+      score = 48 + (s % 45);
+      caption = "체질 밸런스";
+      break;
+    }
+    default: {
+      title = "종합 지수";
+      score = 50 + (s % 40);
+      caption = "";
+    }
+  }
+
+  return { title, score: Math.max(0, Math.min(100, score)), caption, axes };
+}
+
 /* ───────────────────── 문항 단위 백업 ─────────────────────
  * LLM 호출이 실패한 "그 문항만" 결정론적 텍스트로 대체할 때 쓴다.
  * (리포트 전체를 통째로 백업으로 내리지 않기 위한 용도) */
@@ -588,7 +686,7 @@ export function generateReport(input: ReportInput): Report | null {
   });
 
   const extraAnswer =
-    category.tier === "deep" && input.extraQuestion
+    input.extraQuestion
       ? {
           q: input.extraQuestion,
           content: joinParas(answerParagraphs(me, pt, input.extraQuestion, TOPIC[category.id] ?? "이 흐름")),

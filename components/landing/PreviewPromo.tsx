@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { categories } from "@/data/categories";
-import StatGrid from "@/components/ui/StatGrid";
 import Reveal from "@/components/ui/Reveal";
 import { IconArrow } from "@/components/ui/icons";
 
 /** 랜딩 초반 — "결과를 먼저 보여주는" 미리보기 리포트 홍보 섹션 */
 export default function PreviewPromo() {
-  const loveLife = categories.find((c) => c.id === "love-life")!;
   return (
     <section className="mx-auto max-w-5xl px-5 py-20 sm:py-28">
       <div className="grid items-center gap-10 sm:grid-cols-[1fr_1.1fr]">
@@ -34,15 +32,37 @@ export default function PreviewPromo() {
           <div className="rounded-2xl border border-line bg-paper-warm/60 p-5">
             <div className="mb-4 flex items-center justify-between px-1">
               <span className="font-serif text-sm font-semibold">
-                지수님의 평생 연애 총론 · 미리보기
+                여섯 가지 리딩 · 무료 공개 항목
               </span>
               <span className="rounded-full border border-line bg-white px-2.5 py-0.5 text-[11px] text-ink-faint">
                 샘플
               </span>
             </div>
-            <StatGrid stats={loveLife.previewStats!.slice(0, 6)} compact />
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {categories.map((c) => {
+                const revealedStat = c.previewStats?.find((s) => s.revealed);
+                return (
+                  <div key={c.id} className="rounded-xl border border-line bg-white p-4">
+                    <p className="text-[11px] font-medium text-ink-faint">{c.name}</p>
+                    {revealedStat ? (
+                      <p className="mt-1.5 text-[13.5px] leading-relaxed text-ink-soft">
+                        {revealedStat.prefix}
+                        <span className="font-serif text-lg font-bold text-brass">
+                          {revealedStat.value}
+                        </span>
+                        {revealedStat.suffix}
+                      </p>
+                    ) : (
+                      <p className="mt-1.5 text-[13.5px] leading-relaxed text-ink-soft">
+                        "{c.previewLine}"
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
             <p className="mt-4 px-1 text-xs text-ink-faint">
-              가려진 수치는 전체 리포트에서 공개돼요
+              나머지 항목은 결제 없이도 수치만 가린 미리보기로 전부 보여드려요
             </p>
           </div>
         </Reveal>
