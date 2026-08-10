@@ -4,12 +4,12 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "별:결 (bazistar) — 태어난 날에 새겨진 결을 읽다 | 사주 자미두수 점성술",
   description:
-    "자미두수·사주명리·서양점성술을 교차해 연애, 궁합, 재회, 커리어, 재물, 건강의 흐름을 읽습니다. 생년월일 하나로 3분 안에 나의 결을 확인하세요.",
+    "자미두수·사주명리·서양점성술을 교차해 연애, 궁합, 재회, 커리어, 재물, 건강의 흐름을 읽습니다. 생년월일 하나로 1분 안에 나의 결을 확인하세요.",
   applicationName: "bazistar",
   keywords: ["별:결", "bazistar", "사주", "자미두수", "점성술", "궁합", "재회운", "연애운", "재물운"],
   openGraph: {
     title: "별:결 (bazistar) — 태어난 날에 새겨진 결을 읽다",
-    description: "자미두수·사주명리·점성술 교차 분석. 생년월일 하나로 3분 안에.",
+    description: "자미두수·사주명리·점성술 교차 분석. 생년월일 하나로 1분 안에.",
     siteName: "bazistar",
     type: "website",
     locale: "ko_KR",

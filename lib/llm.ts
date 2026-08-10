@@ -4,10 +4,14 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 
 /**
  * 우선순위:
- * 1) GEMINI_API_KEY → Google Gemini 2.0 Flash
+ * 1) GEMINI_API_KEY → Google Gemini (모델명은 아래 GEMINI_MODEL 참고)
  * 2) ANTHROPIC_API_KEY → Claude Sonnet (종량 과금)
  * 3) 없으면 로컬 claude CLI OAuth 세션
  */
+
+// gemini-2.0-flash는 2026-06-01부로 서비스 종료됨. 모델이 또 바뀌어 매 요청이 실패하면
+// https://ai.google.dev/gemini-api/docs/models 에서 현재 무료 티어 모델명을 확인해 아래 값을 교체할 것.
+const GEMINI_MODEL = "gemini-2.5-flash";
 export async function generateCompletion(
   userPrompt: string,
   systemPrompt: string,
@@ -29,19 +33,30 @@ async function generateWithGemini(
 ): Promise<string> {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
+    model: GEMINI_MODEL,
     systemInstruction: systemPrompt,
   });
-  const result = await model.generateContent({
-    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-    generationConfig: {
-      maxOutputTokens: maxTokens,
-      temperature: 0.4,
-    },
-  });
-  const text = result.response.text();
-  if (!text) throw new Error("Gemini 응답이 비어 있습니다.");
-  return text;
+
+  // 무료 티어 순간 과부하(429)나 일시 오류(503)에 대비해 짧게 재시도
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        generationConfig: {
+          maxOutputTokens: maxTokens,
+          temperature: 0.75,
+        },
+      });
+      const text = result.response.text();
+      if (!text) throw new Error("Gemini 응답이 비어 있습니다.");
+      return text;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
 }
 
 async function generateWithApiKey(

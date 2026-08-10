@@ -46,7 +46,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-serif text-lg font-semibold">3. 개인정보 보유 및 이용 기간</h2>
             <p className="mt-3">
-              입력하신 생년월일 등 정보는 리포트 URL에 암호화되어 저장되며, 당사 서버 데이터베이스에는 별도로 저장되지 않습니다. 리포트 링크를 삭제하면 정보에 접근할 수 없게 됩니다.
+              입력하신 생년월일 등 정보는 당사 서버 데이터베이스에 저장되지 않습니다. 리포트를 생성하는 동안에만 메모리에서 처리되고, 응답이 완료되면 즉시 삭제됩니다. 리포트를 다시 볼 수 있게 해주는 링크 자체에는 입력하신 정보가 인코딩되어 담겨 있으며, 이는 암호화가 아니므로 해당 링크는 신뢰할 수 있는 사람에게만 공유해 주세요.
             </p>
           </section>
 
@@ -60,7 +60,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-serif text-lg font-semibold">5. AI 분석 처리</h2>
             <p className="mt-3">
-              리포트 생성에는 Anthropic의 AI 모델이 사용됩니다. 분석에 사용된 정보는 Anthropic의 개인정보처리방침에 따라 처리됩니다.
+              리포트 생성에는 Google의 Gemini AI 모델이 사용됩니다. 분석에 사용된 정보는 Google의 개인정보처리방침에 따라 처리됩니다.
             </p>
           </section>
 

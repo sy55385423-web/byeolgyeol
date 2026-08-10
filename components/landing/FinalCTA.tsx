@@ -15,7 +15,7 @@ export default function FinalCTA() {
             <p className="mt-6 text-[15px] text-paper/50">
               타고난 인기가 상위 몇 %인지, 결제 없이 공개됩니다.
               <br />
-              생년월일만 있으면 3분이면 충분해요.
+              생년월일만 있으면 1분이면 충분해요.
             </p>
             <Link
               href="/reading/love/life"

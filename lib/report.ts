@@ -544,6 +544,18 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
   };
 }
 
+/* ───────────────────── 문항 단위 백업 ─────────────────────
+ * LLM 호출이 실패한 "그 문항만" 결정론적 텍스트로 대체할 때 쓴다.
+ * (리포트 전체를 통째로 백업으로 내리지 않기 위한 용도) */
+
+export function sectionFallback(ctx: Ctx, q: string, v: string): Para[] {
+  const { me, pt, c: category, input } = ctx;
+  if (category.id === "love-life") return loveLife(q, me, input.name ?? "", v);
+  if (category.id === "love-compatibility" && pt) return compat(q, me, pt, input.name ?? "", v);
+  if (category.id === "love-reunion" && pt) return reunion(q, me, pt, input.name ?? "", v);
+  return light(category, q, me, v);
+}
+
 /* ───────────────────── 조립 ───────────────────── */
 
 export function generateReport(input: ReportInput): Report | null {
@@ -579,7 +591,7 @@ export function generateReport(input: ReportInput): Report | null {
   return { category, sections, extraAnswer };
 }
 
-const TOPIC: Record<string, string> = {
+export const TOPIC: Record<string, string> = {
   "love-life": "연애", "love-compatibility": "이 관계", "love-reunion": "재회",
   career: "커리어", wealth: "재물", health: "몸의 리듬",
 };
