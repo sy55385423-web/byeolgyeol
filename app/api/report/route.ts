@@ -6,6 +6,8 @@ import {
   buildSystemPrompt,
   buildFactsBlock,
   buildQuestionPrompt,
+  buildSummaryPrompt,
+  buildAdvicePrompt,
   parseSectionResponse,
   stripRedundantUnit,
 } from "@/lib/prompt";
@@ -14,6 +16,7 @@ import {
   values,
   sectionFallback,
   answerParagraphs,
+  joinParas,
   TOPIC,
   type ReportInput,
   type Report,
@@ -50,7 +53,7 @@ export async function POST(req: NextRequest) {
 
   const me = computeChart(input.me);
   const pt = input.partner ? computeChart(input.partner) : undefined;
-  const factsBlock = buildFactsBlock(category, me, pt);
+  const factsBlock = buildFactsBlock(category, me, pt, input.name);
   const systemPrompt = buildSystemPrompt(category);
   const who = input.name ? `${input.name} 님` : "당신";
 
@@ -62,7 +65,7 @@ export async function POST(req: NextRequest) {
   const maxTokens = category.tier === "deep" ? 4000 : 2000;
 
   try {
-    const sections: Section[] = await mapWithConcurrency(category.questions, 3, async (q) => {
+    const sectionsPromise: Promise<Section[]> = mapWithConcurrency(category.questions, 3, async (q) => {
       const pre = precomputed[q];
       const stat = category.previewStats?.find((s) => s.label === q);
       const headlineOf = (v: string) =>
@@ -83,7 +86,7 @@ export async function POST(req: NextRequest) {
         const parsed = parseSectionResponse(raw);
         const finalValue = pre?.v ?? stripRedundantUnit(parsed.value, stat?.suffix);
         const finalGauge = pre?.gauge ?? parsed.gauge;
-        return { question: q, headline: headlineOf(finalValue), gauge: finalGauge, paragraphs: parsed.paragraphs };
+        return { question: q, headline: headlineOf(finalValue), gauge: finalGauge, content: parsed.content };
       } catch (err) {
         console.error(`[api/report] "${q}" 문항 LLM 생성 실패 — 이 문항만 결정론적 텍스트로 대체:`, err);
         const finalValue = pre?.v ?? "";
@@ -91,33 +94,64 @@ export async function POST(req: NextRequest) {
           question: q,
           headline: headlineOf(finalValue),
           gauge: pre?.gauge,
-          paragraphs: sectionFallback(ctx, q, finalValue),
+          content: sectionFallback(ctx, q, finalValue),
         };
       }
     });
 
-    let extraAnswer: Report["extraAnswer"];
+    const freeSummaryPromise: Promise<string> = generateCompletion(
+      buildSummaryPrompt(category, factsBlock, input.name),
+      systemPrompt,
+      600,
+    )
+      .then((raw) => raw.trim())
+      .catch((err) => {
+        console.error("[api/report] 요약 생성 실패 — 결정론적 문구로 대체:", err);
+        return category.previewLine;
+      });
+
+    const closingAdvicePromise: Promise<string> = generateCompletion(
+      buildAdvicePrompt(category, factsBlock, input.name, category.questions),
+      systemPrompt,
+      maxTokens,
+    )
+      .then((raw) => raw.trim())
+      .catch((err) => {
+        console.error("[api/report] 마무리 조언 생성 실패 — 결정론적 문구로 대체:", err);
+        return category.teaser;
+      });
+
+    let extraAnswerPromise: Promise<Report["extraAnswer"]> = Promise.resolve(undefined);
     if (category.tier === "deep" && input.extraQuestion) {
+      const extraQuestion = input.extraQuestion;
       const userPrompt = buildQuestionPrompt({
         category,
-        question: input.extraQuestion,
+        question: extraQuestion,
         factsBlock,
         name: input.name,
       });
-      try {
-        const raw = await generateCompletion(userPrompt, systemPrompt, maxTokens);
-        const parsed = parseSectionResponse(raw);
-        extraAnswer = { q: input.extraQuestion, paragraphs: parsed.paragraphs };
-      } catch (err) {
-        console.error("[api/report] 추가 질문 LLM 생성 실패 — 결정론적 텍스트로 대체:", err);
-        extraAnswer = {
-          q: input.extraQuestion,
-          paragraphs: answerParagraphs(me, pt, input.extraQuestion, TOPIC[category.id] ?? "이 흐름"),
-        };
-      }
+      extraAnswerPromise = generateCompletion(userPrompt, systemPrompt, maxTokens)
+        .then((raw) => {
+          const parsed = parseSectionResponse(raw);
+          return { q: extraQuestion, content: parsed.content };
+        })
+        .catch((err) => {
+          console.error("[api/report] 추가 질문 LLM 생성 실패 — 결정론적 텍스트로 대체:", err);
+          return {
+            q: extraQuestion,
+            content: joinParas(answerParagraphs(me, pt, extraQuestion, TOPIC[category.id] ?? "이 흐름")),
+          };
+        });
     }
 
-    const report: Report = { category, sections, extraAnswer };
+    const [sections, freeSummary, closingAdvice, extraAnswer] = await Promise.all([
+      sectionsPromise,
+      freeSummaryPromise,
+      closingAdvicePromise,
+      extraAnswerPromise,
+    ]);
+
+    const report: Report = { category, freeSummary, sections, closingAdvice, extraAnswer };
     return NextResponse.json(report);
   } catch (err) {
     console.error("[api/report] 리포트 생성 자체가 실패 — 전체를 결정적 리포트로 대체:", err);

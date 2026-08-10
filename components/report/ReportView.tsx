@@ -95,7 +95,7 @@ function Body({ order, id }: { order: Order; id: string }) {
 
   /* 리뷰 후 추가 질문 1회 (deep 티어 전용) */
   const [extraQ, setExtraQ] = useState("");
-  const [extraAnswer, setExtraAnswer] = useState<{ label: string; text: string }[] | null>(null);
+  const [extraAnswer, setExtraAnswer] = useState<string | null>(null);
   const [askingExtra, setAskingExtra] = useState(false);
   const askExtraQuestion = async () => {
     const q = extraQ.trim();
@@ -109,7 +109,7 @@ function Body({ order, id }: { order: Order; id: string }) {
       });
       if (res.ok) {
         const data = await res.json();
-        setExtraAnswer(data.paragraphs);
+        setExtraAnswer(data.content);
       }
     } finally {
       setAskingExtra(false);
@@ -187,6 +187,7 @@ function Body({ order, id }: { order: Order; id: string }) {
             {category.tier === "deep" ? "기본 리포트" : "컴팩트 리포트"} ·
             이 링크로 언제든 다시 볼 수 있어요
           </p>
+          <p className="mt-4 text-[14.5px] leading-[1.85] text-ink-soft">{report.freeSummary}</p>
         </div>
 
         {/* 명반 */}
@@ -247,12 +248,28 @@ function Body({ order, id }: { order: Order; id: string }) {
               </div>
             )}
             <div className="mt-5 space-y-4 text-[15px] leading-[1.95] text-ink">
-              {s.paragraphs.map((p, pi) => (
-                <p key={pi}>{p.text}</p>
-              ))}
+              {s.content
+                .split("\n\n")
+                .filter(Boolean)
+                .map((para, pi) => (
+                  <p key={pi}>{para}</p>
+                ))}
             </div>
           </section>
         ))}
+
+        {/* 마무리 조언 */}
+        <section className="mt-12 rounded-2xl border border-line bg-paper-warm/50 p-6">
+          <p className="text-xs font-medium tracking-widest text-brass">종합 조언</p>
+          <div className="mt-4 space-y-4 text-[15px] leading-[1.95] text-ink">
+            {report.closingAdvice
+              .split("\n\n")
+              .filter(Boolean)
+              .map((para, pi) => (
+                <p key={pi}>{para}</p>
+              ))}
+          </div>
+        </section>
 
         {/* 리뷰 + 추가 질문 */}
         <section className="mt-12 rounded-2xl border border-brass/40 bg-white p-6">
@@ -311,11 +328,14 @@ function Body({ order, id }: { order: Order; id: string }) {
                   ) : (
                     <div className="mt-4 space-y-3.5">
                       <p className="text-[13px] font-medium text-ink">Q. {extraQ}</p>
-                      {extraAnswer.map((p, pi) => (
-                        <p key={pi} className="text-[14.5px] leading-[1.95] text-ink-soft">
-                          {p.text}
-                        </p>
-                      ))}
+                      {extraAnswer
+                        .split("\n\n")
+                        .filter(Boolean)
+                        .map((para, pi) => (
+                          <p key={pi} className="text-[14.5px] leading-[1.95] text-ink-soft">
+                            {para}
+                          </p>
+                        ))}
                     </div>
                   )}
                 </div>

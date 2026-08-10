@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       ? computeChart({ y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h })
       : undefined;
 
-    const factsBlock = buildFactsBlock(category, me, pt);
+    const factsBlock = buildFactsBlock(category, me, pt, order.n);
     const systemPrompt = buildSystemPrompt(category);
     const userPrompt = buildQuestionPrompt({
       category,
@@ -40,9 +40,9 @@ export async function POST(req: NextRequest) {
     });
 
     const raw = await generateCompletion(userPrompt, systemPrompt);
-    const { paragraphs } = parseSectionResponse(raw);
+    const { content } = parseSectionResponse(raw);
 
-    return NextResponse.json({ paragraphs });
+    return NextResponse.json({ content });
   } catch (e) {
     console.error("API ask error:", e);
     return NextResponse.json({ error: "서버 오류" }, { status: 500 });

@@ -25,12 +25,16 @@ export type ReportInput = {
 };
 
 export type Para = { label: string; text: string };
-export type Section = { question: string; headline: string; gauge?: number; paragraphs: Para[] };
+export type Section = { question: string; headline: string; gauge?: number; content: string };
 export type Report = {
   category: Category;
+  freeSummary: string;
   sections: Section[];
-  extraAnswer?: { q: string; paragraphs: Para[] };
+  closingAdvice: string;
+  extraAnswer?: { q: string; content: string };
 };
+
+export const joinParas = (paras: Para[]) => paras.map((p) => p.text).join("\n\n");
 
 /* ───────────────────────── 유틸 ───────────────────────── */
 
@@ -548,12 +552,12 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
  * LLM 호출이 실패한 "그 문항만" 결정론적 텍스트로 대체할 때 쓴다.
  * (리포트 전체를 통째로 백업으로 내리지 않기 위한 용도) */
 
-export function sectionFallback(ctx: Ctx, q: string, v: string): Para[] {
+export function sectionFallback(ctx: Ctx, q: string, v: string): string {
   const { me, pt, c: category, input } = ctx;
-  if (category.id === "love-life") return loveLife(q, me, input.name ?? "", v);
-  if (category.id === "love-compatibility" && pt) return compat(q, me, pt, input.name ?? "", v);
-  if (category.id === "love-reunion" && pt) return reunion(q, me, pt, input.name ?? "", v);
-  return light(category, q, me, v);
+  if (category.id === "love-life") return joinParas(loveLife(q, me, input.name ?? "", v));
+  if (category.id === "love-compatibility" && pt) return joinParas(compat(q, me, pt, input.name ?? "", v));
+  if (category.id === "love-reunion" && pt) return joinParas(reunion(q, me, pt, input.name ?? "", v));
+  return joinParas(light(category, q, me, v));
 }
 
 /* ───────────────────── 조립 ───────────────────── */
@@ -580,15 +584,18 @@ export function generateReport(input: ReportInput): Report | null {
     else if (category.id === "love-reunion" && pt) paragraphs = reunion(q, me, pt, input.name ?? "", val.v);
     else paragraphs = light(category, q, me, val.v);
 
-    return { question: q, headline, gauge: val.gauge, paragraphs };
+    return { question: q, headline, gauge: val.gauge, content: joinParas(paragraphs) };
   });
 
   const extraAnswer =
     category.tier === "deep" && input.extraQuestion
-      ? { q: input.extraQuestion, paragraphs: answerParagraphs(me, pt, input.extraQuestion, TOPIC[category.id] ?? "이 흐름") }
+      ? {
+          q: input.extraQuestion,
+          content: joinParas(answerParagraphs(me, pt, input.extraQuestion, TOPIC[category.id] ?? "이 흐름")),
+        }
       : undefined;
 
-  return { category, sections, extraAnswer };
+  return { category, freeSummary: category.previewLine, sections, closingAdvice: category.teaser, extraAnswer };
 }
 
 export const TOPIC: Record<string, string> = {
