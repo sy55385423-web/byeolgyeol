@@ -26,7 +26,7 @@ import {
 
 export const runtime = "nodejs";
 
-/** 분량 미달이면 한 번 더 강하게 재시도 — LLM이 지시받은 최소 글자수보다 짧게 쓰는 경우의 안전장치 */
+/** 분량 미달이면 더 강하게 최대 2번 재시도 — LLM이 지시받은 최소 글자수보다 짧게 쓰는 경우의 안전장치 */
 async function generateWithLengthRetry(
   userPrompt: string,
   systemPrompt: string,
@@ -35,14 +35,15 @@ async function generateWithLengthRetry(
 ) {
   const raw = await generateCompletion(userPrompt, systemPrompt, maxTokens);
   let parsed = parseSectionResponse(raw);
-  if (parsed.content.length < minLen * 0.75) {
+
+  for (let attempt = 0; attempt < 2 && parsed.content.length < minLen * 0.92; attempt++) {
     try {
-      const retryPrompt = `${userPrompt}\n\n[다시 작성] 방금 답변은 ${parsed.content.length}자로 너무 짧습니다. 최소 ${minLen}자 이상이 되도록 구체적인 상황·근거·시기를 더 채워서, 처음부터 다시 작성하세요.`;
+      const retryPrompt = `${userPrompt}\n\n[다시 작성 — ${attempt + 1}차] 방금 답변은 ${parsed.content.length}자로 지시받은 최소 ${minLen}자에 못 미칩니다. 각 파트(결론/해석/실제 상황/흐름/조언)를 지시받은 문장 수 이상으로, 구체적인 상황·근거·시기를 더 채워서 처음부터 다시 작성하세요. 이번에는 반드시 ${minLen}자를 넘겨야 합니다.`;
       const retryRaw = await generateCompletion(retryPrompt, systemPrompt, maxTokens);
       const retryParsed = parseSectionResponse(retryRaw);
       if (retryParsed.content.length > parsed.content.length) parsed = retryParsed;
     } catch {
-      // 재시도 실패 시 원래 응답 그대로 사용
+      break; // 재시도 실패 시 지금까지 확보한 응답 그대로 사용
     }
   }
   return parsed;
@@ -136,15 +137,17 @@ export async function POST(req: NextRequest) {
     const advicePrompt = buildAdvicePrompt(category, factsBlock, input.name, category.questions);
     const closingAdvicePromise: Promise<string> = generateCompletion(advicePrompt, systemPrompt, maxTokens)
       .then(async (raw) => {
-        const text = raw.trim();
-        if (text.length >= adviceMinLen * 0.75) return text;
-        try {
-          const retryPrompt = `${advicePrompt}\n\n[다시 작성] 방금 답변은 ${text.length}자로 너무 짧습니다. 최소 ${adviceMinLen}자 이상이 되도록 더 채워서 처음부터 다시 작성하세요.`;
-          const retryText = (await generateCompletion(retryPrompt, systemPrompt, maxTokens)).trim();
-          return retryText.length > text.length ? retryText : text;
-        } catch {
-          return text;
+        let text = raw.trim();
+        for (let attempt = 0; attempt < 2 && text.length < adviceMinLen * 0.92; attempt++) {
+          try {
+            const retryPrompt = `${advicePrompt}\n\n[다시 작성 — ${attempt + 1}차] 방금 답변은 ${text.length}자로 최소 ${adviceMinLen}자에 못 미칩니다. 각 조언마다 구체적인 상황과 이유를 더 채워서 처음부터 다시 작성하세요. 이번에는 반드시 ${adviceMinLen}자를 넘겨야 합니다.`;
+            const retryText = (await generateCompletion(retryPrompt, systemPrompt, maxTokens)).trim();
+            if (retryText.length > text.length) text = retryText;
+          } catch {
+            break;
+          }
         }
+        return text;
       })
       .catch((err) => {
         console.error("[api/report] 마무리 조언 생성 실패 — 결정론적 문구로 대체:", err);
