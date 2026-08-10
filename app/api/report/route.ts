@@ -6,7 +6,6 @@ import {
   buildSystemPrompt,
   buildFactsBlock,
   buildQuestionPrompt,
-  buildSummaryPrompt,
   buildAdvicePrompt,
   parseSectionResponse,
   stripRedundantUnit,
@@ -60,12 +59,12 @@ export async function POST(req: NextRequest) {
   // 사주엔진으로 모든 질문의 핵심 값을 사전 계산 — LLM에 강제 주입해 일관성 보장
   const ctx: Ctx = { me, pt, c: category, input };
   const precomputed = values(ctx);
-  // deep(연애·궁합·재회): 6문단×230~280자 ≈ 1,500자/문항 → 여유 있게 4,000 토큰
-  // light(커리어·재물·건강): 3문단×180~220자 ≈ 600자/문항 → 2,000 토큰
-  const maxTokens = category.tier === "deep" ? 4000 : 2000;
+  // deep(연애·궁합·재회): 목표 1,100~1,500자/문항 → 여유 있게 3,000 토큰
+  // light(커리어·재물·건강): 목표 700~1,000자/문항 → 1,600 토큰
+  const maxTokens = category.tier === "deep" ? 3000 : 1600;
 
   try {
-    const sectionsPromise: Promise<Section[]> = mapWithConcurrency(category.questions, 3, async (q) => {
+    const sectionsPromise: Promise<Section[]> = mapWithConcurrency(category.questions, 4, async (q) => {
       const pre = precomputed[q];
       const stat = category.previewStats?.find((s) => s.label === q);
       const headlineOf = (v: string) =>
@@ -99,16 +98,9 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    const freeSummaryPromise: Promise<string> = generateCompletion(
-      buildSummaryPrompt(category, factsBlock, input.name),
-      systemPrompt,
-      600,
-    )
-      .then((raw) => raw.trim())
-      .catch((err) => {
-        console.error("[api/report] 요약 생성 실패 — 결정론적 문구로 대체:", err);
-        return category.previewLine;
-      });
+    // 무료로 공개되는 요약은 어차피 짧은 티저 문장이라, LLM 호출 없이 카테고리의
+    // previewLine을 그대로 써서 API 호출 1건과 그만큼의 지연을 줄인다.
+    const freeSummary = category.previewLine;
 
     const closingAdvicePromise: Promise<string> = generateCompletion(
       buildAdvicePrompt(category, factsBlock, input.name, category.questions),
@@ -144,9 +136,8 @@ export async function POST(req: NextRequest) {
         });
     }
 
-    const [sections, freeSummary, closingAdvice, extraAnswer] = await Promise.all([
+    const [sections, closingAdvice, extraAnswer] = await Promise.all([
       sectionsPromise,
-      freeSummaryPromise,
       closingAdvicePromise,
       extraAnswerPromise,
     ]);
