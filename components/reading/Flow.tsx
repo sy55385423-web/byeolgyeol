@@ -1,0 +1,759 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import type { Category } from "@/data/categories";
+import { encodeOrder, type Order } from "@/lib/order";
+import { hourBranchFromLabel } from "@/lib/saju";
+import { IconCheck } from "@/components/ui/icons";
+import StatGrid from "@/components/ui/StatGrid";
+import SajuCharts from "@/components/ui/SajuCharts";
+
+/* ---------- 타입 ---------- */
+
+type Person = {
+  calendar: "solar" | "lunar";
+  y: string;
+  m: string;
+  d: string;
+  knowsTime: boolean;
+  time: string;
+  gender: "" | "male" | "female" | "none";
+};
+
+const emptyPerson = (): Person => ({
+  calendar: "solar",
+  y: "",
+  m: "",
+  d: "",
+  knowsTime: false,
+  time: "",
+  gender: "",
+});
+
+type Phase = "form" | "loading" | "preview";
+
+const HOURS = [
+  "자시 (23:30~01:29)", "축시 (01:30~03:29)", "인시 (03:30~05:29)", "묘시 (05:30~07:29)",
+  "진시 (07:30~09:29)", "사시 (09:30~11:29)", "오시 (11:30~13:29)", "미시 (13:30~15:29)",
+  "신시 (15:30~17:29)", "유시 (17:30~19:29)", "술시 (19:30~21:29)", "해시 (21:30~23:29)",
+];
+
+/* ---------- 작은 부품 ---------- */
+
+function Toggle({
+  options,
+  value,
+  onChange,
+}: {
+  options: { v: string; label: string }[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex gap-2">
+      {options.map((o) => (
+        <button
+          key={o.v}
+          type="button"
+          onClick={() => onChange(o.v)}
+          className={`flex-1 rounded-xl border px-4 py-3.5 text-[15px] font-medium transition-all active:scale-[0.98] ${
+            value === o.v
+              ? "border-ink bg-ink text-paper"
+              : "border-line bg-white text-ink-soft hover:border-ink-faint"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function BirthInputs({ p, set }: { p: Person; set: (patch: Partial<Person>) => void }) {
+  const inputCls =
+    "w-full rounded-xl border border-line bg-white px-4 py-3.5 text-center text-[16px] outline-none transition-colors focus:border-brass";
+  return (
+    <div className="space-y-4">
+      <Toggle
+        options={[
+          { v: "solar", label: "양력" },
+          { v: "lunar", label: "음력" },
+        ]}
+        value={p.calendar}
+        onChange={(v) => set({ calendar: v as Person["calendar"] })}
+      />
+      <div className="grid grid-cols-[1.4fr_1fr_1fr] gap-2">
+        <input
+          className={inputCls}
+          placeholder="1998"
+          inputMode="numeric"
+          maxLength={4}
+          value={p.y}
+          onChange={(e) => set({ y: e.target.value.replace(/\D/g, "") })}
+        />
+        <input
+          className={inputCls}
+          placeholder="03"
+          inputMode="numeric"
+          maxLength={2}
+          value={p.m}
+          onChange={(e) => set({ m: e.target.value.replace(/\D/g, "") })}
+        />
+        <input
+          className={inputCls}
+          placeholder="14"
+          inputMode="numeric"
+          maxLength={2}
+          value={p.d}
+          onChange={(e) => set({ d: e.target.value.replace(/\D/g, "") })}
+        />
+      </div>
+      <p className="text-[13px] text-ink-faint">
+        생년월일은 명반 계산에만 사용하고, 다른 목적으로 쓰지 않아요.
+      </p>
+    </div>
+  );
+}
+
+function TimeInputs({ p, set }: { p: Person; set: (patch: Partial<Person>) => void }) {
+  return (
+    <div className="space-y-4">
+      <Toggle
+        options={[
+          { v: "yes", label: "시간을 알아요" },
+          { v: "no", label: "몰라요" },
+        ]}
+        value={p.knowsTime ? "yes" : "no"}
+        onChange={(v) => set({ knowsTime: v === "yes", time: v === "no" ? "" : p.time })}
+      />
+      {p.knowsTime && (
+        <div className="grid grid-cols-2 gap-2">
+          {HOURS.map((h) => (
+            <button
+              key={h}
+              type="button"
+              onClick={() => set({ time: h })}
+              className={`rounded-lg border px-3 py-2.5 text-[13px] transition-all active:scale-[0.98] ${
+                p.time === h
+                  ? "border-ink bg-ink text-paper"
+                  : "border-line bg-white text-ink-soft hover:border-ink-faint"
+              }`}
+            >
+              {h}
+            </button>
+          ))}
+        </div>
+      )}
+      {!p.knowsTime && (
+        <p className="text-[13px] text-ink-faint">
+          괜찮아요. 시간 없이도 핵심 흐름은 충분히 읽을 수 있어요.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ---------- 메인 플로우 ---------- */
+
+export default function Flow({ category }: { category: Category }) {
+  const [phase, setPhase] = useState<Phase>("form");
+  const [stepIdx, setStepIdx] = useState(0);
+  const [dir, setDir] = useState(1);
+
+  const [name, setName] = useState("");
+  const [me, setMe] = useState<Person>(emptyPerson());
+  const [partner, setPartner] = useState<Person>(emptyPerson());
+
+  const setMeP = (patch: Partial<Person>) => setMe((p) => ({ ...p, ...patch }));
+  const setPartnerP = (patch: Partial<Person>) => setPartner((p) => ({ ...p, ...patch }));
+
+  const validBirth = (p: Person) => {
+    const y = +p.y, m = +p.m, d = +p.d;
+    return y >= 1900 && y <= 2030 && m >= 1 && m <= 12 && d >= 1 && d <= 31;
+  };
+
+  type Step = {
+    key: string;
+    title: string;
+    sub?: string;
+    optional?: boolean;
+    valid: boolean;
+    body: React.ReactNode;
+  };
+
+  const steps: Step[] = useMemo(() => {
+    const s: Step[] = [
+      {
+        key: "name",
+        title: "어떻게 불러드릴까요?",
+        sub: "이름이나 애칭, 편한 쪽으로요.",
+        optional: true,
+        valid: true,
+        body: (
+          <input
+            className="w-full rounded-xl border border-line bg-white px-4 py-3.5 text-[16px] outline-none transition-colors focus:border-brass"
+            placeholder="이름 또는 애칭 (건너뛰어도 돼요)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        ),
+      },
+      {
+        key: "birth",
+        title: "생년월일을 알려주세요",
+        sub: "여기서부터 명반이 세워져요.",
+        valid: validBirth(me),
+        body: <BirthInputs p={me} set={setMeP} />,
+      },
+      {
+        key: "time",
+        title: "태어난 시간을 아시나요?",
+        sub: "알면 더 정밀해지고, 몰라도 진행할 수 있어요.",
+        valid: !me.knowsTime || me.time !== "",
+        body: <TimeInputs p={me} set={setMeP} />,
+      },
+      {
+        key: "gender",
+        title: "성별을 알려주세요",
+        valid: me.gender !== "",
+        body: (
+          <Toggle
+            options={[
+              { v: "male", label: "남성" },
+              { v: "female", label: "여성" },
+              { v: "none", label: "밝히지 않음" },
+            ]}
+            value={me.gender}
+            onChange={(v) => setMeP({ gender: v as Person["gender"] })}
+          />
+        ),
+      },
+    ];
+    if (category.needsPartner) {
+      s.push(
+        {
+          key: "p-birth",
+          title: "그 사람의 생년월일은요?",
+          sub: "아는 범위까지만 입력해도 괜찮아요.",
+          valid: validBirth(partner),
+          body: <BirthInputs p={partner} set={setPartnerP} />,
+        },
+        {
+          key: "p-time",
+          title: "그 사람이 태어난 시간은요?",
+          valid: !partner.knowsTime || partner.time !== "",
+          body: <TimeInputs p={partner} set={setPartnerP} />,
+        },
+        {
+          key: "p-gender",
+          title: "그 사람의 성별은요?",
+          valid: partner.gender !== "",
+          body: (
+            <Toggle
+              options={[
+                { v: "male", label: "남성" },
+                { v: "female", label: "여성" },
+                { v: "none", label: "밝히지 않음" },
+              ]}
+              value={partner.gender}
+              onChange={(v) => setPartnerP({ gender: v as Person["gender"] })}
+            />
+          ),
+        }
+      );
+    }
+    return s;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, me, partner, category.needsPartner]);
+
+  // 카테고리별 공개 지표 — 같은 입력이면 같은 값이 나오도록 결정적으로 산출.
+  // ⚠️ 실제 명반 분석 로직 연동 시 이 계산을 실제 결과값으로 교체할 것.
+  const revealData = useMemo(() => {
+    const myN = (+me.y || 0) * 372 + (+me.m || 0) * 31 + (+me.d || 0);
+    if (category.id === "love-compatibility") {
+      // 궁합 총점: 62~95 범위
+      const ptN = (+partner.y || 0) * 317 + (+partner.m || 0) * 29 + (+partner.d || 0);
+      const score = 62 + ((myN + ptN) % 34);
+      return { value: String(score), gauge: score };
+    }
+    if (category.id === "love-reunion") {
+      // 재회 가능성: 38~77 범위
+      const ptN = (+partner.y || 0) * 317 + (+partner.m || 0) * 29 + (+partner.d || 0);
+      const pct = 38 + ((myN + ptN * 2) % 40);
+      return { value: String(pct), gauge: pct };
+    }
+    // 연애 총론 — 인기 상위 %: 3~30 범위
+    const pct = 3 + (myN % 28);
+    return { value: String(pct), gauge: 100 - pct };
+  }, [category.id, me.y, me.m, me.d, partner.y, partner.m, partner.d]);
+
+  const progress = stepIdx / steps.length;
+  const checkedCount = Math.round(progress * category.questions.length);
+  const isLast = stepIdx === steps.length - 1;
+  const step = steps[stepIdx];
+
+  const next = () => {
+    if (!step.valid) return;
+    if (isLast) {
+      setPhase("loading");
+    } else {
+      setDir(1);
+      setStepIdx((i) => i + 1);
+    }
+  };
+  const back = () => {
+    if (stepIdx === 0) return;
+    setDir(-1);
+    setStepIdx((i) => i - 1);
+  };
+
+  const router = useRouter();
+  const [checkout, setCheckout] = useState<null | "basic">(null);
+  const [paying, setPaying] = useState(false);
+  const orderOf = (): Order => ({
+    c: category.id,
+    n: name || undefined,
+    me: { y: +me.y, m: +me.m, d: +me.d, h: me.knowsTime ? hourBranchFromLabel(me.time) : undefined },
+    pt: category.needsPartner
+      ? { y: +partner.y, m: +partner.m, d: +partner.d, h: partner.knowsTime ? hourBranchFromLabel(partner.time) : undefined }
+      : undefined,
+    t: "basic",
+  });
+  const pay = async () => {
+    const order = orderOf();
+    const reportId = encodeOrder(order);
+    const amount = category.price;
+
+    if (!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY) {
+      // 개발 환경: 모의 결제 (NEXT_PUBLIC_TOSS_CLIENT_KEY 미설정 시)
+      setPaying(true);
+      setTimeout(() => router.push(`/report/${reportId}`), 1200);
+      return;
+    }
+
+    setPaying(true);
+    try {
+      const orderId = `bz${Date.now().toString(36)}`;
+      const { loadTossPayments, ANONYMOUS } = await import("@tosspayments/tosspayments-sdk");
+      const tossPayments = await loadTossPayments(process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY);
+      const payment = tossPayments.payment({ customerKey: ANONYMOUS });
+      await payment.requestPayment({
+        method: "CARD",
+        amount: { currency: "KRW", value: amount },
+        orderId,
+        orderName: `별:결 ${category.name}`,
+        successUrl: `${window.location.origin}/payment/success?reportId=${encodeURIComponent(reportId)}&orderId=${orderId}&amount=${amount}`,
+        failUrl: `${window.location.origin}/payment/fail`,
+      });
+    } catch {
+      setPaying(false);
+    }
+  };
+
+  /* 리포트 링크 공유/복사 */
+  const [copied, setCopied] = useState(false);
+  const share = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `별:결 — ${category.name}`, url });
+        return;
+      }
+    } catch {
+      return;
+    }
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  /* 사회적 증거 토스트 — ⚠️ 실시간 데이터 연동 전 플레이스홀더 */
+  const [toast, setToast] = useState(false);
+  useEffect(() => {
+    if (phase !== "form") return;
+    const show = setTimeout(() => setToast(true), 6000);
+    const hide = setTimeout(() => setToast(false), 11000);
+    return () => {
+      clearTimeout(show);
+      clearTimeout(hide);
+    };
+  }, [phase]);
+
+  /* 로딩 연출 */
+  const [loadStep, setLoadStep] = useState(0);
+  useEffect(() => {
+    if (phase !== "loading") return;
+    setLoadStep(0);
+    const timers = category.loadingSteps.map((_, i) =>
+      setTimeout(() => setLoadStep(i + 1), (i + 1) * 1400)
+    );
+    const done = setTimeout(
+      () => setPhase("preview"),
+      category.loadingSteps.length * 1400 + 800
+    );
+    return () => {
+      timers.forEach(clearTimeout);
+      clearTimeout(done);
+    };
+  }, [phase, category.loadingSteps]);
+
+  const stage = phase === "form" ? 0 : phase === "loading" ? 1 : 2;
+
+  return (
+    <div className="min-h-dvh bg-paper">
+      {/* 상단 바 + 진행 단계 */}
+      <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-sm">
+        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-5">
+          <Link href="/" className="font-serif text-lg font-semibold">
+            별:결
+          </Link>
+          <ol className="flex items-center gap-2 text-xs">
+            {["정보 입력", "분석", "리포트"].map((label, i) => (
+              <li key={label} className="flex items-center gap-2">
+                {i > 0 && <span className="h-px w-4 bg-line" />}
+                <span
+                  className={
+                    i === stage
+                      ? "font-semibold text-ink"
+                      : i < stage
+                        ? "text-brass"
+                        : "text-ink-faint"
+                  }
+                >
+                  {label}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+        {phase === "form" && (
+          <div className="h-0.5 bg-line">
+            <motion.div
+              className="h-full bg-brass"
+              animate={{ width: `${Math.max(progress * 100, 4)}%` }}
+              transition={{ ease: "easeOut", duration: 0.4 }}
+            />
+          </div>
+        )}
+      </header>
+
+      <main className="mx-auto max-w-2xl px-5 pb-24">
+        {phase === "form" && (
+          <>
+            {/* 리딩 소개 + 질문 체크리스트 */}
+            <div className="pt-8">
+              <h1 className="font-serif text-2xl font-semibold">{category.name}</h1>
+              <div className="mt-4 rounded-2xl border border-line bg-white/70 p-5">
+                <p className="mb-3 text-xs font-medium text-ink-faint">
+                  이 리딩이 답하는 질문 · 입력할수록 채워져요
+                </p>
+                <ul className="space-y-2">
+                  {category.questions.map((q, i) => {
+                    const on = i < checkedCount;
+                    return (
+                      <li key={q} className="flex items-center gap-2.5 text-[13.5px]">
+                        <motion.span
+                          initial={false}
+                          animate={{
+                            backgroundColor: on ? "#b78a3c" : "#ffffff",
+                            borderColor: on ? "#b78a3c" : "#e7e4dc",
+                          }}
+                          className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border text-paper"
+                        >
+                          {on && <IconCheck className="h-2.5 w-2.5" />}
+                        </motion.span>
+                        <span className={on ? "text-ink" : "text-ink-faint"}>{q}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+
+            {/* 스텝 폼 — 한 번에 하나씩 */}
+            <div className="relative mt-8 overflow-hidden">
+              <AnimatePresence mode="wait" custom={dir}>
+                <motion.section
+                  key={step.key}
+                  custom={dir}
+                  initial={{ opacity: 0, x: dir * 32 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: dir * -32 }}
+                  transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <p className="text-xs text-ink-faint">
+                    {stepIdx + 1} / {steps.length}
+                  </p>
+                  <h2 className="mt-2 font-serif text-[22px] font-semibold">{step.title}</h2>
+                  {step.sub && <p className="mt-1.5 text-sm text-ink-soft">{step.sub}</p>}
+                  <div className="mt-6">{step.body}</div>
+                </motion.section>
+              </AnimatePresence>
+            </div>
+
+            <div className="mt-8 flex items-center gap-3">
+              {stepIdx > 0 && (
+                <button
+                  onClick={back}
+                  className="rounded-xl border border-line bg-white px-5 py-3.5 text-[15px] text-ink-soft transition-colors hover:border-ink-faint"
+                >
+                  이전
+                </button>
+              )}
+              <button
+                onClick={next}
+                disabled={!step.valid}
+                className="flex-1 rounded-xl bg-ink py-3.5 text-[15px] font-semibold text-paper transition-all enabled:hover:scale-[1.01] enabled:active:scale-[0.99] disabled:opacity-30"
+              >
+                {isLast ? category.cta : step.optional && !name && step.key === "name" ? "건너뛰기" : "다음"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {phase === "loading" && (
+          <div className="flex min-h-[70dvh] flex-col items-center justify-center">
+            <motion.div
+              className="h-10 w-10 rounded-full border border-brass"
+              animate={{ scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+            />
+            <div className="mt-10 space-y-3.5">
+              {category.loadingSteps.map((s, i) => {
+                const done = i < loadStep;
+                const active = i === loadStep;
+                return (
+                  <motion.div
+                    key={s}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: done || active ? 1 : 0.25, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="flex items-center gap-3 text-[15px]"
+                  >
+                    <span
+                      className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
+                        done
+                          ? "border-brass bg-brass text-paper"
+                          : "border-line text-transparent"
+                      }`}
+                    >
+                      {done && <IconCheck className="h-3 w-3" />}
+                    </span>
+                    <span className={done ? "text-ink-faint line-through decoration-line" : active ? "text-ink" : "text-ink-faint"}>
+                      {s}
+                    </span>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {phase === "preview" && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            className="pt-10"
+          >
+            <p className="text-sm font-medium tracking-widest text-brass">READING COMPLETE</p>
+            <h1 className="mt-3 font-serif text-2xl font-semibold leading-snug">
+              {name ? `${name} 님의` : "당신의"} {category.name}이 완성됐어요
+            </h1>
+
+            {/* 명반 3표 */}
+            <div className="mt-8 rounded-2xl border border-line bg-paper-warm/50 p-4 sm:p-5">
+              <SajuCharts
+                me={{
+                  y: +me.y,
+                  m: +me.m,
+                  d: +me.d,
+                  knowsTime: me.knowsTime,
+                  timeLabel: me.time || undefined,
+                }}
+                name={name || undefined}
+              />
+            </div>
+
+            {category.previewStats ? (
+              <>
+                {/* 카드뉴스형 미리보기 — 전 항목 기본 포함, 수치만 가림 */}
+                <div className="mt-6">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-xs font-medium text-brass">
+                      리포트 미리보기 · 수치만 가려져 있어요
+                    </p>
+                    <p className="text-xs text-ink-faint">
+                      전체 {category.previewStats.length}개 항목
+                    </p>
+                  </div>
+                  <StatGrid
+                    stats={category.previewStats.map((s) =>
+                      s.revealed
+                        ? { ...s, value: revealData.value, gauge: revealData.gauge }
+                        : s
+                    )}
+                    name={name || undefined}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                {/* 핵심 결과 부분 공개 */}
+                <div className="mt-8 rounded-2xl border border-brass/40 bg-white p-6">
+                  <p className="text-xs font-medium text-brass">핵심 문장 미리보기</p>
+                  <p className="mt-3 font-serif text-[19px] leading-relaxed">
+                    "{category.previewLine}"
+                  </p>
+                </div>
+
+                {/* 잠긴 전체 항목 */}
+                <div className="mt-4 overflow-hidden rounded-2xl border border-line bg-white/70">
+                  <ul className="divide-y divide-line">
+                    {category.questions.map((q, i) => (
+                      <li key={q} className="flex items-center justify-between px-5 py-4 text-[14.5px]">
+                        <span className={i === 0 ? "text-ink" : "text-ink-faint"}>{q}</span>
+                        {i === 0 ? (
+                          <span className="text-xs font-medium text-brass">공개됨</span>
+                        ) : (
+                          <svg viewBox="0 0 24 24" className="h-4 w-4 text-ink-faint" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <rect x="5" y="11" width="14" height="9" rx="2" />
+                            <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+                          </svg>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </>
+            )}
+
+            {/* 결제 버튼 */}
+            <button
+              onClick={() => setCheckout("basic")}
+              className="mt-6 w-full rounded-2xl border border-line bg-white p-5 text-left transition-all hover:border-ink-faint active:scale-[0.99]"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-ink-faint">
+                    {category.tier === "deep" ? "기본 리포트" : "컴팩트 리포트"}
+                  </p>
+                  <p className="mt-1.5 font-serif text-2xl font-bold">
+                    {category.price.toLocaleString("ko-KR")}원
+                  </p>
+                </div>
+                <div className="text-right text-[12.5px] leading-relaxed text-ink-soft">
+                  {category.tier === "deep" ? (
+                    <>
+                      {category.questions.length}개 항목 초상세 풀이
+                      <br />
+                      리뷰 작성 시 추가 질문 1회
+                    </>
+                  ) : (
+                    "핵심만 담은 요약 리딩"
+                  )}
+                </div>
+              </div>
+            </button>
+            <p className="mt-4 text-center text-[13px] text-ink-soft">
+              {category.tier === "deep" && (
+                <>리뷰 작성 시 <span className="font-semibold text-ink">추가 질문 1회</span> 무료 · </>
+              )}
+              리포트는 링크로 저장돼 언제든 다시 볼 수 있어요
+            </p>
+            <button
+              onClick={share}
+              className="mx-auto mt-3 flex items-center gap-2 rounded-full border border-line bg-white px-5 py-2.5 text-[13px] text-ink-soft transition-colors hover:border-ink-faint"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="6" cy="12" r="2.5" />
+                <circle cx="17" cy="6" r="2.5" />
+                <circle cx="17" cy="18" r="2.5" />
+                <path d="M8.3 10.8 14.7 7.2M8.3 13.2l6.4 3.6" />
+              </svg>
+              {copied ? "링크가 복사됐어요" : "리포트 공유하기"}
+            </button>
+          </motion.div>
+        )}
+      </main>
+
+      {/* 결제 모달 */}
+      <AnimatePresence>
+        {checkout && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center"
+            onClick={() => !paying && setCheckout(null)}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              transition={{ ease: [0.22, 1, 0.36, 1], duration: 0.3 }}
+              className="w-full max-w-md rounded-2xl bg-white p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-serif text-lg font-semibold">주문 확인</h3>
+              <div className="mt-4 space-y-2.5 rounded-xl bg-paper-warm/60 p-4 text-[13.5px]">
+                <div className="flex justify-between">
+                  <span className="text-ink-soft">{category.name}</span>
+                  <span className="font-medium">
+                    {category.tier === "deep" ? "기본 리포트" : "컴팩트 리포트"}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t border-line pt-2.5">
+                  <span className="text-ink-soft">결제 금액</span>
+                  <span className="font-serif text-lg font-bold">
+                    {category.price.toLocaleString("ko-KR")}원
+                  </span>
+                </div>
+                <p className="text-xs text-ink-faint">
+                  {category.tier === "deep"
+                    ? "리뷰 작성 시 추가 질문 1회 무료 · 리포트는 링크로 영구 보관"
+                    : "리포트는 링크로 영구 보관"}
+                </p>
+              </div>
+              <button
+                onClick={() => pay()}
+                disabled={paying}
+                className="mt-5 w-full rounded-xl bg-ink py-3.5 text-[15px] font-semibold text-paper transition-all enabled:hover:scale-[1.01] enabled:active:scale-[0.99] disabled:opacity-60"
+              >
+                {paying ? "결제 처리 중…" : "결제하기"}
+              </button>
+              <p className="mt-2.5 text-center text-[11px] text-ink-faint">
+                카드·간편결제 등 모든 수단으로 결제할 수 있어요
+              </p>
+              {!paying && (
+                <button
+                  onClick={() => setCheckout(null)}
+                  className="mt-1 w-full py-2 text-center text-[13px] text-ink-faint hover:text-ink"
+                >
+                  닫기
+                </button>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 사회적 증거 토스트 */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            className="fixed bottom-5 left-1/2 z-50 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 rounded-xl border border-line bg-white px-4 py-3 text-[13px] text-ink-soft shadow-[0_8px_30px_rgba(23,24,28,0.1)]"
+          >
+            조금 전 다른 분이 <span className="font-medium text-ink">{category.name}</span> 리포트를 확인했어요
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

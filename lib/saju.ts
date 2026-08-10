@@ -1,0 +1,189 @@
+/** 만세력·오행·자미두수·점성술 계산 엔진.
+ *  - 사주(연/월/일/시주), 오행, 자미두수 12궁·명궁·주성: iztro(정통 만세력 라이브러리) 기반 실계산.
+ *  - 태양/달/상승궁 및 나머지 행성: circular-natal-horoscope-js 기반 실제 천문 계산.
+ *  - 출생지는 서울 좌표를 기본값으로 사용(앱에서 출생지를 따로 받지 않음) — 상승궁 정밀도에만 영향.
+ *  - 시간을 모르면(hourBranch undefined) 시주·자미두수 궁위별 배치·상승궁은 근사치이며,
+ *    이 사실은 Chart 자체가 아니라 리포트 생성 프롬프트 쪽에서 "시간 미상"으로 별도 처리한다. */
+
+import { astro } from "iztro";
+import { Origin, Horoscope } from "circular-natal-horoscope-js";
+
+export const STEMS = ["갑", "을", "병", "정", "무", "기", "경", "신", "임", "계"];
+export const STEMS_HANJA = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
+export const BRANCHES = ["자", "축", "인", "묘", "진", "사", "오", "미", "신", "유", "술", "해"];
+export const BRANCHES_HANJA = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
+
+// 천간/지지 → 오행 (0목 1화 2토 3금 4수)
+const STEM_ELEMENT = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4];
+const BRANCH_ELEMENT = [4, 2, 0, 0, 2, 1, 1, 2, 3, 3, 2, 4];
+export const ELEMENTS = ["목", "화", "토", "금", "수"] as const;
+export type Element = 0 | 1 | 2 | 3 | 4;
+
+export type Pillar = { stem: number; branch: number; ko: string; hanja: string };
+
+export type Birth = {
+  y: number;
+  m: number;
+  d: number;
+  hourBranch?: number; // 0(자)~11(해), 모르면 undefined
+};
+
+export type Chart = {
+  pillars: { year: Pillar; month: Pillar; day: Pillar; hour: Pillar | null };
+  dayMaster: Element;          // 일간 오행 — 성격·해석의 축
+  elementCount: number[];      // 오행 분포 (8글자 기준)
+  dominant: Element;
+  lacking: Element;
+  mingStar: string;            // 자미두수 명궁 주성
+  gongs: { name: string; star: string; isMing: boolean; branch: string }[];
+  sun: string;
+  moon: string;
+  asc: string | null;          // 시간 있을 때만
+  seed: number;                // 결정적 파생값 생성용 (프리뷰 훅 등 비핵심 콘텐츠에만 사용)
+  timeKnown: boolean;
+};
+
+const ZODIAC_KO_FROM_EN: Record<string, string> = {
+  Aries: "양자리",
+  Taurus: "황소자리",
+  Gemini: "쌍둥이자리",
+  Cancer: "게자리",
+  Leo: "사자자리",
+  Virgo: "처녀자리",
+  Libra: "천칭자리",
+  Scorpio: "전갈자리",
+  Sagittarius: "사수자리",
+  Capricorn: "염소자리",
+  Aquarius: "물병자리",
+  Pisces: "물고기자리",
+};
+
+const ZODIAC = [
+  { name: "염소자리", from: [12, 22] }, { name: "물병자리", from: [1, 20] },
+  { name: "물고기자리", from: [2, 19] }, { name: "양자리", from: [3, 21] },
+  { name: "황소자리", from: [4, 20] }, { name: "쌍둥이자리", from: [5, 21] },
+  { name: "게자리", from: [6, 22] }, { name: "사자자리", from: [7, 23] },
+  { name: "처녀자리", from: [8, 23] }, { name: "천칭자리", from: [9, 23] },
+  { name: "전갈자리", from: [10, 23] }, { name: "사수자리", from: [11, 22] },
+] as const;
+
+// 서울 — 앱이 출생지를 받지 않으므로 기본 좌표로 사용. 상승궁·행성 정밀도에만 영향.
+const DEFAULT_LATITUDE = 37.5665;
+const DEFAULT_LONGITUDE = 126.978;
+
+export function sunSign(m: number, d: number) {
+  for (let i = ZODIAC.length - 1; i >= 0; i--) {
+    const [fm, fd] = ZODIAC[i].from;
+    if (m > fm || (m === fm && d >= fd)) return ZODIAC[i].name;
+  }
+  return ZODIAC[0].name;
+}
+
+function mkPillarFromKo(ko: string): Pillar {
+  const s = STEMS.indexOf(ko[0]);
+  const b = BRANCHES.indexOf(ko[1]);
+  return { stem: s, branch: b, ko, hanja: STEMS_HANJA[s] + BRANCHES_HANJA[b] };
+}
+
+/** 이 앱의 hourBranch(0~11)를 iztro의 시진 index(0~12, 자시가 조/야로 분리됨)로 변환.
+ * 두 인덱스는 인(2)~해(11) 구간에서 그대로 대응하고, 자시(0)는 iztro idx 0을 쓰면 된다
+ * (오서둔 공식은 시지만으로 시간을 정하므로 idx0/idx12 어느 쪽이든 결과가 같다). */
+function toIztroTimeIndex(hourBranch: number | undefined): number {
+  return hourBranch ?? 0;
+}
+
+/** hourBranch(0~11)를 점성술 계산용 대략적인 시각(0~23시)으로 변환. 모르면 정오로 근사. */
+function toClockHour(hourBranch: number | undefined): number {
+  if (hourBranch === undefined) return 12;
+  return hourBranch === 0 ? 0 : hourBranch * 2;
+}
+
+export function computeChart(b: Birth): Chart {
+  const { y, m, d } = b;
+  const timeKnown = b.hourBranch !== undefined;
+  const gender = "男"; // 자미두수 대한 순역만 성별에 의존 — 이 리포트가 쓰는 명궁/12궁/사화엔 영향 없음
+  const dateStr = `${y}-${m}-${d}`;
+  const timeIndex = toIztroTimeIndex(b.hourBranch);
+
+  const astrolabe = astro.bySolar(dateStr, timeIndex, gender, true, "ko-KR");
+  const [yearKo, monthKo, dayKo, hourKo] = astrolabe.chineseDate.split(" ");
+
+  const year = mkPillarFromKo(yearKo);
+  const month = mkPillarFromKo(monthKo);
+  const day = mkPillarFromKo(dayKo);
+  const hour = timeKnown ? mkPillarFromKo(hourKo) : null;
+
+  const chars = [year, month, day, ...(hour ? [hour] : [])];
+  const elementCount = [0, 0, 0, 0, 0];
+  for (const p of chars) {
+    elementCount[STEM_ELEMENT[p.stem]]++;
+    elementCount[BRANCH_ELEMENT[p.branch]]++;
+  }
+  const dominant = elementCount.indexOf(Math.max(...elementCount)) as Element;
+  const lacking = elementCount.indexOf(Math.min(...elementCount)) as Element;
+  const dayMaster = STEM_ELEMENT[day.stem] as Element;
+
+  const gongs = astrolabe.palaces.map((p) => ({
+    name: p.name,
+    star: p.majorStars[0]?.name ?? "",
+    isMing: p.name === "명궁",
+    branch: p.earthlyBranch,
+  }));
+  const mingStar = gongs.find((g) => g.isMing)?.star || gongs[0]?.star || "자미";
+
+  // 서양 점성술 — 실제 천문 계산 (circular-natal-horoscope-js)
+  const origin = new Origin({
+    year: y,
+    month: m - 1,
+    date: d,
+    hour: toClockHour(b.hourBranch),
+    minute: 0,
+    latitude: DEFAULT_LATITUDE,
+    longitude: DEFAULT_LONGITUDE,
+  });
+  const horoscope = new Horoscope({
+    origin,
+    houseSystem: "whole-sign",
+    zodiac: "tropical",
+    aspectPoints: [],
+    aspectWithPoints: [],
+    aspectTypes: [],
+    language: "en",
+  });
+  const bodies = horoscope.CelestialBodies as Record<string, { Sign: { label: string } }>;
+  const toKo = (label: string) => ZODIAC_KO_FROM_EN[label] ?? label;
+  const moon = toKo(bodies.moon.Sign.label);
+  const asc = timeKnown
+    ? toKo((horoscope.Ascendant as { Sign: { label: string } }).Sign.label)
+    : null;
+
+  const seed = y * 372 + m * 31 + d + (b.hourBranch ?? 0) * 7;
+
+  return {
+    pillars: { year, month, day, hour },
+    dayMaster,
+    elementCount,
+    dominant,
+    lacking,
+    mingStar,
+    gongs,
+    sun: sunSign(m, d),
+    moon,
+    asc,
+    seed,
+    timeKnown,
+  };
+}
+
+/** 무료 공개용 "타고난 인기 상위 %" — Flow와 리포트가 같은 값을 쓰도록 중앙화 (마케팅 훅용 결정적 값) */
+export function popularityPct(y: number, m: number, d: number) {
+  const n = y * 372 + m * 31 + d;
+  return 3 + (n % 28);
+}
+
+/** 시간 라벨("자시 (23:30~01:29)") → 지지 index */
+export function hourBranchFromLabel(label?: string): number | undefined {
+  if (!label) return undefined;
+  const i = BRANCHES.findIndex((b) => label.startsWith(b + "시"));
+  return i >= 0 ? i : undefined;
+}

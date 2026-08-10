@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme {
+  /* 별:결 디자인 토큰 — 한지 화이트 / 먹색 잉크 / 밤하늘 남색 / 무광 황동 */
+  --color-paper: #faf9f5;
+  --color-paper-warm: #f4f1e9;
+  --color-ink: #17181c;
+  --color-ink-soft: #55565c;
+  --color-ink-faint: #8b8c92;
+  --color-night: #131622;
+  --color-night-soft: #1d2233;
+  --color-night-line: #2c3348;
+  --color-brass: #b78a3c;
+  --color-brass-soft: #c9a45c;
+  --color-brass-faint: #efe6d2;
+  --color-line: #e7e4dc;
+
+  --font-serif: "Noto Serif KR", "Apple SD Gothic Neo", serif;
+  --font-sans: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
+}
+
+.font-serif {
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background: var(--color-brass-faint);
+}
