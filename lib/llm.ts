@@ -4,10 +4,15 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 
 /**
  * 우선순위:
- * 1) GEMINI_API_KEY → Google Gemini (모델명은 아래 GEMINI_MODEL 참고)
- * 2) ANTHROPIC_API_KEY → Claude Sonnet (종량 과금)
- * 3) 없으면 로컬 claude CLI OAuth 세션
+ * 1) NVIDIA_API_KEY → NVIDIA NIM (build.nvidia.com, 모델명은 아래 NVIDIA_MODEL 참고)
+ * 2) GEMINI_API_KEY → Google Gemini (모델명은 아래 GEMINI_MODEL 참고)
+ * 3) ANTHROPIC_API_KEY → Claude Sonnet (종량 과금)
+ * 4) 없으면 로컬 claude CLI OAuth 세션
  */
+
+// build.nvidia.com 대시보드에서 실제로 발급받은/접근 가능한 모델 ID로 교체할 것.
+// 계정에 이 모델 접근 권한이 없으면 매 요청이 실패하니, 안 되면 대시보드에서 정확한 모델명을 확인할 것.
+const NVIDIA_MODEL = "meta/llama-3.3-70b-instruct";
 
 // gemini-2.0-flash는 2026-06-01부로 서비스 종료됨. 모델이 또 바뀌어 매 요청이 실패하면
 // https://ai.google.dev/gemini-api/docs/models 에서 현재 무료 티어 모델명을 확인해 아래 값을 교체할 것.
@@ -17,6 +22,9 @@ export async function generateCompletion(
   systemPrompt: string,
   maxTokens: number = 4000,
 ): Promise<string> {
+  if (process.env.NVIDIA_API_KEY) {
+    return generateWithNvidia(userPrompt, systemPrompt, maxTokens);
+  }
   if (process.env.GEMINI_API_KEY) {
     return generateWithGemini(userPrompt, systemPrompt, maxTokens);
   }
@@ -24,6 +32,47 @@ export async function generateCompletion(
     return generateWithApiKey(userPrompt, systemPrompt, maxTokens);
   }
   return generateWithOAuth(userPrompt, systemPrompt);
+}
+
+async function generateWithNvidia(
+  userPrompt: string,
+  systemPrompt: string,
+  maxTokens: number,
+): Promise<string> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: NVIDIA_MODEL,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          max_tokens: maxTokens,
+          temperature: 0.75,
+          stream: false,
+        }),
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`NVIDIA API 오류 (${res.status}): ${errText.slice(0, 500)}`);
+      }
+      const data = await res.json();
+      const text = data?.choices?.[0]?.message?.content;
+      if (!text) throw new Error("NVIDIA 응답이 비어 있습니다.");
+      return text;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
 }
 
 async function generateWithGemini(
