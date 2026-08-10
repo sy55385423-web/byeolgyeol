@@ -30,7 +30,7 @@ export default function Pricing() {
           </h2>
           <p className="mx-auto mt-5 max-w-md text-center text-[15px] leading-relaxed text-ink-soft">
             대면 상담 한 번이 5만 원. 별:결은 세 가지 기법의 교차 분석과
-            A4 이십여 장 분량의 리포트를 커피 한 잔 값에 드립니다.
+            1만자 이상 분량의 리포트를 커피 한 잔 값에 드립니다.
           </p>
         </Reveal>
 

@@ -12,7 +12,7 @@ export default function ReportShowcase() {
         <Reveal>
           <p className="text-sm font-medium tracking-widest text-brass">REPORT</p>
           <h2 className="mt-3 font-serif text-3xl font-semibold leading-snug tracking-tight sm:text-4xl">
-            리포트는 이렇게 생겼습니다
+            리포트 미리보기
           </h2>
           <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-ink-soft">
             모든 리포트는 당신의 만세력·자미두수 명반·점성술 지표를 직접 세우는
@@ -70,11 +70,11 @@ export default function ReportShowcase() {
                   서른 이전보다 31세 전후 대운이 바뀌는 시기에 진지한 인연이 들어오기 쉬운
                   흐름이 보입니다…
                 </p>
-                <p className="mt-2 text-[11px] text-brass">— 이 뒤로 항목당 약 1,500자 이상 이어져요 (연애·궁합·재회 총 1만 5천자+)</p>
+                <p className="mt-2 text-[11px] text-brass">— 이 뒤로 항목당 약 1,500자 이상 이어져요 (연애·궁합·재회 총 1만자+)</p>
               </div>
               <div className="mt-4 flex flex-wrap gap-2 text-[11.5px] text-ink-soft">
                 {/* ⚠️ 분량 수치는 실측치로 교체 */}
-                <span className="rounded-full border border-line bg-white px-3 py-1">연애·궁합·재회 A4 이십여 장</span>
+                <span className="rounded-full border border-line bg-white px-3 py-1">연애·궁합·재회 1만자 이상</span>
                 <span className="rounded-full border border-line bg-white px-3 py-1">리뷰 작성 시 추가 질문 1회</span>
                 <span className="rounded-full border border-line bg-white px-3 py-1">링크 저장 · 공유</span>
               </div>

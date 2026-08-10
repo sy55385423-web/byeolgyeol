@@ -41,8 +41,8 @@ export default function CategoryGrid() {
                       {c.tier === "deep" ? "초상세" : "컴팩트"}
                     </span>
                     {["love-life", "love-compatibility", "love-reunion"].includes(c.id)
-                      ? "약 1만 5천자 이상"
-                      : "약 5천자 이상"}
+                      ? "약 1만자 이상"
+                      : "약 3천자 이상"}
                   </span>
                 </div>
                 <h3 className="mt-5 font-serif text-xl font-semibold">{c.name}</h3>

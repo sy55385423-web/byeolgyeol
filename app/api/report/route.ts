@@ -29,6 +29,9 @@ export async function POST(req: NextRequest) {
   // 사주엔진으로 모든 질문의 핵심 값을 사전 계산 — LLM에 강제 주입해 일관성 보장
   const ctx: Ctx = { me, pt, c: category, input };
   const precomputed = values(ctx);
+  // deep(연애·궁합·재회): 6문단×230~280자 ≈ 1,500자/문항 → 여유 있게 4,000 토큰
+  // light(커리어·재물·건강): 3문단×180~220자 ≈ 600자/문항 → 2,000 토큰
+  const maxTokens = category.tier === "deep" ? 4000 : 2000;
 
   try {
     const sections: Section[] = await Promise.all(
@@ -45,7 +48,7 @@ export async function POST(req: NextRequest) {
           forcedGauge: pre?.gauge,
         });
 
-        const raw = await generateCompletion(userPrompt, systemPrompt);
+        const raw = await generateCompletion(userPrompt, systemPrompt, maxTokens);
         const parsed = parseSectionResponse(raw);
 
         // value는 사전계산값 우선 사용 (LLM이 바꿔도 무시)
@@ -68,7 +71,7 @@ export async function POST(req: NextRequest) {
         factsBlock,
         name: input.name,
       });
-      const raw = await generateCompletion(userPrompt, systemPrompt);
+      const raw = await generateCompletion(userPrompt, systemPrompt, maxTokens);
       const parsed = parseSectionResponse(raw);
       extraAnswer = { q: input.extraQuestion, paragraphs: parsed.paragraphs };
     }

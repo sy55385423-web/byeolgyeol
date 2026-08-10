@@ -11,12 +11,13 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 export async function generateCompletion(
   userPrompt: string,
   systemPrompt: string,
+  maxTokens: number = 4000,
 ): Promise<string> {
   if (process.env.GEMINI_API_KEY) {
-    return generateWithGemini(userPrompt, systemPrompt);
+    return generateWithGemini(userPrompt, systemPrompt, maxTokens);
   }
   if (process.env.ANTHROPIC_API_KEY) {
-    return generateWithApiKey(userPrompt, systemPrompt);
+    return generateWithApiKey(userPrompt, systemPrompt, maxTokens);
   }
   return generateWithOAuth(userPrompt, systemPrompt);
 }
@@ -24,6 +25,7 @@ export async function generateCompletion(
 async function generateWithGemini(
   userPrompt: string,
   systemPrompt: string,
+  maxTokens: number,
 ): Promise<string> {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
   const model = genAI.getGenerativeModel({
@@ -33,7 +35,7 @@ async function generateWithGemini(
   const result = await model.generateContent({
     contents: [{ role: "user", parts: [{ text: userPrompt }] }],
     generationConfig: {
-      maxOutputTokens: 3500,
+      maxOutputTokens: maxTokens,
       temperature: 0.4,
     },
   });
@@ -45,11 +47,12 @@ async function generateWithGemini(
 async function generateWithApiKey(
   userPrompt: string,
   systemPrompt: string,
+  maxTokens: number,
 ): Promise<string> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 3500,
+    max_tokens: maxTokens,
     system: systemPrompt,
     messages: [{ role: "user", content: userPrompt }],
   });

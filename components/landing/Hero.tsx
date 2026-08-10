@@ -64,7 +64,7 @@ export default function Hero() {
           >
             연애의 방향, 관계의 온도, 일과 돈의 흐름.
             <br />
-            생년월일 하나면 3분 안에 확인할 수 있습니다.
+            생년월일 하나면 1분 안에 확인할 수 있습니다.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 14 }}
