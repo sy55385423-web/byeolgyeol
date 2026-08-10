@@ -114,7 +114,7 @@ export default function Hero() {
               ))}
             </div>
             <a
-              href="/reading/love/life"
+              href="#readings"
               className="mt-5 inline-flex items-center gap-1.5 text-[13.5px] font-medium text-brass underline decoration-brass/40 underline-offset-4 transition-colors hover:text-ink"
             >
               무료로 한 가지 항목 보러가기 →

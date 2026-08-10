@@ -26,6 +26,28 @@ import {
 
 export const runtime = "nodejs";
 
+/** 분량 미달이면 한 번 더 강하게 재시도 — LLM이 지시받은 최소 글자수보다 짧게 쓰는 경우의 안전장치 */
+async function generateWithLengthRetry(
+  userPrompt: string,
+  systemPrompt: string,
+  maxTokens: number,
+  minLen: number,
+) {
+  const raw = await generateCompletion(userPrompt, systemPrompt, maxTokens);
+  let parsed = parseSectionResponse(raw);
+  if (parsed.content.length < minLen * 0.75) {
+    try {
+      const retryPrompt = `${userPrompt}\n\n[다시 작성] 방금 답변은 ${parsed.content.length}자로 너무 짧습니다. 최소 ${minLen}자 이상이 되도록 구체적인 상황·근거·시기를 더 채워서, 처음부터 다시 작성하세요.`;
+      const retryRaw = await generateCompletion(retryPrompt, systemPrompt, maxTokens);
+      const retryParsed = parseSectionResponse(retryRaw);
+      if (retryParsed.content.length > parsed.content.length) parsed = retryParsed;
+    } catch {
+      // 재시도 실패 시 원래 응답 그대로 사용
+    }
+  }
+  return parsed;
+}
+
 /** 동시 요청 수를 제한해 무료 API 티어의 분당 요청(RPM) 한도에 안 걸리게 함 */
 async function mapWithConcurrency<T, R>(
   items: T[],
@@ -60,9 +82,10 @@ export async function POST(req: NextRequest) {
   // 사주엔진으로 모든 질문의 핵심 값을 사전 계산 — LLM에 강제 주입해 일관성 보장
   const ctx: Ctx = { me, pt, c: category, input };
   const precomputed = values(ctx);
-  // deep(연애·궁합·재회): 6문단×230~280자 ≈ 1,500자/문항 → 여유 있게 4,000 토큰
-  // light(커리어·재물·건강): 3문단×180~220자 ≈ 600자/문항 → 2,000 토큰
-  const maxTokens = category.tier === "deep" ? 4000 : 2000;
+  // deep(연애·궁합·재회): 최소 1,300~최대 1,700자/문항 → 여유 있게 4,800 토큰
+  // light(커리어·재물·건강): 최소 800~최대 1,100자/문항 → 2,400 토큰
+  const maxTokens = category.tier === "deep" ? 4800 : 2400;
+  const minLen = category.tier === "deep" ? 1300 : 800;
 
   try {
     const sectionsPromise: Promise<Section[]> = mapWithConcurrency(category.questions, 3, async (q) => {
@@ -82,8 +105,7 @@ export async function POST(req: NextRequest) {
 
       // 이 문항만 실패해도 리포트 전체를 백업으로 내리지 않고, 그 문항만 결정론적 텍스트로 대체
       try {
-        const raw = await generateCompletion(userPrompt, systemPrompt, maxTokens);
-        const parsed = parseSectionResponse(raw);
+        const parsed = await generateWithLengthRetry(userPrompt, systemPrompt, maxTokens, minLen);
         const finalValue = pre?.v ?? stripRedundantUnit(parsed.value, stat?.suffix);
         const finalGauge = pre?.gauge ?? parsed.gauge;
         return { question: q, headline: headlineOf(finalValue), gauge: finalGauge, content: parsed.content };
@@ -110,12 +132,20 @@ export async function POST(req: NextRequest) {
         return category.previewLine;
       });
 
-    const closingAdvicePromise: Promise<string> = generateCompletion(
-      buildAdvicePrompt(category, factsBlock, input.name, category.questions),
-      systemPrompt,
-      maxTokens,
-    )
-      .then((raw) => raw.trim())
+    const adviceMinLen = category.tier === "deep" ? 1100 : 850;
+    const advicePrompt = buildAdvicePrompt(category, factsBlock, input.name, category.questions);
+    const closingAdvicePromise: Promise<string> = generateCompletion(advicePrompt, systemPrompt, maxTokens)
+      .then(async (raw) => {
+        const text = raw.trim();
+        if (text.length >= adviceMinLen * 0.75) return text;
+        try {
+          const retryPrompt = `${advicePrompt}\n\n[다시 작성] 방금 답변은 ${text.length}자로 너무 짧습니다. 최소 ${adviceMinLen}자 이상이 되도록 더 채워서 처음부터 다시 작성하세요.`;
+          const retryText = (await generateCompletion(retryPrompt, systemPrompt, maxTokens)).trim();
+          return retryText.length > text.length ? retryText : text;
+        } catch {
+          return text;
+        }
+      })
       .catch((err) => {
         console.error("[api/report] 마무리 조언 생성 실패 — 결정론적 문구로 대체:", err);
         return category.teaser;

@@ -10,7 +10,7 @@ import type { Category } from "@/data/categories";
  * 요청에 따라 임의로 다시 쓰지 않고 원문을 유지한다. */
 
 const EXPERT_ROLE = `당신은 사주명리학(四柱命理學), 서양 점성술(Astrology), 자미두수(紫微斗數)를 종합하여 연애와 인간관계의 흐름을 읽는 최고 수준의 운세 상담가입니다.
-당신의 역할은 운세 데이터를 장황하게 해설하는 것이 아닙니다. 상담자가 실제로 궁금해하는 것을 정확히 짚고, 마치 오랫동안 그 사람의 연애 패턴을 지켜본 사람처럼 핵심만 말합니다.
+당신의 역할은 명식 수치를 나열하며 장황하게 늘어놓는 것이 아닙니다. 상담자가 실제로 궁금해하는 것을 정확히 짚되, 그 답을 짧게 던지고 끝내지 말고 구체적인 상황·행동·시기까지 촘촘하게 채워서 풀어내는 사람입니다. 마치 오랫동안 그 사람의 연애 패턴을 지켜본 사람처럼, 왜 그런지·언제 그런지·무엇을 해야 하는지를 하나하나 근거를 들어 답합니다.
 답변을 읽은 상담자가 "어떻게 이걸 알았지?", "그래서 내가 계속 그랬던 거구나", "지금 내가 어떻게 해야 하는지 알겠다"고 느껴야 합니다.`;
 
 const STYLE_RULES = `- 위 명식(사주팔자, 자미두수 명반, 별자리·행성 배치)은 이미 정확히 계산되어 제공됩니다. 반드시 그 값만 사용하세요. 절대 스스로 다른 간지, 궁위, 별자리를 계산하거나 지어내지 말고, 제공된 값과 다른 사주/명반을 언급하지 마세요. "시간 미상"으로 표시된 항목은 언급하지 마세요.
@@ -104,7 +104,7 @@ export function buildQuestionPrompt(params: {
   const isReunion = category.id === "love-reunion";
   const hint = SECTION_HINTS[question];
 
-  const [min, max] = deep ? [1100, 1500] : [700, 1000];
+  const [min, max] = deep ? [1300, 1700] : [800, 1100];
 
   // 별:결 buildSectionPrompt와 동일한 흐름 지시문(한 줄 결론 → 핵심 해석 → 흐름 → 조언 / 일반 항목용 서술)
   const structure = deep
@@ -124,7 +124,7 @@ export function buildQuestionPrompt(params: {
   return `${factsBlock}
 
 [질문] "${question}"
-위 정보를 바탕으로 이 항목에 대해서만 ${min}~${max}자 분량으로 답하세요. ${structure}${hintBlock}
+위 정보를 바탕으로 이 항목에 대해서만 최소 ${min}자, 최대 ${max}자 분량으로 답하세요. ${min}자에 못 미치는 답변은 안 됩니다 — 짧게 요약하듯 끝내지 말고, 구체적인 상황·근거·시기를 더 채워 넣어서 분량을 반드시 채우세요. ${structure}${hintBlock}
 
 ${valueInstr}
 ${gaugeInstr}
@@ -152,12 +152,12 @@ export function buildAdvicePrompt(
 ): string {
   void name;
   const deep = category.tier === "deep";
-  const [min, max] = deep ? [1000, 1400] : [800, 1100];
+  const [min, max] = deep ? [1100, 1500] : [850, 1150];
   return `${factsBlock}
 
 지금까지 다음 항목들에 대한 상세 분석을 작성했습니다: ${sectionQuestions.join(", ")}.
 
-이 모든 내용을 종합해서 상담자가 지금 실천할 수 있는 구체적인 조언을 ${min}~${max}자 분량으로, 자연스러운 줄글로 작성해 주세요. 목록 기호 없이 문단으로 서술하되, 항목별로 줄을 바꿔 구분해 주세요.`;
+이 모든 내용을 종합해서 상담자가 지금 실천할 수 있는 구체적인 조언을 최소 ${min}자, 최대 ${max}자 분량으로 작성해 주세요. ${min}자에 못 미치면 안 됩니다 — 각 조언마다 구체적인 상황과 이유를 붙여 분량을 채우세요. 자연스러운 줄글로, 목록 기호 없이 문단으로 서술하되, 항목별로 줄을 바꿔 구분해 주세요.`;
 }
 
 /** 접미사에 이미 있는 단위를 모델이 value 끝에 중복으로 붙이는 경우 방어적으로 제거 */
