@@ -12,8 +12,10 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
  */
 
 // Bytez는 HuggingFace 모델 경로를 그대로 model ID로 씀. Qwen처럼 오픈소스 모델은
-// provider-key 없이 바로 호출 가능. 계정에서 접근 가능한 정확한 태그로 교체할 것.
-const BYTEZ_MODEL = "Qwen/Qwen2.5-7B-Instruct";
+// provider-key 없이 바로 호출 가능. bytez.com/model/Qwen/Qwen2-7B-Instruct/details 에서
+// 실존 확인함 (Qwen2.5-7B-Instruct는 카탈로그에 없어 404가 났었음). 안 되면
+// bytez.com/models 에서 "Qwen"으로 검색해 정확한 모델 ID로 교체할 것.
+const BYTEZ_MODEL = "Qwen/Qwen2-7B-Instruct";
 
 // gemini-2.0-flash는 2026-06-01부로 서비스 종료됨. 모델이 또 바뀌어 매 요청이 실패하면
 // https://ai.google.dev/gemini-api/docs/models 에서 현재 무료 티어 모델명을 확인해 아래 값을 교체할 것.
