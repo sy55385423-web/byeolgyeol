@@ -4,11 +4,16 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 
 /**
  * 우선순위:
- * 1) GEMINI_API_KEY → Google Gemini (모델명은 아래 GEMINI_MODEL 참고)
- * 2) ANTHROPIC_API_KEY → Claude Sonnet (종량 과금)
- * 3) NVIDIA_API_KEY → NVIDIA NIM (build.nvidia.com) — ⚠️ 무료 티어는 상업적 이용 불가라 최후순위로만 둠
- * 4) 없으면 로컬 claude CLI OAuth 세션
+ * 1) BYTEZ_API_KEY → Bytez (api.bytez.com, 모델명은 아래 BYTEZ_MODEL 참고 — 오픈소스 모델 호스팅)
+ * 2) GEMINI_API_KEY → Google Gemini (모델명은 아래 GEMINI_MODEL 참고)
+ * 3) ANTHROPIC_API_KEY → Claude Sonnet (종량 과금)
+ * 4) NVIDIA_API_KEY → NVIDIA NIM (build.nvidia.com) — ⚠️ 무료 티어는 상업적 이용 불가라 최후순위로만 둠
+ * 5) 없으면 로컬 claude CLI OAuth 세션
  */
+
+// Bytez는 HuggingFace 모델 경로를 그대로 model ID로 씀. Qwen처럼 오픈소스 모델은
+// provider-key 없이 바로 호출 가능. 계정에서 접근 가능한 정확한 태그로 교체할 것.
+const BYTEZ_MODEL = "Qwen/Qwen2.5-7B-Instruct";
 
 // gemini-2.0-flash는 2026-06-01부로 서비스 종료됨. 모델이 또 바뀌어 매 요청이 실패하면
 // https://ai.google.dev/gemini-api/docs/models 에서 현재 무료 티어 모델명을 확인해 아래 값을 교체할 것.
@@ -22,6 +27,9 @@ export async function generateCompletion(
   systemPrompt: string,
   maxTokens: number = 4000,
 ): Promise<string> {
+  if (process.env.BYTEZ_API_KEY) {
+    return generateWithBytez(userPrompt, systemPrompt, maxTokens);
+  }
   if (process.env.GEMINI_API_KEY) {
     return generateWithGemini(userPrompt, systemPrompt, maxTokens);
   }
@@ -32,6 +40,52 @@ export async function generateCompletion(
     return generateWithNvidia(userPrompt, systemPrompt, maxTokens);
   }
   return generateWithOAuth(userPrompt, systemPrompt);
+}
+
+async function generateWithBytez(
+  userPrompt: string,
+  systemPrompt: string,
+  maxTokens: number,
+): Promise<string> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25_000);
+    try {
+      const res = await fetch("https://api.bytez.com/models/v2/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.BYTEZ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: BYTEZ_MODEL,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          max_completion_tokens: maxTokens,
+          temperature: 0.75,
+          stream: false,
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`Bytez API 오류 (${res.status}): ${errText.slice(0, 500)}`);
+      }
+      const data = await res.json();
+      const text = data?.choices?.[0]?.message?.content;
+      if (!text) throw new Error("Bytez 응답이 비어 있습니다.");
+      return text;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < 1) await new Promise((r) => setTimeout(r, 400));
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  throw lastErr;
 }
 
 async function generateWithNvidia(
