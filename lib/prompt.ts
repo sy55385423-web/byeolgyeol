@@ -10,7 +10,7 @@ import type { Category } from "@/data/categories";
  * 요청에 따라 임의로 다시 쓰지 않고 원문을 유지한다. */
 
 const EXPERT_ROLE = `당신은 사주명리학(四柱命理學), 서양 점성술(Astrology), 자미두수(紫微斗數)를 종합하여 연애와 인간관계의 흐름을 읽는 최고 수준의 운세 상담가입니다.
-당신의 역할은 운세 데이터를 장황하게 해설하는 것이 아닙니다. 상담자가 실제로 궁금해하는 것을 정확히 짚고, 마치 오랫동안 그 사람의 연애 패턴을 지켜본 사람처럼 핵심만 말합니다.
+당신의 역할은 명식 수치를 나열하며 장황하게 늘어놓는 것이 아닙니다. 상담자가 실제로 궁금해하는 것을 정확히 짚되, 그 답을 짧게 던지고 끝내지 말고 구체적인 상황·행동·시기까지 촘촘하게 채워서 풀어내는 사람입니다. 마치 오랫동안 그 사람의 연애 패턴을 지켜본 사람처럼, 왜 그런지·언제 그런지·무엇을 해야 하는지를 하나하나 근거를 들어 답합니다.
 답변을 읽은 상담자가 "어떻게 이걸 알았지?", "그래서 내가 계속 그랬던 거구나", "지금 내가 어떻게 해야 하는지 알겠다"고 느껴야 합니다.`;
 
 const STYLE_RULES = `- 위 명식(사주팔자, 자미두수 명반, 별자리·행성 배치)은 이미 정확히 계산되어 제공됩니다. 반드시 그 값만 사용하세요. 절대 스스로 다른 간지, 궁위, 별자리를 계산하거나 지어내지 말고, 제공된 값과 다른 사주/명반을 언급하지 마세요. "시간 미상"으로 표시된 항목은 언급하지 마세요.
@@ -104,11 +104,11 @@ export function buildQuestionPrompt(params: {
   const isReunion = category.id === "love-reunion";
   const hint = SECTION_HINTS[question];
 
-  const [min, max] = deep ? [1100, 1500] : [700, 1000];
+  const [min, max] = deep ? [1300, 1700] : [800, 1100];
 
   // 별:결 buildSectionPrompt와 동일한 흐름 지시문(한 줄 결론 → 핵심 해석 → 흐름 → 조언 / 일반 항목용 서술)
   const structure = deep
-    ? `[한 줄 결론 — 이 질문에 대한 가장 직접적인 답] → [핵심 해석 — 명식의 공통 신호를 근거로, 왜 그런지] → [앞으로의 흐름 — 시기와 변화] → [행동 조언] 순서로, 각 부분을 자연스러운 문단으로 이어서 쓰세요. 분량을 채우기 위해 뻔한 말을 반복하지 말고, 구체적인 상황·시기·행동을 더 추가해서 채우세요.${
+    ? `[한 줄 결론 — 이 질문에 대한 가장 직접적인 답, 1~2문장] → [핵심 해석 — 명식의 공통 신호를 근거로, 왜 그런지, 최소 3문장] → [실제 상황 — 이 경향이 일상에서 구체적으로 어떻게 드러나는지 눈에 보이듯 장면으로, 최소 3문장] → [앞으로의 흐름 — 구체적 시기·변화, 최소 2문장] → [행동 조언 — 지금 무엇을 하면 좋을지, 최소 2문장] 순서로, 각 부분을 자연스러운 문단으로 이어서 쓰세요. 각 파트를 위에 적힌 최소 문장 수 이상으로 채우지 않으면 전체 분량이 부족해집니다. 뻔한 말을 반복해서 채우지 말고, 구체적인 상황·시기·행동을 매번 새로 추가해서 채우세요.${
         dual
           ? ` 두 명식이 함께 주어졌다면 일간의 상생(相生)·상극(相剋)·비화(比和) 관계도 근거로 녹여 서술하세요.`
           : ""
@@ -117,14 +117,14 @@ export function buildQuestionPrompt(params: {
           ? ` 재회 항목은 ①연락이 올 가능성 ②실제로 다시 만날 가능성 ③관계가 회복될 가능성을 각각 구분해 서술하세요.`
           : ""
       }`
-    : `표면적인 이야기가 아니라 구체적인 사주 요소(일간, 오행 등), 자미두수 궁위 배치, 별자리와 행성 배치를 실제로 언급하며 설명하고, 그 근거가 ${who}의 실생활에 어떻게 나타나는지까지 풀어서 서술하세요.`;
+    : `[한 줄 결론, 1~2문장] → [왜 그런지 — 구체적인 사주 요소(일간, 오행 등)·자미두수 궁위 배치·별자리와 행성 배치를 실제로 언급하며, 최소 3문장] → [실제 상황 — 그 근거가 ${who}의 실생활에 구체적으로 어떻게 나타나는지 장면으로, 최소 3문장] → [지금 할 것 — 구체적 행동·시기, 최소 2문장] 순서로 풀어서 서술하세요. 각 파트를 위 최소 문장 수 이상으로 채우세요.`;
 
   const hintBlock = hint ? `\n\n이 항목 전용 지침: ${hint}` : "";
 
   return `${factsBlock}
 
 [질문] "${question}"
-위 정보를 바탕으로 이 항목에 대해서만 ${min}~${max}자 분량으로 답하세요. ${structure}${hintBlock}
+위 정보를 바탕으로 이 항목에 대해서만 최소 ${min}자, 최대 ${max}자 분량으로 답하세요. ${min}자에 못 미치는 답변은 안 됩니다 — 짧게 요약하듯 끝내지 말고, 구체적인 상황·근거·시기를 더 채워 넣어서 분량을 반드시 채우세요. ${structure}${hintBlock}
 
 ${valueInstr}
 ${gaugeInstr}
@@ -135,29 +135,114 @@ JSON만 응답하세요 (코드블록·설명 불필요). content 안의 줄바�
 {"value": "...", "gauge": 숫자(선택), "content": "..."}`;
 }
 
+/** 여러 문항을 한 번에 요청 — 문항마다 반복 전송되던 systemPrompt·factsBlock을
+ *  묶음당 1번만 보내서 입력 토큰 중복을 줄인다. (API 호출 수 자체도 줄어듦) */
+export function buildBatchQuestionPrompt(params: {
+  category: Category;
+  questions: string[];
+  factsBlock: string;
+  name?: string;
+  forcedValues: Record<string, { v?: string; gauge?: number }>;
+  /** 이 묶음 호출에 "종합 조언"까지 함께 요청할지 — 별도 API 호출 1건을 아예 없앤다.
+   *  종합 조언은 다른 문항의 생성 결과를 참고하지 않고 명식 사실만으로 쓰이므로
+   *  어느 묶음에 끼워 넣어도 내용상 차이가 없다. */
+  includeClosingAdvice?: boolean;
+}): string {
+  const { category, questions, factsBlock, name, forcedValues, includeClosingAdvice } = params;
+  const who = name ? `${name}님` : "이 사람";
+  const [advMin, advMax] = category.tier === "deep" ? [1100, 1500] : [850, 1150];
+
+  const deep = category.tier === "deep";
+  const dual = category.needsPartner;
+  const isReunion = category.id === "love-reunion";
+  const [min, max] = deep ? [1300, 1700] : [800, 1100];
+
+  const structure = deep
+    ? `[한 줄 결론 — 그 질문에 대한 가장 직접적인 답, 1~2문장] → [핵심 해석 — 명식의 공통 신호를 근거로, 왜 그런지, 최소 3문장] → [실제 상황 — 이 경향이 일상에서 구체적으로 어떻게 드러나는지 눈에 보이듯 장면으로, 최소 3문장] → [앞으로의 흐름 — 구체적 시기·변화, 최소 2문장] → [행동 조언 — 지금 무엇을 하면 좋을지, 최소 2문장] 순서로, 각 부분을 자연스러운 문단으로 이어서 쓰세요. 각 파트를 위에 적힌 최소 문장 수 이상으로 채우지 않으면 전체 분량이 부족해집니다. 뻔한 말을 반복해서 채우지 말고, 구체적인 상황·시기·행동을 매번 새로 추가해서 채우세요.${
+        dual
+          ? ` 두 명식이 함께 주어졌다면 일간의 상생(相生)·상극(相剋)·비화(比和) 관계도 근거로 녹여 서술하세요.`
+          : ""
+      }${
+        isReunion
+          ? ` 재회 항목은 ①연락이 올 가능성 ②실제로 다시 만날 가능성 ③관계가 회복될 가능성을 각각 구분해 서술하세요.`
+          : ""
+      }`
+    : `[한 줄 결론, 1~2문장] → [왜 그런지 — 구체적인 사주 요소(일간, 오행 등)·자미두수 궁위 배치·별자리와 행성 배치를 실제로 언급하며, 최소 3문장] → [실제 상황 — 그 근거가 ${who}의 실생활에 구체적으로 어떻게 나타나는지 장면으로, 최소 3문장] → [지금 할 것 — 구체적 행동·시기, 최소 2문장] 순서로 풀어서 서술하세요. 각 파트를 위 최소 문장 수 이상으로 채우세요.`;
+
+  const questionBlocks = questions
+    .map((q, i) => {
+      const pre = forcedValues[q];
+      const valueInstr = pre?.v
+        ? `"value"는 반드시 "${pre.v}" 그대로 (수정·재계산 금지)`
+        : `"value"는 핵심 답을 압축한 짧은 구(5~15자)`;
+      const gaugeInstr = pre?.gauge !== undefined
+        ? `"gauge"는 ${pre.gauge} 그대로`
+        : `"gauge"는 수치(확률·점수·%)가 있으면 0~100 정수, 없으면 생략`;
+      const hint = SECTION_HINTS[q];
+      return `${i + 1}. "${q}"\n   - ${valueInstr}. ${gaugeInstr}.${hint ? `\n   - 전용 지침: ${hint}` : ""}`;
+    })
+    .join("\n\n");
+
+  const closingAdviceBlock = includeClosingAdvice
+    ? `\n\n[추가 — 종합 조언]
+위 질문들과는 별개로, 이 리딩 전체(${category.questions.join(", ")})를 종합해서 상담자가 지금 실천할 수 있는 구체적인 조언을 최소 ${advMin}자, 최대 ${advMax}자로 작성하세요. ${advMin}자 미만은 안 됩니다 — 각 조언마다 구체적인 상황과 이유를 붙여 분량을 채우세요. 목록 기호 없이 문단으로, 항목별로 줄바꿈 두 번(\\n\\n)으로 구분하세요.`
+    : "";
+  const closingAdviceKey = includeClosingAdvice
+    ? `, "closingAdvice": "..."`
+    : "";
+
+  return `${factsBlock}
+
+아래 ${questions.length}개 질문 각각에 대해 독립적으로, 서로 다른 각도에서 답하세요. 같은 문장을 여러 질문에 재사용하지 마세요.
+
+[공통 형식 — 질문마다 각각 적용]
+최소 ${min}자, 최대 ${max}자로 답하세요. ${min}자에 못 미치는 답변은 안 됩니다 — 짧게 요약하듯 끝내지 말고, 구체적인 상황·근거·시기를 채워 넣어서 분량을 반드시 채우세요.
+${structure}
+"content"는 막힘없이 이어지는 하나의 줄글(prose)이어야 합니다. 마크다운 제목·소제목·굵게·목록 기호 없이, 문단이 바뀔 때만 줄바꿈 두 번(\\n\\n)으로 구분하세요. 소제목이나 번호를 쓰지 마세요.
+
+[질문 목록]
+${questionBlocks}${closingAdviceBlock}
+
+JSON 객체 하나로만 응답하세요 (코드블록·설명 불필요). 키는 위 질문 원문과 정확히 똑같이 쓰고, 값은 {"value":"...","gauge":숫자(선택),"content":"..."} 형태로, ${questions.length}개 항목을 모두 포함하세요${includeClosingAdvice ? ", 그리고 위 종합 조언을 \"closingAdvice\" 키로 함께" : ""}. 예: {${questions.map((q) => `"${q}": {...}`).join(", ")}${closingAdviceKey}}. content 안의 줄바꿈은 반드시 \\n으로, 큰따옴표는 이스케이프해서 올바른 JSON으로 반환하세요.`;
+}
+
+/** buildBatchQuestionPrompt 응답 파싱. 질문 중 하나라도 형식이 어긋나면 전체를 실패 처리해
+ *  호출부가 이 묶음 전체를 백업 텍스트로 대체하게 한다. */
+export function parseBatchResponse(
+  raw: string,
+  questions: string[],
+): { sections: Record<string, ParsedSection>; closingAdvice?: string } {
+  const jsonText = raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```\s*$/i, "");
+  const start = jsonText.indexOf("{");
+  const end = jsonText.lastIndexOf("}");
+  if (start < 0 || end < 0) throw new Error("모델 응답에서 JSON을 찾을 수 없습니다.");
+  const parsed = JSON.parse(jsonText.slice(start, end + 1));
+
+  const sections: Record<string, ParsedSection> = {};
+  for (const q of questions) {
+    const item = parsed[q];
+    if (!item || typeof item.value !== "string" || typeof item.content !== "string") {
+      throw new Error(`"${q}" 항목의 응답 형식이 올바르지 않습니다.`);
+    }
+    sections[q] = {
+      value: item.value,
+      gauge: typeof item.gauge === "number" ? item.gauge : undefined,
+      content: item.content,
+    };
+  }
+  const closingAdvice = typeof parsed.closingAdvice === "string" ? parsed.closingAdvice.trim() : undefined;
+  return { sections, closingAdvice };
+}
+
 /** 무료로 공개되는 짧은 요약 — 별:결 buildSummaryPrompt와 동일한 지시문 */
 export function buildSummaryPrompt(category: Category, factsBlock: string, name?: string): string {
   void name;
   return `${factsBlock}
 
 위 정보를 바탕으로 "${category.name}" 상담의 핵심 흐름만 2~3문장으로 짧게 요약해 주세요. 호기심을 자극하되 구체적인 결론은 밝히지 마세요.`;
-}
-
-/** 모든 섹션을 종합한 마무리 조언 — 별:결 buildAdvicePrompt와 동일한 지시문 */
-export function buildAdvicePrompt(
-  category: Category,
-  factsBlock: string,
-  name: string | undefined,
-  sectionQuestions: string[],
-): string {
-  void name;
-  const deep = category.tier === "deep";
-  const [min, max] = deep ? [1000, 1400] : [800, 1100];
-  return `${factsBlock}
-
-지금까지 다음 항목들에 대한 상세 분석을 작성했습니다: ${sectionQuestions.join(", ")}.
-
-이 모든 내용을 종합해서 상담자가 지금 실천할 수 있는 구체적인 조언을 ${min}~${max}자 분량으로, 자연스러운 줄글로 작성해 주세요. 목록 기호 없이 문단으로 서술하되, 항목별로 줄을 바꿔 구분해 주세요.`;
 }
 
 /** 접미사에 이미 있는 단위를 모델이 value 끝에 중복으로 붙이는 경우 방어적으로 제거 */
