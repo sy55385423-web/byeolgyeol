@@ -490,9 +490,13 @@ function light(cat: Category, q: string, me: Chart, v: string): Para[] {
       "계절보다 '수면 리듬'에 컨디션이 크게 좌우됩니다. 바쁠수록 자는 시간부터 무너지는 유형이라, 다른 걸 줄여도 수면 시간은 지키는 게 최고의 관리입니다.",
   };
   const g = grounding(me);
-  const palace = cat.id === "career" ? "관록" : cat.id === "wealth" ? "재백" : "질액";
+  const palace = cat.id === "career" ? "관록" : cat.id === "wealth" ? "재백" : cat.id === "health" ? "질액" : "명궁";
   const star = g.gongStar(palace);
-  const ground = `${cat.id === "career" ? "일과 직위를 보는 관록궁" : cat.id === "wealth" ? "재물을 보는 재백궁" : "건강을 보는 질액궁"}에 ${star}성이 자리하고, 일간은 ${g.ilgan}입니다. ${el} 기운이 강하고 ${lack} 기운이 약한 이 구조가 위 흐름의 근거입니다.`;
+  const groundLabel =
+    cat.id === "career" ? "일과 직위를 보는 관록궁" :
+    cat.id === "wealth" ? "재물을 보는 재백궁" :
+    cat.id === "health" ? "건강을 보는 질액궁" : "타고난 본성을 보는 명궁";
+  const ground = `${groundLabel}에 ${star}성이 자리하고, 일간은 ${g.ilgan}입니다. ${el} 기운이 강하고 ${lack} 기운이 약한 이 구조가 위 흐름의 근거입니다.`;
   const body = BODY[q];
   const paras: Para[] = [P("핵심", `${q} — 결론부터 말하면 '${v}'입니다.`)];
   if (body) paras.push(P("풀어보면", body));
@@ -555,6 +559,14 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     "컨디션이 흔들리기 쉬운 시기": { v: `환절기 ${[3, 6, 9, 11][s % 4]}월` },
     "나에게 맞는 생활 리듬": { v: s % 2 === 0 ? "아침형" : "밤 정리형" },
     "시기별 관리 포인트": { v: "수면 리듬" },
+    "나의 본성과 성격": { v: EL[me.dayMaster].fromLabel },
+    "타고난 내 모습과 타인이 보는 내 모습": { v: `${ELEMENTS[me.dayMaster]}과 ${ELEMENTS[me.dominant]}의 결` },
+    "나의 초년운": { v: ["완만한 성장", "일찍 트인 길", "더디지만 단단"][s % 3] },
+    "나의 청년운": { v: ["빠른 확장", "굴곡 많은 도약", "늦게 붙는 힘"][(s + 1) % 3] },
+    "나의 중년운": { v: ["안정과 결실", "전환의 구간", "꾸준한 상승"][(s + 2) % 3] },
+    "나의 말년운": { v: ["여유로운 결실", "존경받는 자리", "홀가분한 자유"][(s + 3) % 3] },
+    "대운이 바뀌는 시기": { v: `${28 + ((s + 5) % 25)}세 전후` },
+    "나의 전성기, 주의가 필요한 시기": { v: `${1 + ((s + 8) % 12)}월` },
   };
 }
 
@@ -575,6 +587,7 @@ const RADAR_AXES: Record<string, string[]> = {
   career: ["리더십", "전문성", "적응력", "협업력", "실행력"],
   wealth: ["저축력", "투자 감각", "소비 관리", "수입 다각화", "재물 그릇"],
   health: ["체력", "회복력", "면역력", "스트레스 관리", "생활 리듬"],
+  "life-overview": ["본성", "초년운", "중년운", "말년운", "성장력"],
 };
 
 /** seed 기반 0~100 근사 의사난수 (42~96 사이로 눌러서 극단값 방지) */
@@ -634,6 +647,13 @@ export function radarStats(ctx: Ctx): RadarStats {
       title = "건강 밸런스 지수";
       score = 48 + (s % 45);
       caption = "체질 밸런스";
+      break;
+    }
+    case "life-overview": {
+      const stat = v["대운이 바뀌는 시기"];
+      title = "인생 종합 지수";
+      score = 50 + (s % 45);
+      caption = stat?.v ?? "흐름 분석";
       break;
     }
     default: {

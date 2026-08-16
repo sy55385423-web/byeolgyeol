@@ -9,7 +9,7 @@ export default function CategoryGrid() {
       <Reveal>
         <p className="text-sm font-medium tracking-widest text-brass">READINGS</p>
         <h2 className="mt-3 font-serif text-3xl font-semibold tracking-tight sm:text-4xl">
-          여섯 가지 결
+          일곱 가지 결
         </h2>
         <p className="mt-4 max-w-md text-[15px] leading-relaxed text-ink-soft">
           지금 가장 궁금한 것 하나부터 시작하세요.
@@ -40,7 +40,7 @@ export default function CategoryGrid() {
                     >
                       {c.tier === "deep" ? "초상세" : "컴팩트"}
                     </span>
-                    {["love-life", "love-compatibility", "love-reunion"].includes(c.id)
+                    {["love-life", "love-compatibility", "love-reunion", "life-overview"].includes(c.id)
                       ? "약 1만자 이상"
                       : "약 3천자 이상"}
                   </span>

@@ -42,7 +42,7 @@ export default function Pricing() {
               <span className="absolute -top-3 left-6 rounded-full bg-brass px-3 py-1 text-[11px] font-bold text-night">
                 인기
               </span>
-              <p className="text-xs font-medium tracking-widest text-brass">연애 · 궁합 · 재회</p>
+              <p className="text-xs font-medium tracking-widest text-brass">연애 · 궁합 · 재회 · 평생 총론</p>
               <h3 className="mt-2 font-serif text-xl font-semibold">초상세 리딩</h3>
               <p className="mt-4 font-serif text-4xl font-bold text-ink">{won(pricing.loveReadings)}</p>
               <ul className="mt-5 space-y-2">

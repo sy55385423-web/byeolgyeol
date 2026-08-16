@@ -32,7 +32,7 @@ export default function PreviewPromo() {
           <div className="rounded-2xl border border-line bg-paper-warm/60 p-5">
             <div className="mb-4 flex items-center justify-between px-1">
               <span className="font-serif text-sm font-semibold">
-                여섯 가지 리딩 · 무료 공개 항목
+                일곱 가지 리딩 · 무료 공개 항목
               </span>
               <span className="rounded-full border border-line bg-white px-2.5 py-0.5 text-[11px] text-ink-faint">
                 샘플

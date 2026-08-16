@@ -15,7 +15,7 @@ export type PreviewStat = {
 export type Category = {
   slug: string[];          // /reading/[...slug] 라우트 세그먼트
   id: string;
-  group: "연애·인간관계" | "커리어" | "재물" | "건강";
+  group: "연애·인간관계" | "커리어" | "재물" | "건강" | "인생";
   name: string;            // 카드/페이지 제목
   short: string;           // 카드 한 줄 소개
   minutes: number;         // 예상 소요 시간(분) — 플레이스홀더, 실측치로 교체
@@ -305,6 +305,36 @@ export const categories: Category[] = [
         suffix: "해져요",
       },
     ],
+  },
+  {
+    slug: ["life"],
+    id: "life-overview",
+    group: "인생",
+    name: "평생 총론",
+    short: "타고난 본성부터 인생 전체 시기별 흐름까지, 나의 전체 지도를 봅니다.",
+    minutes: 12,
+    needsPartner: false,
+    questions: [
+      "나의 본성과 성격",
+      "타고난 내 모습과 타인이 보는 내 모습",
+      "나의 초년운",
+      "나의 청년운",
+      "나의 중년운",
+      "나의 말년운",
+      "대운이 바뀌는 시기",
+      "나의 전성기, 주의가 필요한 시기",
+    ],
+    teaser: "타고난 본성과 인생의 굴곡은 다른 결입니다. 언제 오르고 언제 웅크려야 하는지, 명반이 먼저 알려드립니다.",
+    cta: "내 인생 지도 펼치기",
+    price: 2990,
+    tier: "deep",
+    loadingSteps: [
+      "생년월일로 명반을 세우는 중",
+      "자미두수 명궁을 읽는 중",
+      "인생 전체의 흐름을 분석하는 중",
+      "리포트를 정리하는 중",
+    ],
+    previewLine: "당신의 본성은 겉으로 드러나는 인상과 다른 결을 하나 더 가지고 있습니다.",
   },
   {
     slug: ["career"],

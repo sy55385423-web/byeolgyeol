@@ -79,6 +79,25 @@ export function IconArrow({ className = "w-4 h-4" }: P) {
   );
 }
 
+export function IconLifeOverview({ className = base }: P) {
+  // 오르내리는 인생의 굴곡 — 평생 총론
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 16c2 0 2-9 5-9s2 12 5 12 2-11 5-11 2 5 3 5" />
+    </svg>
+  );
+}
+
+export function IconPersonaBadge({ className = base }: P) {
+  // 원 안의 별 — 나의 유형 배지
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.2 13.3 10.6 17 11.1 14.3 13.5 15 17.2 12 15.3 9 17.2 9.7 13.5 7 11.1 10.7 10.6z" />
+    </svg>
+  );
+}
+
 export function IconTabHome({ className = base }: P) {
   // 별 하나 — 별:결의 '별'
   return (
@@ -118,4 +137,5 @@ export const categoryIcons: Record<string, (p: P) => React.ReactElement> = {
   career: IconCareer,
   wealth: IconWealth,
   health: IconHealth,
+  "life-overview": IconLifeOverview,
 };

@@ -38,7 +38,7 @@ export default function ReportsPage() {
                   >
                     {c.tier === "deep" ? "초상세" : "컴팩트"}
                   </span>
-                  {["love-life", "love-compatibility", "love-reunion"].includes(c.id)
+                  {["love-life", "love-compatibility", "love-reunion", "life-overview"].includes(c.id)
                     ? "약 1만자 이상"
                     : "약 3천자 이상"}
                 </span>
