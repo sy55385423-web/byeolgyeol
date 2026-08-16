@@ -6,9 +6,8 @@ import {
   buildSystemPrompt,
   buildFactsBlock,
   buildQuestionPrompt,
-  buildBatchQuestionPrompt,
+  buildAdvicePrompt,
   parseSectionResponse,
-  parseBatchResponse,
   stripRedundantUnit,
 } from "@/lib/prompt";
 import {
@@ -44,14 +43,6 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
-/** 문항을 batchSize개씩 묶는다 — 묶음마다 systemPrompt·factsBlock을 1번만 보내서
- *  문항 수만큼 반복되던 입력 토큰 중복을 줄인다. */
-function chunk<T>(items: T[], batchSize: number): T[][] {
-  const batches: T[][] = [];
-  for (let i = 0; i < items.length; i += batchSize) batches.push(items.slice(i, i + batchSize));
-  return batches;
-}
-
 export async function POST(req: NextRequest) {
   const input = (await req.json()) as ReportInput;
   const category = categories.find((c) => c.id === input.categoryId);
@@ -68,53 +59,43 @@ export async function POST(req: NextRequest) {
   // 사주엔진으로 모든 질문의 핵심 값을 사전 계산 — LLM에 강제 주입해 일관성 보장
   const ctx: Ctx = { me, pt, c: category, input };
   const precomputed = values(ctx);
-  // 문항 1개 기준 목표 분량에 맞춘 토큰 예산. 배치 호출 시 묶음 크기만큼 곱해서 쓴다.
+  // 문항 1개 = API 호출 1개 (별:결 배포 전 버전과 동일한 구조).
+  // 묶어서 호출하면 토큰은 아끼지만 모델이 한 응답 안에서 여러 주제를 나눠 쓰면서
+  // 문항당 분량·품질이 목표치에 못 미쳤기 때문에, 문항당 개별 호출로 되돌린다.
   // deep(연애·궁합·재회): 목표 1,300~1,700자/문항 → 3,000 토큰/문항
   // light(커리어·재물·건강): 목표 800~1,100자/문항 → 1,600 토큰/문항
   const perQuestionTokens = category.tier === "deep" ? 3000 : 1600;
+  const adviceTokens = category.tier === "deep" ? 2600 : 2000;
 
   const headlineOf = (q: string, v: string, stat?: PreviewStat) =>
     stat ? `${who}의 ${stat.prefix}${v}${stat.suffix ?? ""}` : `${q} — ${v}`;
 
   try {
-    // 문항을 3개씩 묶어서 호출 — systemPrompt·factsBlock 중복 전송을 줄여 토큰을 크게 절약.
-    // 묶음 하나가 실패해도 그 묶음(최대 3문항)만 결정론적 텍스트로 대체하고 나머지는 정상 진행.
-    // 종합 조언(closingAdvice)도 별도 호출을 만들지 않고 마지막 묶음에 끼워 넣어서 호출을 1건 더 줄인다.
-    const batches = chunk(category.questions, 3);
-    let closingAdviceFromBatch: string | undefined;
-
-    const sectionsPromise: Promise<Section[]> = mapWithConcurrency(batches, 3, async (batchQuestions, idx) => {
-      const isLastBatch = idx === batches.length - 1;
-      const forcedValues: Record<string, { v?: string; gauge?: number }> = {};
-      for (const q of batchQuestions) forcedValues[q] = precomputed[q] ?? {};
-
-      const userPrompt = buildBatchQuestionPrompt({
-        category,
-        questions: batchQuestions,
-        factsBlock,
-        name: input.name,
-        forcedValues,
-        includeClosingAdvice: isLastBatch,
-      });
-      const batchTokens = perQuestionTokens * batchQuestions.length + (isLastBatch ? perQuestionTokens : 0);
-
-      try {
-        const raw = await generateCompletion(userPrompt, systemPrompt, batchTokens);
-        const { sections: parsedMap, closingAdvice } = parseBatchResponse(raw, batchQuestions);
-        if (isLastBatch && closingAdvice) closingAdviceFromBatch = closingAdvice;
-        return batchQuestions.map((q): Section => {
-          const pre = precomputed[q];
-          const stat = category.previewStats?.find((s) => s.label === q);
-          const item = parsedMap[q];
-          const finalValue = pre?.v ?? stripRedundantUnit(item.value, stat?.suffix);
-          const finalGauge = pre?.gauge ?? item.gauge;
-          return { question: q, headline: headlineOf(q, finalValue, stat), gauge: finalGauge, content: item.content };
+    // 문항마다 개별 호출 — 모델이 한 번에 한 주제에만 집중하게 해서 문항당 분량을 보장한다.
+    // 호출 하나가 실패해도 그 문항만 결정론적 텍스트로 대체하고 나머지는 정상 진행.
+    const sectionsPromise: Promise<Section[]> = mapWithConcurrency(
+      category.questions,
+      3,
+      async (q): Promise<Section> => {
+        const pre = precomputed[q];
+        const stat = category.previewStats?.find((s) => s.label === q);
+        const userPrompt = buildQuestionPrompt({
+          category,
+          question: q,
+          factsBlock,
+          name: input.name,
+          forcedValue: pre?.v,
+          forcedGauge: pre?.gauge,
         });
-      } catch (err) {
-        console.error(`[api/report] 묶음(${batchQuestions.join(", ")}) LLM 생성 실패 — 이 묶음만 결정론적 텍스트로 대체:`, err);
-        return batchQuestions.map((q): Section => {
-          const pre = precomputed[q];
-          const stat = category.previewStats?.find((s) => s.label === q);
+
+        try {
+          const raw = await generateCompletion(userPrompt, systemPrompt, perQuestionTokens);
+          const parsed = parseSectionResponse(raw);
+          const finalValue = pre?.v ?? stripRedundantUnit(parsed.value, stat?.suffix);
+          const finalGauge = pre?.gauge ?? parsed.gauge;
+          return { question: q, headline: headlineOf(q, finalValue, stat), gauge: finalGauge, content: parsed.content };
+        } catch (err) {
+          console.error(`[api/report] "${q}" LLM 생성 실패 — 이 문항만 결정론적 텍스트로 대체:`, err);
           const finalValue = pre?.v ?? "";
           return {
             question: q,
@@ -122,19 +103,25 @@ export async function POST(req: NextRequest) {
             gauge: pre?.gauge,
             content: sectionFallback(ctx, q, finalValue),
           };
-        });
-      }
-    }).then((batchResults) => batchResults.flat());
+        }
+      },
+    );
 
     // 무료로 공개되는 요약은 어차피 짧은 티저 문장이라, LLM 호출 없이 카테고리의
     // previewLine을 그대로 써서 API 호출 1건과 그만큼의 지연을 줄인다.
     const freeSummary = category.previewLine;
 
-    // 마지막 묶음이 끝나야 closingAdviceFromBatch가 채워지므로 sectionsPromise에 이어서 읽는다
-    // (별도 API 호출이 없으니 추가 지연도 없다).
-    const closingAdvicePromise: Promise<string> = sectionsPromise.then(
-      () => closingAdviceFromBatch ?? category.teaser,
-    );
+    // 종합 조언은 다른 문항들과 독립적으로 명식 사실만 근거로 쓰이므로 별도 호출 1건으로 병렬 처리.
+    const closingAdvicePromise: Promise<string> = generateCompletion(
+      buildAdvicePrompt(category, factsBlock, input.name),
+      systemPrompt,
+      adviceTokens,
+    )
+      .then((raw) => raw.trim())
+      .catch((err) => {
+        console.error("[api/report] 종합 조언 LLM 생성 실패 — 결정론적 텍스트로 대체:", err);
+        return category.teaser;
+      });
 
     let extraAnswerPromise: Promise<Report["extraAnswer"]> = Promise.resolve(undefined);
     if (input.extraQuestion) {

@@ -79,6 +79,38 @@ export function IconArrow({ className = "w-4 h-4" }: P) {
   );
 }
 
+export function IconTabHome({ className = base }: P) {
+  // 별 하나 — 별:결의 '별'
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
+      <path d="M12 3.5c.6 3.1 1.4 5 2.9 6.5s3.4 2.3 6.6 3c-3.2.7-5.1 1.5-6.6 3s-2.3 3.4-2.9 6.5c-.6-3.1-1.4-5-2.9-6.5S5.7 13.7 2.5 13c3.2-.7 5.1-1.5 6.6-3s2.3-3.4 2.9-6.5z" />
+    </svg>
+  );
+}
+
+export function IconTabReport({ className = base }: P) {
+  // 접힌 모서리의 문서 — 리포트
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6.5 3.5h8l3 3v14a.5.5 0 0 1-.5.5h-10.5a.5.5 0 0 1-.5-.5v-16.5a.5.5 0 0 1 .5-.5z" />
+      <path d="M14.5 3.5v3h3" />
+      <path d="M9 13h6M9 16.5h6" />
+    </svg>
+  );
+}
+
+export function IconTabTogether({ className = base }: P) {
+  // 나란한 두 사람 — 우리끼리
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8.5" cy="8" r="2.6" />
+      <circle cx="16" cy="9.2" r="2.1" />
+      <path d="M3.5 19.5c.4-3.4 2.4-5.2 5-5.2s4.6 1.8 5 5.2" />
+      <path d="M14.3 14.8c1.9.2 3.3 1.7 3.7 4.7" />
+    </svg>
+  );
+}
+
 export const categoryIcons: Record<string, (p: P) => React.ReactElement> = {
   "love-life": IconLoveLife,
   "love-compatibility": IconCompat,
