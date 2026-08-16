@@ -24,6 +24,17 @@ const GEMINI_MODEL = "gemini-2.5-flash";
 // build.nvidia.com 대시보드에서 실제로 발급받은/접근 가능한 모델 ID로 교체할 것.
 const NVIDIA_MODEL = "meta/llama-3.3-70b-instruct";
 
+/** 호출 가능한 LLM 프로바이더 키가 하나라도 있는지 — 없으면 API 요청 자체를 시도하지 않고
+ *  바로 결정론적 엔진(lib/report.ts)을 primary로 사용한다 (느린 실패 없이, 비용 없이). */
+export function hasLlmKey(): boolean {
+  return !!(
+    process.env.BYTEZ_API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    process.env.ANTHROPIC_API_KEY ||
+    process.env.NVIDIA_API_KEY
+  );
+}
+
 export async function generateCompletion(
   userPrompt: string,
   systemPrompt: string,

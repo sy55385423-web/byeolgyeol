@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { categories, type PreviewStat } from "@/data/categories";
 import { computeChart } from "@/lib/saju";
-import { generateCompletion } from "@/lib/llm";
+import { generateCompletion, hasLlmKey } from "@/lib/llm";
 import {
   buildSystemPrompt,
   buildFactsBlock,
@@ -16,6 +16,7 @@ import {
   sectionFallback,
   answerParagraphs,
   joinParas,
+  deterministicAdvice,
   TOPIC,
   type ReportInput,
   type Report,
@@ -48,6 +49,16 @@ export async function POST(req: NextRequest) {
   const category = categories.find((c) => c.id === input.categoryId);
   if (!category) {
     return NextResponse.json({ error: "알 수 없는 카테고리입니다." }, { status: 400 });
+  }
+
+  // LLM 프로바이더 키가 하나도 없으면 API 호출을 아예 시도하지 않고 결정론적 엔진을 바로 쓴다.
+  // (오행·자미두수·점성술 조합으로 사람마다 실제로 달라지는 리포트 — 비용·지연 없음)
+  if (!hasLlmKey()) {
+    const report = generateReport(input);
+    if (!report) {
+      return NextResponse.json({ error: "리포트 생성에 실패했습니다." }, { status: 500 });
+    }
+    return NextResponse.json(report);
   }
 
   const me = computeChart(input.me);
@@ -120,7 +131,7 @@ export async function POST(req: NextRequest) {
       .then((raw) => raw.trim())
       .catch((err) => {
         console.error("[api/report] 종합 조언 LLM 생성 실패 — 결정론적 텍스트로 대체:", err);
-        return category.teaser;
+        return deterministicAdvice(ctx);
       });
 
     let extraAnswerPromise: Promise<Report["extraAnswer"]> = Promise.resolve(undefined);
