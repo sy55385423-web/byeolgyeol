@@ -41,6 +41,27 @@ const STAR_LOVE: Record<string, { ming: string; bucho: string }> = {
   파군: { ming: "변화와 파격의 별이라 관계에 굴곡이 잦습니다", bucho: "만남과 헤어짐이 반복되기 쉬운 인연을 뜻합니다" },
 };
 
+/** 12지지(자축인묘진사오미신유술해)별 기운 — 일지(사주)와 명궁 위치(자미두수) 양쪽에서 재사용.
+ *  같은 오행이라도 지지가 다르면 결이 갈리도록, 오행보다 한 단계 더 세밀한 12분류로 쓴다. */
+const BRANCH_TRAIT = [
+  "밤부터 조용히 움직이는 시작의 기운", // 자
+  "느리지만 우직하게 다지는 기운",       // 축
+  "먼저 뛰어드는 개척의 기운",           // 인
+  "유연하게 뻗어나가는 성장의 기운",     // 묘
+  "역동적으로 판을 바꾸는 기운",         // 진
+  "치밀하게 재고 살피는 통찰의 기운",    // 사
+  "뜨겁게 타오르는 정점의 기운",         // 오
+  "온화하게 거두어들이는 기운",          // 미
+  "기민하게 움직이는 실행의 기운",       // 신
+  "예리하게 다듬어 완성하는 기운",       // 유
+  "든든하게 지키는 수호의 기운",         // 술
+  "깊이 품어 안는 포용의 기운",          // 해
+];
+export function branchTrait(branch: string) {
+  const i = BRANCHES.indexOf(branch);
+  return i >= 0 ? BRANCH_TRAIT[i] : BRANCH_TRAIT[0];
+}
+
 /** 별자리 연애 성향 (태양궁·달궁·상승궁 공통 해석) */
 const SIGN_LOVE: Record<string, string> = {
   양자리: "먼저 직진하고 즉흥적으로 표현하는",
@@ -67,15 +88,22 @@ export function grounding(c: Chart) {
   const wolji = `${BRANCHES[c.pillars.month.branch]}(${BRANCHES_HANJA[c.pillars.month.branch]})`;
   const buchoGong = c.gongs.find((g) => g.name === "부처")!;
   const gong = (name: string) => c.gongs.find((g) => g.name === name)!;
+  const myungGong = c.gongs.find((g) => g.isMing);
+  const myungBranch = myungGong?.branch ?? BRANCHES[0];
 
   return {
     ilgan,
      iljiEl: ELEMENTS[BRANCH_ELEMENT[c.pillars.day.branch]],
     ilganMech: STEM_LOVE[ds],
     ilji,
+    iljiTrait: branchTrait(BRANCHES[c.pillars.day.branch]), // 일지 12분류 (사주)
+    ilju: c.pillars.day.ko, // 일주 60갑자 원문 (예: "갑인") — 일간10×일지12 중 실제 존재하는 60가지 조합
+    iljuHanja: c.pillars.day.hanja,
     wolji,
     myungStar: c.mingStar,
     myungWhy: (STAR_LOVE[c.mingStar] ?? STAR_LOVE["자미"]).ming,
+    myungBranch, // 명궁이 자리한 12지지 (자미두수 — 오행보다 세밀한 12분류)
+    myungBranchTrait: branchTrait(myungBranch),
     buchoStar: buchoGong.star,
     buchoWhy: (STAR_LOVE[buchoGong.star] ?? STAR_LOVE["천동"]).bucho,
     gongStar: (name: string) => gong(name).star,
