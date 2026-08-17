@@ -325,6 +325,17 @@ export default function Flow({ category }: { category: Category }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, me, partner, category.needsPartner]);
 
+  // 외부에서 "?goto=birth"로 들어오면 이름 입력을 건너뛰고 생년월일 단계로 바로 이동
+  // (예: 우리중 TOP1에서 "내 연애와 관련된 모든 것 보러가기" 버튼)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("goto") === "birth") {
+      const idx = steps.findIndex((s) => s.key === "birth");
+      if (idx > 0) goTo(idx);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // 실제 명반(사주엔진) 기반 컨텍스트 — 생년월일이 유효할 때만 계산됨
   const chartCtx: Ctx | null = useMemo(() => {
     if (!validBirth(me)) return null;

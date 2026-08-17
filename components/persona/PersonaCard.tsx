@@ -1,6 +1,7 @@
 import { ELEMENTS, type PersonaResult, type PersonaType } from "@/lib/persona";
+import CreatureIcon from "./CreatureIcon";
 
-export function PersonaBadge({ type, size = 72 }: { type: PersonaType; size?: number }) {
+export function PersonaBadge({ type, size = 220 }: { type: PersonaType; size?: number }) {
   return (
     <div
       className="flex shrink-0 items-center justify-center rounded-full border-2"
@@ -9,12 +10,9 @@ export function PersonaBadge({ type, size = 72 }: { type: PersonaType; size?: nu
         height: size,
         background: type.badge.bg,
         borderColor: type.badge.ring,
-        fontSize: size * 0.52,
       }}
     >
-      <span role="img" aria-label={type.name}>
-        {type.emoji}
-      </span>
+      <CreatureIcon sign={type.sign} size={size * 0.82} />
     </div>
   );
 }
@@ -48,14 +46,14 @@ export default function PersonaCard({ result, name }: { result: PersonaResult; n
 
   return (
     <div className="overflow-hidden rounded-3xl border border-line bg-white">
-      <div className="bg-night px-6 py-7 text-paper sm:px-8">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-medium tracking-widest text-brass-soft">MY 별:결</p>
+      <div className="px-6 py-7 text-paper sm:px-8" style={{ background: type.badge.dark }}>
+        <p className="text-xs font-medium tracking-widest text-brass-soft">MY 별:결</p>
+        <div className="mt-4 flex justify-center">
           <PersonaBadge type={type} />
         </div>
-        <p className="mt-4 text-[13px] text-paper/60">{name ? `${name}님은` : "당신은"}</p>
-        <h2 className="mt-1 font-serif text-3xl font-bold tracking-tight">{type.name}</h2>
-        <p className="mt-2 text-[14.5px] text-brass-soft">{type.tagline}</p>
+        <p className="mt-5 text-center text-[13px] text-paper/60">{name ? `${name}님은` : "당신은"}</p>
+        <h2 className="mt-1 text-center font-serif text-3xl font-bold tracking-tight">{type.name}</h2>
+        <p className="mt-2 text-center text-[14.5px] text-brass-soft">{type.tagline}</p>
         <p className="mt-4 text-[13.5px] leading-relaxed text-paper/75">{type.description}</p>
         <div className="mt-5 flex flex-wrap gap-1.5">
           {chips.map((l) => (
@@ -66,7 +64,7 @@ export default function PersonaCard({ result, name }: { result: PersonaResult; n
         </div>
       </div>
 
-      <div className="p-6 sm:p-8">
+      <div className="p-6 sm:p-8" style={{ background: type.badge.bg }}>
         <p className="text-xs font-medium text-brass">강한 성향</p>
         <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
           {strong.map((s) => (

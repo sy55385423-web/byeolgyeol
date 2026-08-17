@@ -88,6 +88,17 @@ export function IconLifeOverview({ className = base }: P) {
   );
 }
 
+export function IconRing({ className = base }: P) {
+  // 맞물린 두 반지 — 결혼
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="15" r="5" />
+      <circle cx="15" cy="15" r="5" />
+      <path d="M9 10 11 4h2l2 6" />
+    </svg>
+  );
+}
+
 export function IconPersonaBadge({ className = base }: P) {
   // 원 안의 별 — 나의 유형 배지
   return (

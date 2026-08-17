@@ -13,7 +13,7 @@ export type { Element };
 
 type ElementMeta = {
   word: string; // 유형 이름 앞에 붙는 오행 수식어 (예: "포근한")
-  color: { bg: string; ring: string }; // 캐릭터 배지 색
+  color: { bg: string; ring: string; dark: string }; // 캐릭터 배지 색 + 카드 상단 배경(어두운 톤)
   flavor: string;
   strong: [string, string];
   weak: [string, string];
@@ -22,23 +22,23 @@ type ElementMeta = {
 const ELEMENT_META: Record<Element, ElementMeta> = {
   0: {
     word: "쑥쑥",
-    color: { bg: "#e8f2e2", ring: "#7a9c5f" },
+    color: { bg: "#e8f2e2", ring: "#7a9c5f", dark: "#14241c" },
     flavor:
       "새로운 걸 시도하고 배우는 데 거침이 없습니다. 관심이 생기면 일단 부딪혀보고, 실패해도 금방 툭툭 털고 다음 걸 찾아 나섭니다. 예를 들어 새로 생긴 모임에 혼자 불쑥 나가보거나, 낯선 분야의 강의를 충동적으로 신청하는 식입니다. 성장 속도가 빨라서, 얼마 전까지 초보였던 걸 어느새 능숙하게 해내고 있는 스스로를 발견하곤 합니다.",
     strong: ["성장지향", "친화력"],
     weak: ["꼼꼼함", "절제력"],
   },
   1: {
-    word: "불꽃",
-    color: { bg: "#fbe7de", ring: "#c76a41" },
+    word: "불꽃파워",
+    color: { bg: "#fbe7de", ring: "#c76a41", dark: "#261813" },
     flavor:
       "감정 표현이 확실하고, 분위기를 이끄는 힘이 있습니다. 좋으면 좋다고, 신나면 신난다고 얼굴과 목소리에 다 드러나는 편이라 주변 사람들이 눈치 볼 필요가 없습니다. 예를 들어 모임 분위기가 어색해지면 먼저 나서서 농담을 던지거나, 다들 지쳐있을 때 혼자 텐션을 끌어올리는 역할을 맡곤 합니다. 타오르는 속도만큼 식는 것도 빨라서, 방금까지 열심이던 일에 갑자기 흥미를 잃기도 합니다.",
     strong: ["열정", "표현력"],
     weak: ["침착함", "인내심"],
   },
   2: {
-    word: "포근한",
-    color: { bg: "#f3ead9", ring: "#b78a3c" },
+    word: "포근포근",
+    color: { bg: "#f3ead9", ring: "#b78a3c", dark: "#251e13" },
     flavor:
       "한번 믿은 사람과 상황은 끝까지 책임지는 편입니다. 급하게 결정 내리기보다 충분히 지켜보고 판단하며, 주변이 지치고 흔들릴 때 오히려 담담하게 자리를 지킵니다. 예를 들어 친구들 사이에 갈등이 생기면 중재자 역할을 자처하거나, 다들 손 놓은 궂은일을 묵묵히 떠맡는 쪽입니다. 다만 변화가 필요한 순간에도 익숙한 방식을 고수하려다 타이밍을 놓치기도 합니다.",
     strong: ["신뢰감", "포용력"],
@@ -46,15 +46,15 @@ const ELEMENT_META: Record<Element, ElementMeta> = {
   },
   3: {
     word: "야무진",
-    color: { bg: "#ececec", ring: "#8b8c92" },
+    color: { bg: "#ececec", ring: "#8b8c92", dark: "#191b1f" },
     flavor:
       "기준이 분명하고, 정한 건 흔들림 없이 밀고 나갑니다. 대충 넘어가는 법이 없어서, 작은 디테일도 원칙대로 마무리해야 마음이 놓입니다. 예를 들어 모임 자리에서도 다음 일정을 미리 챙겨두거나, 문서 조항 하나하나를 놓치지 않고 확인하는 식으로 일 처리가 야무집니다. 그만큼 기준에 못 미치는 상황은 잘 못 넘기는 편이라, 스스로에게도 남에게도 살짝 깐깐하다는 말을 듣곤 합니다.",
     strong: ["결단력", "원칙"],
     weak: ["여유", "유연함"],
   },
   4: {
-    word: "자유로운",
-    color: { bg: "#e2ebf6", ring: "#4a6fa5" },
+    word: "자유로운 영혼",
+    color: { bg: "#e2ebf6", ring: "#4a6fa5", dark: "#131525" },
     flavor:
       "생각이 깊고, 상황을 유연하게 받아들입니다. 정해진 틀에 얽매이기보다 그때그때 흐름에 맞춰 방향을 바꾸는 걸 편하게 여기고, 남이 정해놓은 길보다 자기만의 속도를 더 신뢰합니다. 예를 들어 여행 계획을 세워도 세부 일정은 비워두고 즉흥적으로 채우거나, 정해진 틀보다 자유롭게 일할 수 있는 방식에 은근히 더 끌립니다. 다만 결정을 미루다 타이밍을 놓치거나, 마음이 자주 바뀌어 주변을 헷갈리게 만들기도 합니다.",
     strong: ["통찰력", "사고력"],
@@ -234,7 +234,7 @@ export type PersonaType = {
   tagline: string;
   description: string;
   emoji: string;
-  badge: { bg: string; ring: string };
+  badge: { bg: string; ring: string; dark: string };
 };
 
 function buildType(element: Element, sign: string): PersonaType {
