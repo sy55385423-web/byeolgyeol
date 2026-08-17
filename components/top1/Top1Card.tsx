@@ -2,7 +2,7 @@ import { MAX_AGE, MIN_AGE, describeTop1, lifeStageOf, type Top1Result } from "@/
 import WeddingCharacter from "@/components/top1/WeddingCharacter";
 
 export default function Top1Card({ result, name }: { result: Top1Result; name?: string }) {
-  const who = name ? `${name}님은` : "나는";
+  const who = name ? `${name}님의` : "나의";
   const speedPct = Math.round(((MAX_AGE - result.marriageAge) / (MAX_AGE - MIN_AGE)) * 100);
   const stage = lifeStageOf(result.marriageAge);
 
@@ -15,9 +15,7 @@ export default function Top1Card({ result, name }: { result: Top1Result; name?: 
         우리중 TOP1
       </p>
       <h2 className="mt-2 font-serif text-[19px] font-bold leading-snug text-ink">
-        {who} 우리 중 결혼을
-        <br />
-        가장 먼저 할까요?
+        {who} 예상 결혼 나이
       </h2>
 
       <div className="mx-auto mt-4 flex justify-center">
@@ -36,7 +34,6 @@ export default function Top1Card({ result, name }: { result: Top1Result; name?: 
           style={{ width: `${speedPct}%`, background: "linear-gradient(90deg, #f6c667, #e0356b)" }}
         />
       </div>
-      <p className="mt-2 text-[11px] text-ink-faint">빠름 · 이 안에서 나의 위치</p>
 
       <p className="mx-auto mt-5 max-w-[280px] rounded-xl bg-white/60 px-4 py-3 text-[12.5px] leading-relaxed text-ink-soft">
         {describeTop1(result)}

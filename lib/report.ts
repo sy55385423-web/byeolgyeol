@@ -11,6 +11,7 @@
 
 import { computeChart, popularityPct, ELEMENTS, type Chart, type Element } from "./saju";
 import { grounding, starMeaning } from "./grounding";
+import { marriageAgeFromSeed } from "./top1";
 import { categories, type Category } from "@/data/categories";
 
 export type PersonInput = { y: number; m: number; d: number; hourBranch?: number };
@@ -999,7 +1000,7 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     "나의 타고난 인기는 상위 몇 %?": { v: `${pct}`, gauge: 100 - pct },
     "나를 몰래 좋아했던 사람 수": { v: `${2 + (s % 7)}` },
     "총 연애 횟수 예상": { v: `${2 + ((s >> 2) % 5)}` },
-    "결혼 예상 나이": { v: `${28 + (s % 8)}` },
+    "결혼 예상 나이": { v: `${marriageAgeFromSeed(s)}` },
     "운명의 상대의 특징과 외모": { v: EL[me.lacking].fromLabel },
     "연애하면 안 되는 사람의 특징": { v: "확인을 강요하는 유형" },
     "나의 연애에서 주의할 점": { v: `${1 + ((s + 3) % 12)}월` },

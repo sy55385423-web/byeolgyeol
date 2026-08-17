@@ -4,32 +4,38 @@
 
 import { computeChart, type Birth } from "./saju";
 
-export const MIN_AGE = 18;
-export const MAX_AGE = 45;
+export const MIN_AGE = 26;
+export const MAX_AGE = 38;
 
-export type LifeStage = "baby" | "student" | "adult" | "middle" | "elder";
+export type LifeStage = "baby" | "student" | "adult" | "elder";
 
 export type Top1Result = {
-  marriageAge: number; // 결혼 예상 나이 (18~45세) — 어릴수록(빠를수록) 1등
+  marriageAge: number; // 결혼 예상 나이 (26~38세) — 어릴수록(빠를수록) 1등
   sun: string; // 태양궁(별자리) — 카드 설명 문구용
   seed: number;
 };
 
+/** 시드 하나로 결혼 예상 나이를 정하는 단일 공식 — lib/report.ts의 유료 리포트("결혼 예상 나이"
+ *  질문)도 이 함수를 그대로 가져다 쓴다. 공식이 두 곳에 따로 있으면 나중에 한쪽만 고쳤을 때
+ *  같은 사람인데 무료 카드와 유료 리포트의 나이가 서로 달라지는 사고가 난다(실제로 났었다). */
+export function marriageAgeFromSeed(seed: number): number {
+  return MIN_AGE + (seed % (MAX_AGE - MIN_AGE + 1));
+}
+
 export function computeTop1(birth: Birth): Top1Result {
   const chart = computeChart(birth);
   return {
-    marriageAge: MIN_AGE + (chart.seed % (MAX_AGE - MIN_AGE + 1)),
+    marriageAge: marriageAgeFromSeed(chart.seed),
     sun: chart.sun,
     seed: chart.seed,
   };
 }
 
-/** 18~24 아기 / 25~28 학생 / 29~34 어른 / 35~39 중년 / 40~ 노인 — 카드 캐릭터 결정용. */
+/** 26~27 아기 / 28~29 학생 / 30~34 어른 / 35~38 노인 — 카드 캐릭터 결정용. */
 export function lifeStageOf(age: number): LifeStage {
-  if (age <= 24) return "baby";
-  if (age <= 28) return "student";
+  if (age <= 27) return "baby";
+  if (age <= 29) return "student";
   if (age <= 34) return "adult";
-  if (age <= 39) return "middle";
   return "elder";
 }
 
@@ -51,13 +57,12 @@ const SIGN_TIMING: Record<string, string> = {
   물고기자리: "분위기와 감정에 잘 이끌리는",
 };
 
-/** 생애 단계별 코멘트 — 카드 캐릭터(아기/학생/어른/중년/노인) 농담과 결을 맞췄다.
+/** 생애 단계별 코멘트 — 카드 캐릭터(아기/학생/어른/노인) 농담과 결을 맞췄다.
  *  실제 계산된 나이(숫자) 자체를 그대로 설명하는 문장이라 위 SIGN_TIMING과 절대 충돌하지 않는다. */
 const STAGE_COMMENT: Record<LifeStage, string> = {
   baby: "완전 아기 신부·신랑 소리 들을 만큼 압도적으로 빠른 편이에요.",
   student: "학생 티도 안 벗었는데 벌써 골인해버리는 스타일이에요.",
   adult: "딱 무난한 어른의 타이밍, 우리 중 평균에 가까워요.",
-  middle: "인생 연차가 좀 쌓인 다음에야 움직이는, 중년의 결혼이에요.",
   elder: "웬만해선 서두르지 않는, 우리 중 최고참 연륜의 결혼이에요.",
 };
 
