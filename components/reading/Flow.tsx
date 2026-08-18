@@ -192,6 +192,7 @@ export default function Flow({ category }: { category: Category }) {
   const [dir, setDir] = useState(1);
 
   const [name, setName] = useState("");
+  const [partnerName, setPartnerName] = useState("");
   const [me, setMe] = useState<Person>(emptyPerson());
   const [partner, setPartner] = useState<Person>(emptyPerson());
 
@@ -268,6 +269,21 @@ export default function Flow({ category }: { category: Category }) {
     if (category.needsPartner) {
       s.push(
         {
+          key: "p-name",
+          title: "그 사람의 이름도 알려주세요",
+          sub: "리포트에서 본인 내용과 확실히 구분해서 보여드릴게요.",
+          optional: true,
+          valid: true,
+          body: (
+            <input
+              className="w-full rounded-xl border border-line bg-white px-4 py-3.5 text-[16px] outline-none transition-colors focus:border-brass"
+              placeholder="상대방 이름 또는 애칭 (건너뛰어도 돼요)"
+              value={partnerName}
+              onChange={(e) => setPartnerName(e.target.value)}
+            />
+          ),
+        },
+        {
           key: "p-birth",
           title: "그 사람의 생년월일은요?",
           sub: "아는 범위까지만 입력해도 괜찮아요.",
@@ -299,7 +315,7 @@ export default function Flow({ category }: { category: Category }) {
       );
     }
     const nameIdx = 0, birthIdx = 1, timeIdx = 2, genderIdx = 3;
-    const pBirthIdx = 4, pTimeIdx = 5, pGenderIdx = 6;
+    const pNameIdx = 4, pBirthIdx = 5, pTimeIdx = 6, pGenderIdx = 7;
     s.push({
       key: "confirm",
       title: "입력하신 정보가 맞나요?",
@@ -313,6 +329,7 @@ export default function Flow({ category }: { category: Category }) {
           <SummaryRow label="성별" value={formatGender(me.gender)} onEdit={() => goTo(genderIdx)} />
           {category.needsPartner && (
             <>
+              <SummaryRow label="상대방 이름/애칭" value={partnerName || "입력 안 함"} onEdit={() => goTo(pNameIdx)} />
               <SummaryRow label="상대방 생년월일" value={formatBirth(partner)} onEdit={() => goTo(pBirthIdx)} />
               <SummaryRow label="상대방 태어난 시간" value={formatTime(partner)} onEdit={() => goTo(pTimeIdx)} />
               <SummaryRow label="상대방 성별" value={formatGender(partner.gender)} onEdit={() => goTo(pGenderIdx)} />
@@ -323,7 +340,7 @@ export default function Flow({ category }: { category: Category }) {
     });
     return s;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, me, partner, category.needsPartner]);
+  }, [name, partnerName, me, partner, category.needsPartner]);
 
   // 외부에서 "?goto=birth"로 들어오면 이름 입력을 건너뛰고 생년월일 단계로 바로 이동
   // (예: 우리중 TOP1에서 "내 연애와 관련된 모든 것 보러가기" 버튼)
@@ -357,11 +374,12 @@ export default function Flow({ category }: { category: Category }) {
       partner: category.needsPartner
         ? { y: +partner.y, m: +partner.m, d: +partner.d, hourBranch: partner.knowsTime ? hourBranchFromLabel(partner.time) : undefined }
         : undefined,
+      partnerName: category.needsPartner ? partnerName || undefined : undefined,
       tier: "basic",
     };
     return { me: meChart, pt: ptChart, c: category, input };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me, partner, category, name]);
+  }, [me, partner, partnerName, category, name]);
 
   // 무료로 공개되는 지표 — 실제 명반 엔진(values())에서 그대로 가져와 유료 리포트와 값이 일치함
   const revealData = useMemo(() => {
@@ -401,6 +419,7 @@ export default function Flow({ category }: { category: Category }) {
     pt: category.needsPartner
       ? { y: +partner.y, m: +partner.m, d: +partner.d, h: partner.knowsTime ? hourBranchFromLabel(partner.time) : undefined }
       : undefined,
+    pn: category.needsPartner ? partnerName || undefined : undefined,
     t: "basic",
   });
   const pay = async () => {
@@ -689,6 +708,7 @@ export default function Flow({ category }: { category: Category }) {
                         : s
                     )}
                     name={name || undefined}
+                    partnerName={partnerName || undefined}
                   />
                 </div>
               </>

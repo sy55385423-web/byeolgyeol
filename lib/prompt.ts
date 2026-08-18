@@ -85,11 +85,11 @@ function formatChartFacts(label: string, c: Chart): string {
 서양 점성술: 태양자리 ${c.sun} · 달자리 ${c.moon} · 상승궁 ${c.asc ?? "시간 미상(제공 불가 — 언급 금지)"}`;
 }
 
-export function buildFactsBlock(category: Category, me: Chart, pt?: Chart, name?: string): string {
+export function buildFactsBlock(category: Category, me: Chart, pt?: Chart, name?: string, partnerName?: string): string {
   const meLabel = category.needsPartner ? "나" : "본인";
   const nameLine = name ? `이름/애칭: ${name}\n` : "";
   let block = `${nameLine}${formatChartFacts(meLabel, me)}`;
-  if (pt) block += "\n\n" + formatChartFacts("상대방", pt);
+  if (pt) block += "\n\n" + formatChartFacts(partnerName ? `상대방(${partnerName})` : "상대방", pt);
   return block;
 }
 

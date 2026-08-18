@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       ? computeChart({ y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h })
       : undefined;
 
-    const factsBlock = buildFactsBlock(category, me, pt, order.n);
+    const factsBlock = buildFactsBlock(category, me, pt, order.n, order.pn);
     const systemPrompt = buildSystemPrompt(category);
     const userPrompt = buildQuestionPrompt({
       category,

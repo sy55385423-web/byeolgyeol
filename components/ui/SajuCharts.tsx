@@ -1,6 +1,6 @@
 /** 사주 만세력 · 자미두수 명반 · 서양 점성술 3표 — 계산은 lib/saju.ts 엔진 사용 */
 
-import { computeChart, hourBranchFromLabel, ELEMENTS } from "@/lib/saju";
+import { computeChart, hourBranchFromLabel, ELEMENTS, ELEMENT_COLOR, STEM_ELEMENT, BRANCH_ELEMENT } from "@/lib/saju";
 
 export type BirthInput = {
   y: number;
@@ -36,17 +36,44 @@ export default function SajuCharts({ me, name }: { me: BirthInput; name?: string
         <div className="rounded-2xl border border-line bg-white p-4">
           <p className="text-[11px] font-semibold tracking-wider text-ink-faint">사주명리 · 만세력</p>
           <div className="mt-3 grid grid-cols-4 gap-1.5">
-            {cols.map(({ label, p }) => (
-              <div key={label} className="rounded-lg bg-paper-warm/70 py-2.5 text-center">
-                <p className="text-[10px] text-ink-faint">{label}</p>
-                <p className="mt-1 font-serif text-lg font-semibold leading-none">
-                  {p ? p.hanja : "—"}
-                </p>
-                <p className="mt-1 text-[10px] text-ink-soft">{p ? p.ko : "미상"}</p>
-              </div>
+            {cols.map(({ label, p }) => {
+              const stemColor = p ? ELEMENT_COLOR[STEM_ELEMENT[p.stem] as 0 | 1 | 2 | 3 | 4] : null;
+              const branchColor = p ? ELEMENT_COLOR[BRANCH_ELEMENT[p.branch] as 0 | 1 | 2 | 3 | 4] : null;
+              return (
+                <div key={label} className="rounded-lg bg-paper-warm/70 py-2.5 text-center">
+                  <p className="text-[10px] text-ink-faint">{label}</p>
+                  {p && stemColor && branchColor ? (
+                    <div className="mt-1.5 flex flex-col items-center gap-1">
+                      <span
+                        className="flex h-8 w-8 items-center justify-center rounded-lg font-serif text-lg font-bold"
+                        style={{ background: stemColor.bg, color: stemColor.text }}
+                      >
+                        {p.hanja[0]}
+                      </span>
+                      <span
+                        className="flex h-8 w-8 items-center justify-center rounded-lg font-serif text-lg font-bold"
+                        style={{ background: branchColor.bg, color: branchColor.text }}
+                      >
+                        {p.hanja[1]}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="mt-1 font-serif text-lg font-semibold leading-none text-ink-faint">—</p>
+                  )}
+                  <p className="mt-1.5 text-[10px] text-ink-soft">{p ? p.ko : "미상"}</p>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+            {(["목", "화", "토", "금", "수"] as const).map((w, i) => (
+              <span key={w} className="flex items-center gap-1 text-[9.5px] text-ink-faint">
+                <span className="h-2 w-2 rounded-full" style={{ background: ELEMENT_COLOR[i as 0 | 1 | 2 | 3 | 4].text }} />
+                {w}
+              </span>
             ))}
           </div>
-          <p className="mt-2.5 text-[10.5px] text-ink-faint">
+          <p className="mt-2 text-[10.5px] text-ink-faint">
             {pillars.hour
               ? `일간 ${ELEMENTS[chart.dayMaster]}(${pillars.day.ko[0]}) · ${ELEMENTS[chart.dominant]} 기운이 강한 명식`
               : "태어난 시간 입력 시 시주까지 정밀해져요"}

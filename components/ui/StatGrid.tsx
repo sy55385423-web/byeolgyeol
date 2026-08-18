@@ -6,13 +6,16 @@ import type { PreviewStat } from "@/data/categories";
 export default function StatGrid({
   stats,
   name,
+  partnerName,
   compact = false,
 }: {
   stats: PreviewStat[];
   name?: string;
+  partnerName?: string;
   compact?: boolean;
 }) {
   const who = name ? `${name}님의 ` : "";
+  const pWho = partnerName ? `${partnerName}님의 ` : "상대방의 ";
   return (
     <div className={`grid gap-3 ${compact ? "grid-cols-2" : "sm:grid-cols-2"}`}>
       {stats.map((s) => {
@@ -59,7 +62,7 @@ export default function StatGrid({
                 revealed ? "text-paper/60" : "text-ink-soft"
               }`}
             >
-              {who}
+              {s.subject === "shared" ? "" : s.subject === "partner" ? pWho : who}
               {s.prefix.replace(/\s+$/, "")}
             </p>
 

@@ -10,6 +10,7 @@ export type Order = {
   n?: string;             // 이름/애칭
   me: OrderPerson;
   pt?: OrderPerson;       // 궁합·재회 상대방
+  pn?: string;            // 상대방 이름/애칭
   q?: string;             // 추가 질문 (deep, 1개 무료)
   t: "basic" | "unlimited";
 };

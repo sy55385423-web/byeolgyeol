@@ -53,6 +53,7 @@ function Body({ order, id }: { order: Order; id: string }) {
       name: order.n,
       me: { y: order.me.y, m: order.me.m, d: order.me.d, hourBranch: order.me.h },
       partner: order.pt ? { y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h } : undefined,
+      partnerName: order.pn,
       extraQuestion: order.q,
       tier: order.t,
     };
@@ -92,6 +93,7 @@ function Body({ order, id }: { order: Order; id: string }) {
       name: order.n,
       me: { y: order.me.y, m: order.me.m, d: order.me.d, hourBranch: order.me.h },
       partner: order.pt ? { y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h } : undefined,
+      partnerName: order.pn,
       tier: order.t,
     };
     return { me: myChart, pt: ptChart, c: category, input };
@@ -227,7 +229,7 @@ function Body({ order, id }: { order: Order; id: string }) {
                   knowsTime: order.pt.h !== undefined,
                   timeLabel: order.pt.h !== undefined ? `${BRANCHES[order.pt.h]}시` : undefined,
                 }}
-                name="그 사람"
+                name={order.pn || "그 사람"}
               />
             </div>
           )}

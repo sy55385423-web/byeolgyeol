@@ -10,6 +10,10 @@ export type PreviewStat = {
   suffix?: string;  // 값 뒤 단위·문장 마무리
   gauge?: number;   // 0~100, 게이지 다이어그램 표시용
   revealed?: boolean; // true면 블러 없이 실제 공개되는 항목 (카테고리당 1개 훅)
+  // 헤드라인 맨 앞에 누구 이름을 붙일지. 생략하면 기존처럼 "나"(who) — 상대방이 따로 있는
+  // 궁합·재회 카테고리에서만 "partner"(상대방 이름) 또는 "shared"(이름 없이 prefix 그대로)를 쓴다.
+  // 안 붙이면 "나의 바람기 지수" 같은 문항이 "{이름}님의 나의 바람기 지수는"처럼 겹쳐 나온다.
+  subject?: "me" | "partner" | "shared";
 };
 
 export type Category = {
@@ -150,42 +154,49 @@ export const categories: Category[] = [
         prefix: "두 사람은 ",
         value: "물과 불",
         suffix: "의 조합이에요",
+        subject: "shared",
       },
       {
         label: "서로에 대한 호감도 비교",
         prefix: "호감은 상대 쪽이 ",
         value: "12",
         suffix: "%p 더 커요",
+        subject: "shared",
       },
       {
         label: "지금 연인이 최선의 선택인지",
         prefix: "지금 인연은 ",
         value: "최선에 가까운",
         suffix: " 선택이에요",
+        subject: "shared",
       },
       {
         label: "나의 바람기 지수",
-        prefix: "나의 바람기 지수는 ",
+        prefix: "바람기 지수는 ",
         value: "낮음",
         suffix: " 단계예요",
+        subject: "me",
       },
       {
         label: "상대방의 바람기 지수",
-        prefix: "상대방의 바람기 지수는 ",
+        prefix: "바람기 지수는 ",
         value: "중간",
         suffix: " 단계예요",
+        subject: "partner",
       },
       {
         label: "서로에게 주는 영향",
         prefix: "상대는 나에게 ",
         value: "안정",
         suffix: "을 주는 사람이에요",
+        subject: "shared",
       },
       {
         label: "얼마나 오래 만날지",
         prefix: "관계 지속력은 ",
         value: "6년",
         suffix: " 이상으로 보여요",
+        subject: "shared",
       },
       {
         label: "결혼 가능성",
@@ -193,12 +204,14 @@ export const categories: Category[] = [
         value: "74",
         suffix: "%예요",
         gauge: 74,
+        subject: "shared",
       },
       {
         label: "결혼 시 주의점",
         prefix: "결혼 전 ",
         value: "2026년 가을",
         suffix: "이 고비예요",
+        subject: "shared",
       },
       {
         label: "궁합 총점수",
@@ -207,6 +220,7 @@ export const categories: Category[] = [
         suffix: "점이에요",
         gauge: 82,
         revealed: true, // Flow에서 두 사람 생년월일 기반 값으로 대체됨
+        subject: "shared",
       },
     ],
   },
@@ -247,30 +261,35 @@ export const categories: Category[] = [
         prefix: "두 사람의 연애는 ",
         value: "7:3",
         suffix: "의 관계였어요",
+        subject: "shared",
       },
       {
         label: "궁합과 인연",
         prefix: "인연의 깊이는 ",
         value: "상위 18%",
         suffix: "예요",
+        subject: "shared",
       },
       {
         label: "상대방의 현재 마음",
-        prefix: "상대의 마음은 ",
+        prefix: "마음은 ",
         value: "미련 남음",
         suffix: " 상태예요",
+        subject: "partner",
       },
       {
         label: "상대방이 나를 기억하는 방식",
         prefix: "상대는 나를 ",
         value: "좋았던 계절",
         suffix: "로 기억해요",
+        subject: "shared",
       },
       {
         label: "헤어진 진짜 이유",
         prefix: "진짜 이유는 ",
         value: "타이밍",
         suffix: "이었어요",
+        subject: "shared",
       },
       {
         label: "재회 가능성",
@@ -279,30 +298,35 @@ export const categories: Category[] = [
         suffix: "%예요",
         gauge: 61,
         revealed: true, // Flow에서 두 사람 생년월일 기반 값으로 대체됨
+        subject: "shared",
       },
       {
         label: "연락 타이밍",
         prefix: "연락의 창은 ",
         value: "3주 뒤",
         suffix: "에 열려요",
+        subject: "shared",
       },
       {
         label: "재회 시기",
         prefix: "재회 시기는 ",
         value: "10월",
         suffix: " 전후로 보여요",
+        subject: "shared",
       },
       {
         label: "새로운 사람의 존재",
         prefix: "새로운 사람은 ",
         value: "아직 없음",
         suffix: "으로 보여요",
+        subject: "shared",
       },
       {
         label: "재회 후 관계",
         prefix: "재회 후는 ",
         value: "이전보다 단단",
         suffix: "해져요",
+        subject: "shared",
       },
     ],
   },

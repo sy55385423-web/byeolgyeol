@@ -14,10 +14,20 @@ export const BRANCHES = ["자", "축", "인", "묘", "진", "사", "오", "미",
 export const BRANCHES_HANJA = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
 
 // 천간/지지 → 오행 (0목 1화 2토 3금 4수)
-const STEM_ELEMENT = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4];
-const BRANCH_ELEMENT = [4, 2, 0, 0, 2, 1, 1, 2, 3, 3, 2, 4];
+export const STEM_ELEMENT = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4];
+export const BRANCH_ELEMENT = [4, 2, 0, 0, 2, 1, 1, 2, 3, 3, 2, 4];
 export const ELEMENTS = ["목", "화", "토", "금", "수"] as const;
 export type Element = 0 | 1 | 2 | 3 | 4;
+
+// 오행 색 — lib/persona.ts의 캐릭터 배지 색과 동일한 팔레트를 써서 앱 전체에서
+// "이 색 = 이 오행" 시각 언어가 어긋나지 않게 한다.
+export const ELEMENT_COLOR: Record<Element, { bg: string; text: string }> = {
+  0: { bg: "#e8f2e2", text: "#5c7a4a" },
+  1: { bg: "#fbe7de", text: "#c76a41" },
+  2: { bg: "#f3ead9", text: "#a97a2e" },
+  3: { bg: "#ececec", text: "#75767c" },
+  4: { bg: "#e2ebf6", text: "#4a6fa5" },
+};
 
 export type Pillar = { stem: number; branch: number; ko: string; hanja: string };
 

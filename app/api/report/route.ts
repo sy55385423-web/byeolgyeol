@@ -63,9 +63,10 @@ export async function POST(req: NextRequest) {
 
   const me = computeChart(input.me);
   const pt = input.partner ? computeChart(input.partner) : undefined;
-  const factsBlock = buildFactsBlock(category, me, pt, input.name);
+  const factsBlock = buildFactsBlock(category, me, pt, input.name, input.partnerName);
   const systemPrompt = buildSystemPrompt(category);
   const who = input.name ? `${input.name} 님` : "당신";
+  const pWho = input.partnerName ? `${input.partnerName} 님` : "상대방";
 
   // 사주엔진으로 모든 질문의 핵심 값을 사전 계산 — LLM에 강제 주입해 일관성 보장
   const ctx: Ctx = { me, pt, c: category, input };
@@ -79,7 +80,11 @@ export async function POST(req: NextRequest) {
   const adviceTokens = category.tier === "deep" ? 2600 : 2000;
 
   const headlineOf = (q: string, v: string, stat?: PreviewStat) =>
-    stat ? `${who}의 ${stat.prefix}${v}${stat.suffix ?? ""}` : `${q} — ${v}`;
+    !stat
+      ? `${q} — ${v}`
+      : stat.subject === "shared"
+        ? `${stat.prefix}${v}${stat.suffix ?? ""}`
+        : `${stat.subject === "partner" ? pWho : who}의 ${stat.prefix}${v}${stat.suffix ?? ""}`;
 
   try {
     // 문항마다 개별 호출 — 모델이 한 번에 한 주제에만 집중하게 해서 문항당 분량을 보장한다.
