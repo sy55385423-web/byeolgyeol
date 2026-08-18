@@ -323,6 +323,12 @@ function rephrase(base: string, g: ReturnType<typeof grounding>, seed: number, o
   return `${head}${base} ${pick(lens, seed)}`;
 }
 
+/** 주제가 뚜렷해 자체 본문만으로 답이 되는 문항 — 범용 성격 문단을 붙이면
+ *  "바람기 얘기에 왜 업무 조언이 나오지" 같은 어긋남이 생긴다. */
+function topicOnly(q: string): boolean {
+  return /지수|시기|가능성|총점|타이밍|얼마나|주의점|존재/.test(q);
+}
+
 /** 모든 문항 끝에 공통으로 붙는 "다른 각도" 문단들 — 일간·명궁·태양궁·달궁·오행을 매번 다른 조합으로
  *  엮어 분량과 조합적 근거를 함께 늘린다. seed로 골라 같은 사람이라도 문항마다 다른 조합이 나온다.
  *  count개의 서로 겹치지 않는 인덱스를 뽑아 반환한다. exclude로 이전 호출에서 이미 쓴 인덱스를
@@ -393,7 +399,9 @@ function extraGrounds(
     `${S}시간이 지나도 크게 안 변합니다. 몇 년 만에 만난 사람에게 "너 예전이랑 똑같다"는 말을 듣는 쪽이고, 스스로도 크게 달라졌다고 느낀 적이 별로 없을 겁니다. 좋게 보면 흔들리지 않는 일관성인데, 상황이 완전히 바뀐 자리에서까지 같은 방식을 고집하다 손해를 볼 때가 있습니다.`,
     `${S}반응이 한 박자 늦습니다. 감정이 올라오는 속도와 그걸 말로 꺼내는 속도가 달라서, 그 자리에서는 아무 말 못 하다가 나중에야 할 말이 정리됩니다. 즉석에서 받아치는 사람 앞에서 유독 약하고, "그때 이렇게 말할걸" 하며 혼자 복기합니다. 무심한 게 아니라 처리에 시간이 걸리는 겁니다.`,
     `${S}잘 맞는 상대와 안 맞는 상대의 차이가 극단적입니다. ${dom}. 반대로 ${lack}. 그래서 맞는 사람과는 애쓰지 않아도 편한데, 안 맞는 사람과는 아무리 노력해도 계속 어긋납니다. 사람마다 이 사람에 대한 평가가 갈리는 이유이기도 합니다.`,
-    `${S}그 자리에선 웃어넘기고 혼자 있을 때 다시 꺼내 봅니다. 씻다가 혹은 자기 직전에 그 장면이 재생되고, 이미 끝난 대화를 머릿속에서 몇 번씩 고쳐 씁니다. 정작 상대는 그 일을 기억조차 못 하는 경우가 많습니다. 혼자 정리할 시간이 없으면 겉으로 멀쩡해 보여도 안에서 계속 쌓입니다.`,
+    g.sunMoonAligned
+      ? `${S}평소엔 감정이 얼굴에 다 드러나는데, 정작 큰 문제 앞에서는 오히려 웃어넘깁니다. 작은 일은 다 티가 나면서 정말 중요한 순간에만 삼키니, 상대는 아무 일 없는 줄 압니다. 그러고는 혼자 있을 때 그 장면을 몇 번씩 다시 꺼내 봅니다. 평소 표정을 믿고 안심하던 상대가 뒤늦게 놀라는 지점이 바로 여기입니다.`
+      : `${S}그 자리에선 웃어넘기고 혼자 있을 때 다시 꺼내 봅니다. 씻다가 혹은 자기 직전에 그 장면이 재생되고, 이미 끝난 대화를 머릿속에서 몇 번씩 고쳐 씁니다. 정작 상대는 그 일을 기억조차 못 하는 경우가 많습니다. 혼자 정리할 시간이 없으면 겉으로 멀쩡해 보여도 안에서 계속 쌓입니다.`,
     `${S}평소 통하던 방식이 유독 안 통하는 상대가 있습니다. 다른 사람에게는 다 먹히던 태도를 그대로 가져갔다가 "왜 이번엔 안 되지" 싶어지는데, 대개 더 세게 밀어붙이는 쪽으로 대응해서 상황을 키웁니다. 방식이 틀린 게 아니라 그 상대가 예외인 겁니다.`,
     `${S}속도가 남들과 다릅니다. 확실히 빠르거나 확실히 느리지 애매한 중간이 없어서, 주변에서 "왜 그렇게 서둘러" 아니면 "왜 아직도 안 정했어" 둘 중 하나는 자주 듣습니다. 본인은 그게 왜 문제인지 잘 이해가 안 됩니다. 남의 속도에 억지로 맞추려 할 때 결과가 가장 나쁩니다.`,
     `${S}일이 커지는 순간 사람이 달라집니다. 평소엔 있는 듯 없는 듯하다가 상황이 터지면 앞에 나서서 정리하고, 그때 판단이 의외로 정확합니다. 조용한 사람으로 알던 주변이 그 장면에서 한 번씩 놀랍니다. 다만 평온할 때는 존재감이 잘 안 드러나서 저평가받기 쉽습니다.`,
@@ -734,7 +742,7 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
   })();
   {
     const qt = qTopic(q, "연애");
-    const first = extraGrounds(g, me.seed + strHash(q), "", qi === 0 ? 6 : 1, [], ledger);
+    const first = extraGrounds(g, me.seed + strHash(q), "", qi === 0 ? 6 : topicOnly(q) ? 0 : 1, [], ledger);
     const [a1, a2, a3, a4] = first.texts;
     const qt2 = qt.endsWith("순간") ? `${qt}${ga(qt)} 반복되는 실제 상황` : `${qt}의 실제 순간`;
     const [a5, a6] = qi === 0 ? extraGrounds(g, me.seed + strHash(q) * 7 + 41, "", 2, first.indices, ledger).texts : [];
@@ -752,7 +760,7 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
 
 /* ───────────────────── 연애 궁합 총론 ───────────────────── */
 
-function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: string, v: string, ledger?: Set<number>, qi: number = 0): Para[] {
+function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: string, v: string, ledger?: Set<number>, qi: number = 0, ledgerP?: Set<number>): Para[] {
   const em = EL[me.dayMaster], ep = EL[pt.dayMaster];
   const gm = grounding(me), gp = grounding(pt);
   const rel = relation(me.dayMaster, pt.dayMaster);
@@ -898,11 +906,11 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
     const onlyP = /^(상대방|상대가)/.test(q);
     const mine = onlyP
       ? { texts: [] as string[], indices: [] as number[] }
-      : extraGrounds(gm, me.seed + pt.seed + strHash(q), meWord, qi === 0 ? 6 : onlyMe ? 2 : 1, [], ledger);
+      : extraGrounds(gm, me.seed + pt.seed + strHash(q), meWord, qi === 0 ? 6 : topicOnly(q) ? 0 : onlyMe ? 2 : 1, [], ledger);
     const [a1, a2, a3, a4, a5, a6, a7] = mine.texts;
     const theirs = onlyMe
       ? []
-      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, pWord, qi === 0 ? 4 : onlyP ? 2 : 1, mine.indices, ledger).texts;
+      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, pWord, qi === 0 ? 4 : topicOnly(q) ? 0 : onlyP ? 2 : 1, [], ledgerP).texts;
     const [b1, b2, b3, b4, b5, b6, b7] = theirs;
     const labels = ["다른 각도로 보면", "한 가지 더", "덧붙이면", "이어서", "계속하면", "조금 더 보면", "마지막으로"];
     if (onlyP) {
@@ -920,7 +928,7 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
 
 /* ───────────────────── 재회운 총론 ───────────────────── */
 
-function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: string, v: string, ledger?: Set<number>, qi: number = 0): Para[] {
+function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: string, v: string, ledger?: Set<number>, qi: number = 0, ledgerP?: Set<number>): Para[] {
   const rel = relation(me.dayMaster, pt.dayMaster);
   const ep = EL[pt.dayMaster];
   const gm = grounding(me), gp = grounding(pt);
@@ -1044,11 +1052,11 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
     const onlyP = /^(상대방|상대가)/.test(q);
     const mine = onlyP
       ? { texts: [] as string[], indices: [] as number[] }
-      : extraGrounds(gm, me.seed + pt.seed + strHash(q), meWord, qi === 0 ? 6 : onlyMe ? 2 : 1, [], ledger);
+      : extraGrounds(gm, me.seed + pt.seed + strHash(q), meWord, qi === 0 ? 6 : topicOnly(q) ? 0 : onlyMe ? 2 : 1, [], ledger);
     const [a1, a2, a3, a4, a5, a6, a7] = mine.texts;
     const theirs = onlyMe
       ? []
-      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, pWord, qi === 0 ? 4 : onlyP ? 2 : 1, mine.indices, ledger).texts;
+      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, pWord, qi === 0 ? 4 : topicOnly(q) ? 0 : onlyP ? 2 : 1, [], ledgerP).texts;
     const [b1, b2, b3, b4, b5, b6, b7] = theirs;
     const labels = ["다른 각도로 보면", "한 가지 더", "덧붙이면", "이어서", "계속하면", "조금 더 보면", "마지막으로"];
     if (onlyP) {
@@ -1205,7 +1213,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
   }
   })();
   {
-    const [a1, a2, a3, a4] = extraGrounds(g, me.seed + strHash(q), "", qi === 0 ? 6 : 1, [], ledger, false).texts;
+    const [a1, a2, a3, a4] = extraGrounds(g, me.seed + strHash(q), "", qi === 0 ? 6 : topicOnly(q) ? 0 : 1, [], ledger, false).texts;
     paras.push(P("다른 각도로 보면", a1), P("한 가지 더", a2), P("덧붙이면", a3), P("이어서", a4));
   }
   return paras;
@@ -1662,6 +1670,7 @@ export function generateReport(input: ReportInput): Report | null {
   // 리포트 한 부 전체에서 "다른 각도" 앵글이 겹치지 않도록 쓰인 인덱스를 누적한다.
   // 문항별로만 중복을 막던 시절엔 궁합 14문항에서 같은 문단이 대여섯 번씩 반복됐다.
   const ledger = new Set<number>();
+  const ledgerP = new Set<number>();
 
   const sections: Section[] = category.questions.map((q, qi) => {
     const val = vals[q] ?? { v: "" };
@@ -1674,8 +1683,8 @@ export function generateReport(input: ReportInput): Report | null {
 
     let paragraphs: Para[];
     if (category.id === "love-life") paragraphs = loveLife(q, me, input.name ?? "", val.v, ledger, qi);
-    else if (category.id === "love-compatibility" && pt) paragraphs = compat(q, me, pt, input.name ?? "", input.partnerName ?? "", val.v, ledger, qi);
-    else if (category.id === "love-reunion" && pt) paragraphs = reunion(q, me, pt, input.name ?? "", input.partnerName ?? "", val.v, ledger, qi);
+    else if (category.id === "love-compatibility" && pt) paragraphs = compat(q, me, pt, input.name ?? "", input.partnerName ?? "", val.v, ledger, qi, ledgerP);
+    else if (category.id === "love-reunion" && pt) paragraphs = reunion(q, me, pt, input.name ?? "", input.partnerName ?? "", val.v, ledger, qi, ledgerP);
     else if (category.id === "life-overview") paragraphs = lifeOverview(q, me, input.name ?? "", val.v, ledger, qi);
     else paragraphs = light(category, q, me, val.v, ledger, qi);
 
