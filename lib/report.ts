@@ -323,15 +323,6 @@ function rephrase(base: string, g: ReturnType<typeof grounding>, seed: number, o
   return `${head}${base} ${pick(lens, seed)}`;
 }
 
-/** 궁합·재회의 공유 토픽("서로의 타고난 결")을 한 사람 몫으로 좁힌다.
- *  같은 문단이 누구 얘기인지 헷갈린다는 지적이 있어, 개인별 문단엔 이름을 박아 준다. */
-function scopeTopic(t: string, who: string): string {
-  if (t.startsWith("서로의 ")) return `${who}의 ${t.slice(4)}`;
-  if (t.startsWith("서로에게 ")) return `${who}${ga(who)} 주는 영향`;
-  if (t.startsWith("둘의 ") || t.startsWith("그때의 ")) return `${who} 쪽에서 본 ${t}`;
-  return `${who} 쪽 ${t}`;
-}
-
 /** 모든 문항 끝에 공통으로 붙는 "다른 각도" 문단들 — 일간·명궁·태양궁·달궁·오행을 매번 다른 조합으로
  *  엮어 분량과 조합적 근거를 함께 늘린다. seed로 골라 같은 사람이라도 문항마다 다른 조합이 나온다.
  *  count개의 서로 겹치지 않는 인덱스를 뽑아 반환한다. exclude로 이전 호출에서 이미 쓴 인덱스를
@@ -340,7 +331,7 @@ function scopeTopic(t: string, who: string): string {
 function extraGrounds(
   g: ReturnType<typeof grounding>,
   seed: number,
-  topic: string,
+  subject: string, // 문단의 주어 — 궁합/재회는 인물명, 단일 인물 리포트는 빈 문자열
   count: number = 4,
   exclude: number[] = [],
   ledger?: Set<number>,
@@ -391,44 +382,47 @@ function extraGrounds(
   const lackIdx = Math.max(0, ELEMENTS.indexOf(g.lackEl));
   const dom = DOM_LIFE[domIdx], lack = LACK_LIFE[lackIdx];
 
-  const mkAngles = (T: string) => [
-    `${T}에서는 말보다 표정이 먼저 답을 합니다. 속으로 판단은 이미 끝났는데 그게 얼굴에 먼저 뜨는 편이라, 정작 본인은 잘 숨겼다고 믿습니다. 별말 안 했는데 "무슨 일 있어?"라는 질문을 남들보다 자주 듣고, 좋을 때도 굳이 말 안 해도 티가 납니다. 표정을 관리해야 하는 자리에서는 차라리 말을 아끼는 쪽이 손해를 줄입니다.`,
-    `${T}에서 이 사람은 시간이 지나도 크게 안 변합니다. 몇 년 만에 만난 사람에게 "너 예전이랑 똑같다"는 말을 듣는 쪽이고, 스스로도 크게 달라졌다고 느낀 적이 별로 없을 겁니다. 좋게 보면 흔들리지 않는 일관성인데, 환경이 완전히 바뀐 자리에서까지 같은 방식을 고집하다 손해를 볼 때가 있습니다.`,
-    `${T}에서 반응이 한 박자 늦습니다. 감정이 올라오는 속도와 그걸 말로 꺼내는 속도가 달라서, 그 자리에서는 아무 말 못 하다가 집에 와서야 할 말이 정리됩니다. 즉석에서 받아치는 사람 앞에서 유독 약하고, 나중에 "그때 이렇게 말할걸" 하며 혼자 복기합니다. 무심한 게 아니라 처리에 시간이 걸리는 사람이라, 즉답을 요구받는 자리가 가장 불리합니다.`,
-    `${T}에서 잘되는 일과 안 되는 일의 격차가 큽니다. ${dom}. 반대로 ${lack}. ${love ? "고르게 잘 맞는 사람이 있는 게 아니라 맞는 쪽과 안 맞는 쪽이 뚜렷하게 갈립니다. 맞는 사람과는 애쓰지 않아도 편한데, 안 맞는 사람과는 아무리 노력해도 계속 어긋납니다" : "능력이 고르게 퍼진 게 아니라 한쪽만 뾰족해서, 맞는 일은 남들 야근할 때 먼저 끝내놓고 안 맞는 일은 붙잡고 밤을 새도 진도가 안 나갑니다"}. 그래서 사람마다 평가가 극단적으로 갈립니다.`,
-    `${T}에서는 그 자리에선 웃어넘기고 혼자 있을 때 다시 꺼내 봅니다. 씻다가 혹은 자기 직전에 그 장면이 재생되고, 이미 끝난 대화를 머릿속에서 몇 번씩 고쳐 씁니다. 정작 상대는 그 일을 기억조차 못 하는 경우가 많습니다. 혼자 정리할 시간이 확보되지 않으면 겉으로 멀쩡해 보여도 안에서 계속 쌓입니다.`,
-    `${T}에서만 평소 통하던 방식이 유독 안 먹힙니다. 다른 데서 다 되던 기준을 그대로 가져왔다가 "왜 이번엔 안 되지" 싶어지는데, 대개 더 세게 밀어붙이는 쪽으로 대응해서 상황을 키웁니다. 방식이 틀린 게 아니라 이 영역이 원래 예외입니다. 안 되는 걸 확인했으면 힘을 빼고 사람 손을 빌리는 편이 훨씬 빠릅니다.`,
-    `${T}에서 속도가 남들과 다릅니다. 확실히 빠르거나 확실히 느리지 애매한 중간이 없어서, 주변에서 "왜 그렇게 서둘러" 아니면 "왜 아직도 안 정했어" 둘 중 하나는 자주 듣습니다. 본인은 그게 왜 문제인지 잘 이해가 안 됩니다. 남의 속도에 억지로 맞추려 할 때 결과가 가장 나쁩니다.`,
-    `${T}에 변수가 터지는 순간 사람이 달라집니다. 평소엔 있는 듯 없는 듯하다가 일이 커지면 앞에 나서서 정리하고, 그때 판단이 의외로 정확합니다. 조용한 사람으로 알던 주변이 그 장면에서 한 번씩 놀랍니다. 다만 평온한 시기에는 존재감이 잘 안 드러나서, 사고가 없는 환경에서는 오히려 저평가받기 쉽습니다.`,
-    `${T}에서 발이 걸리는 지점이 늘 비슷합니다. "이 정도는 늘 하던 대로 하면 되지" 하고 넘어갔다가, 하필 약한 자리에서 막힙니다. ${lack}. 실수의 종류가 매번 비슷하다면 부주의가 아니라 구조입니다. 같은 자리에서 두 번 넘어졌다면 세 번째도 같은 자리일 확률이 높으니, 그 대목만 따로 확인 목록을 만들어 두는 게 실질적인 대비가 됩니다.`,
-    `${T}에서 결정을 내릴 때 결국 자기 감각을 따릅니다. 주변이 다 말려도 마지막엔 원래 생각대로 가고, 복기해 보면 그 선택이 맞았던 적이 많습니다. 그래서 이 습관은 잘 안 고쳐지고 사실 고칠 이유도 크지 않습니다. 다만 스스로도 확신이 없는 영역에서까지 같은 방식을 쓰면 그때는 크게 어긋납니다.`,
+  // T는 문단의 주어. 궁합/재회는 "서연님", 단일 인물 리포트는 빈 문자열이라 문장이 바로 시작한다.
+  // 예전엔 여기에 문항 주제를 넣어 "서연님 쪽 호감의 온도차에서~"로 시작했는데, 한국어 어법상
+  // 어색하고 문단마다 같은 키워드가 반복돼 기계가 조립한 글처럼 읽혔다.
+  const mkAngles = (T: string) => {
+    const S = T ? `${T}${neun(T)} ` : "";
+    return [
+    // 겉으로 드러나는 것과 말로 표현하는 것을 한 문단에서 같이 짚어, 다른 문단과 모순되지 않게 한다.
+    `${S}속마음이 얼굴에 먼저 뜹니다. 판단은 이미 끝났는데 표정이 그걸 앞질러서, 별말 안 했는데 "무슨 일 있어?"라는 질문을 남들보다 자주 듣습니다. 다만 표정으로 새어 나가는 것과 말로 꺼내는 건 다른 문제라, 정작 입으로 감정을 설명하는 데는 서툽니다. 상대는 뭔가 있다는 건 알겠는데 뭔지는 모르는 상태로 남습니다.`,
+    `${S}시간이 지나도 크게 안 변합니다. 몇 년 만에 만난 사람에게 "너 예전이랑 똑같다"는 말을 듣는 쪽이고, 스스로도 크게 달라졌다고 느낀 적이 별로 없을 겁니다. 좋게 보면 흔들리지 않는 일관성인데, 상황이 완전히 바뀐 자리에서까지 같은 방식을 고집하다 손해를 볼 때가 있습니다.`,
+    `${S}반응이 한 박자 늦습니다. 감정이 올라오는 속도와 그걸 말로 꺼내는 속도가 달라서, 그 자리에서는 아무 말 못 하다가 나중에야 할 말이 정리됩니다. 즉석에서 받아치는 사람 앞에서 유독 약하고, "그때 이렇게 말할걸" 하며 혼자 복기합니다. 무심한 게 아니라 처리에 시간이 걸리는 겁니다.`,
+    `${S}잘 맞는 상대와 안 맞는 상대의 차이가 극단적입니다. ${dom}. 반대로 ${lack}. 그래서 맞는 사람과는 애쓰지 않아도 편한데, 안 맞는 사람과는 아무리 노력해도 계속 어긋납니다. 사람마다 이 사람에 대한 평가가 갈리는 이유이기도 합니다.`,
+    `${S}그 자리에선 웃어넘기고 혼자 있을 때 다시 꺼내 봅니다. 씻다가 혹은 자기 직전에 그 장면이 재생되고, 이미 끝난 대화를 머릿속에서 몇 번씩 고쳐 씁니다. 정작 상대는 그 일을 기억조차 못 하는 경우가 많습니다. 혼자 정리할 시간이 없으면 겉으로 멀쩡해 보여도 안에서 계속 쌓입니다.`,
+    `${S}평소 통하던 방식이 유독 안 통하는 상대가 있습니다. 다른 사람에게는 다 먹히던 태도를 그대로 가져갔다가 "왜 이번엔 안 되지" 싶어지는데, 대개 더 세게 밀어붙이는 쪽으로 대응해서 상황을 키웁니다. 방식이 틀린 게 아니라 그 상대가 예외인 겁니다.`,
+    `${S}속도가 남들과 다릅니다. 확실히 빠르거나 확실히 느리지 애매한 중간이 없어서, 주변에서 "왜 그렇게 서둘러" 아니면 "왜 아직도 안 정했어" 둘 중 하나는 자주 듣습니다. 본인은 그게 왜 문제인지 잘 이해가 안 됩니다. 남의 속도에 억지로 맞추려 할 때 결과가 가장 나쁩니다.`,
+    `${S}일이 커지는 순간 사람이 달라집니다. 평소엔 있는 듯 없는 듯하다가 상황이 터지면 앞에 나서서 정리하고, 그때 판단이 의외로 정확합니다. 조용한 사람으로 알던 주변이 그 장면에서 한 번씩 놀랍니다. 다만 평온할 때는 존재감이 잘 안 드러나서 저평가받기 쉽습니다.`,
+    `${S}같은 자리에서 반복해서 걸립니다. "이 정도는 늘 하던 대로 하면 되지" 하고 넘어갔다가 매번 비슷한 지점에서 막히는데, 부주의가 아니라 원래 얇은 부분이라 그렇습니다. 두 번 넘어졌다면 세 번째도 같은 자리일 확률이 높으니, 그 대목만 따로 신경 써 두는 게 실질적인 대비가 됩니다.`,
+    `${S}결정을 내릴 때 결국 자기 감각을 따릅니다. 주변이 다 말려도 마지막엔 원래 생각대로 가고, 돌아보면 그 선택이 맞았던 적이 많습니다. 그래서 이 습관은 잘 안 고쳐지고 사실 고칠 이유도 크지 않습니다. 다만 스스로도 확신이 없는 영역에서까지 같은 방식을 쓰면 그때는 크게 어긋납니다.`,
     yang
-      ? `${T}에서 갈등이 생기면 그 자리에서 바로 표가 납니다. 말보다 목소리나 표정이 먼저 변하고, 뒤끝은 짧아서 본인은 금방 잊습니다. 문제는 그 순간의 인상이 상대에게는 오래 남는다는 점입니다. 본인이 "그거 벌써 다 풀린 얘기 아니야?"라고 할 때 상대는 아직 그 장면에 머물러 있습니다. 감정이 지나간 뒤에 한 번 짚어 주는 습관만 들여도 오해가 크게 줄어듭니다.`
-      : `${T}에서 갈등이 생겨도 그 자리에선 그냥 넘어갑니다. 불편해도 일단 삼키는 쪽을 택했다가, 한참 뒤에 "사실 그때 좀 그랬어"라고 꺼냅니다. 상대는 이미 잊은 일이라 그 타이밍에 더 당황합니다. 참은 쪽은 계속 쌓였고 모르는 쪽은 아무 일 없었으니 온도차가 클 수밖에 없습니다. 작게라도 그때그때 말해 두는 편이 결과적으로 관계를 덜 상하게 합니다.`,
-    `${T}에서 강점과 약점이 한 세트로 붙어 다닙니다. ${dom}. 그런데 그 강점을 세게 밀어붙일수록 약한 쪽에서 탈이 납니다. ${lack}. ${love ? "가장 좋았던 시기 직후에 오히려 크게 어긋났던 적이 있다면 그 구조입니다" : "성과가 가장 좋았던 시기 직후에 오히려 사고가 났던 적이 있다면 그 구조입니다"}. 잘될 때 속도를 늦추는 게 본능적으로 안 되는 사람이라, 미리 정해 둔 선에서 멈추는 장치가 필요합니다.`,
+      ? `${S}갈등이 생기면 그 자리에서 바로 표가 납니다. 말보다 목소리나 표정이 먼저 변하고, 뒤끝은 짧아서 본인은 금방 잊습니다. 문제는 그 순간의 인상이 상대에게는 오래 남는다는 점입니다. "그거 벌써 다 풀린 얘기 아니야?"라고 할 때 상대는 아직 그 장면에 머물러 있습니다.`
+      : `${S}불편해도 그 자리에선 삼킵니다. 표정에는 이미 드러나 있는데 입으로는 아무 말 안 하니, 상대는 뭔가 잘못됐다는 것만 알고 이유는 모릅니다. 그러다 한참 뒤에 "사실 그때 좀 그랬어"라고 꺼내면 상대는 이미 잊은 일이라 더 당황합니다. 작게라도 그때그때 말해 두는 편이 낫습니다.`,
+    `${S}가장 잘될 때 가장 위험합니다. 잘 풀리는 쪽으로 힘을 몰아넣다가 정작 약한 쪽을 방치해서, 좋았던 시기 직후에 오히려 크게 어긋난 적이 있을 겁니다. 잘될 때 속도를 늦추는 게 본능적으로 안 되는 사람이라, 미리 정해 둔 선에서 멈추는 장치가 필요합니다.`,
     yang
-      ? `${T}에서는 몸이 먼저 나가고 설명은 나중입니다. 설명할 시간에 처리하는 게 빠르다고 판단하는 쪽이라, 결과가 좋으면 시원하다는 소리를 듣지만 어긋나면 "왜 말도 없이 그랬어"가 됩니다. 판단력보다 말을 안 해서 손해를 보는 쪽이라, 결정 자체보다 미리 한마디 건네는 습관이 훨씬 큰 차이를 만듭니다.`
-      : `${T}에서는 머릿속 정리가 끝나야 움직입니다. 느린 게 아니라 확인이 끝나야 발이 떨어지는 건데, 밖에서는 "그래서 결론이 뭔데"로 보입니다. 실제로 한번 결정하면 번복이 거의 없는 편이라, 중간 상황을 미리 알려 주기만 해도 평가가 크게 달라집니다.`,
+      ? `${S}먼저 움직이고 설명은 나중입니다. 말할 시간에 하는 게 빠르다고 판단하는 쪽이라, 결과가 좋으면 시원하다는 소리를 듣지만 어긋나면 "왜 말도 없이 그랬어"가 됩니다. 판단력보다 말을 안 해서 손해를 보는 쪽이라, 미리 한마디 건네는 습관이 큰 차이를 만듭니다.`
+      : `${S}머릿속 정리가 끝나야 움직입니다. 느린 게 아니라 확인이 끝나야 발이 떨어지는 건데, 밖에서는 "그래서 어떻게 할 건데"로 보입니다. 한번 정하면 번복이 거의 없는 편이라, 생각 중이라는 것만 알려 줘도 평가가 달라집니다.`,
     g.sunMoonAligned
-      ? `${T}에서 표정이 곧 답입니다. 겉과 속의 온도가 거의 같아서 웃으면 진짜 좋은 거고 표정이 굳으면 진짜 불편한 겁니다. 상대 입장에서는 눈치 볼 필요가 없어 편한 사람인데, 본인 입장에서는 숨기고 싶을 때도 안 숨겨져 불리한 순간이 생깁니다. ${love ? "속마음을 아직 보이고 싶지 않은 단계에서는 따로 신경 써야 합니다" : "협상이나 면접처럼 속을 감춰야 하는 자리에서는 따로 준비가 필요합니다"}.`
-      : `${T}에서 표정과 속마음이 따로 갑니다. 웃고 있어도 속으로는 이미 결론을 낸 뒤인 경우가 있어서, 상대가 표정만 보고 안심했다가 나중에 놀라는 일이 반복됩니다. 본인은 배려로 한 행동인데 상대는 뒤통수로 받아들이는 셈입니다. 불편할 때 최소한의 신호라도 내보내는 편이 관계를 지킵니다.`,
-    `${T}에서 평소 모습과 중요한 순간의 선택이 다릅니다. 작은 일은 평소 성향대로 넘어가는데, 판이 커지면 전혀 다른 얼굴이 나옵니다. 주변에서 "네가 그런 결정을 할 줄 몰랐다"는 반응이 나오고, 본인도 나중에 돌아보면 왜 그때 그랬는지 설명이 잘 안 됩니다. 평소의 자신과 결정적일 때의 자신을 같은 기준으로 보면 안 되는 사람입니다.`,
-    missing
-      ? `${T}에서 남들은 그냥 하는 걸 이 사람은 의식적으로 해내야 합니다. ${lack}. 못 하는 게 아니라 애초에 안 갖고 태어난 영역이라, 같은 결과를 내도 훨씬 크게 지칩니다. 그래서 이 부분만큼은 노력으로 메우려 애쓰기보다 그 역할을 해 줄 사람이나 장치를 옆에 두는 편이 효율적입니다. 못하는 걸 인정하는 게 손해가 아니라 전략이 되는 드문 경우입니다.`
-      : `${T}에서 극단으로 치우치는 일이 드뭅니다. 어떤 상황이 와도 최소한의 대응은 되는 쪽이라 크게 무너지지 않는데, 대신 크게 튀지도 않습니다. 그래서 안정적이라는 평가와 무난하다는 평가를 동시에 받습니다. 뾰족한 구석이 적은 게 유일한 약점이라, 결정적인 순간에는 의식적으로 한쪽에 힘을 실어야 결과가 납니다.`,
-    `${T}에서 또래와 같은 상황인데 혼자 다르게 반응했던 기억이 있을 겁니다. 자라면서 만들어진 게 아니라 처음부터 그랬던 쪽이라 바꾸려 해도 잘 안 바뀝니다. 억지로 남들 속도에 맞추려 할 때 가장 크게 지치고, 반대로 이 온도가 그대로 통하는 자리에서는 애쓰지 않아도 성과가 납니다.`,
-    `${T}에서 자기 성격이라고 믿는 것 중 일부는 사실 자라온 환경에서 익은 습관입니다. 타고난 건 못 바꿔도 익힌 건 바꿀 수 있는데, 이 사람은 그 둘을 잘 구분하지 않습니다. "난 원래 이런 사람"이라며 접어둔 것 중에 사실은 그냥 익숙해진 것뿐인 게 섞여 있고, 그 구분을 하는 것만으로 선택지가 늘어납니다.`,
-    g.timeKnown
-      ? `${T}에서 '남에게 보이는 나'와 '실제의 나'가 다릅니다. 처음 본 사람과 오래 겪은 사람이 전혀 다른 평가를 내놓고, 주변 평가와 스스로의 인식도 자꾸 어긋납니다. 그건 착각이 아니라 실제로 두 겹인 사람이라서 그렇습니다. 첫인상으로 손해 보는 자리라면 시간을 벌어 겪게 하는 쪽이 유리합니다.`
-      : `${T}에서 첫인상과 오래 겪은 뒤의 평가가 갈립니다. 짧게 보는 사람일수록 이 사람을 잘못 읽어서, 한 번 보고 판단되는 자리가 상대적으로 불리합니다. 반대로 시간이 쌓이는 관계에서는 평가가 계속 올라갑니다. 급하게 인정받으려 애쓰기보다 겪을 시간을 확보하는 쪽이 결과가 좋습니다.`,
-    `${T}에서 편하다고 느끼는 사람의 유형이 꽤 일정합니다. 조건이 아무리 좋아도 결이 안 맞으면 끝내 편해지지 않고, 반대로 특별할 것 없어 보여도 이상하게 오래 가는 사람이 생깁니다. 사람을 조건으로 고를 때보다 같이 있을 때 몸이 편한지로 고를 때 결과가 좋았을 겁니다.`,
-    `${T}에서 상대에게 무엇을 먼저 기대하는지가 이미 정해져 있습니다. 매번 비슷한 유형에게 끌리거나 늘 비슷한 지점에서 어긋났다면 그건 취향 문제가 아니라 반복되는 패턴입니다. 패턴을 알아채기 전까지는 상대만 바뀌고 결말은 같은 일이 되풀이됩니다.`,
-    `${T}에서 고치려고 오래 애썼지만 끝내 안 바뀐 부분이 하나 있을 겁니다. 여러 각도로 봐도 같은 방향을 가리키는 성향이라 노력으로는 잘 안 깎입니다. 그러니 바꾸려 들기보다 이게 장점이 되는 자리를 고르는 편이 빠르고, 실제로 그 자리에서는 애쓰지 않아도 좋은 평가를 받습니다.`,
-    `${T}에서 "머리로 아는 이상형"과 "실제로 끌리는 사람"이 어긋납니다. 조건표를 아무리 잘 써놔도 실제 선택이 그 표를 벗어나는데, 스스로 "왜 자꾸 이런 사람한테 끌리지" 싶었다면 취향이 이상한 게 아닙니다. 머리로 세운 기준과 몸이 반응하는 기준이 애초에 다른 자리에서 나옵니다.`,
-    `${T}에서 힘이 빠지는 시점이 대체로 정해져 있습니다. ${lack}. 남들은 버티는 자리에서 먼저 지치는데, 체력이나 의지가 아니라 원래 얇게 타고난 부분이라 스스로를 탓해도 나아지지 않습니다. 그 구간만 일정을 느슨하게 잡거나 사람을 붙여 두면 결과가 확 달라집니다.`,
-    `${T}에서 혼자 다 해내려 할수록 손해를 봅니다. ${dom}. 그 힘은 확실한데, 안 되는 자리까지 스스로 메우려 들면 시간과 에너지가 배로 듭니다. 문제는 손을 빌리는 걸 부족함으로 여기는 경향이 있다는 점입니다. 잘하는 것에 집중하고 나머지를 넘겼을 때 결과가 가장 좋았을 텐데, 정작 그 경험을 잘 기억하지 못합니다.`,
-  ];
-  const angles = mkAngles(topic);
+      ? `${S}겉과 속의 온도가 거의 같습니다. 웃으면 진짜 좋은 거고 표정이 굳으면 진짜 불편한 겁니다. 상대 입장에서는 눈치 볼 필요가 없어 편한 사람인데, 본인 입장에서는 숨기고 싶을 때도 안 숨겨져 불리한 순간이 생깁니다.`
+      : `${S}겉으로 보이는 것과 속이 따로 갑니다. 웃고 있어도 속으로는 이미 결론을 낸 뒤인 경우가 있어서, 상대가 표정만 보고 안심했다가 나중에 놀라는 일이 반복됩니다. 본인은 배려로 한 행동인데 상대는 뒤통수로 받아들이는 셈입니다.`,
+    `${S}평소 모습과 중요한 순간의 선택이 다릅니다. 작은 일은 평소 성향대로 넘어가는데, 판이 커지면 전혀 다른 얼굴이 나옵니다. 주변에서 "네가 그런 결정을 할 줄 몰랐다"는 반응이 나오고, 본인도 나중에 돌아보면 왜 그때 그랬는지 설명이 잘 안 됩니다.`,
+    `${S}남들은 그냥 하는 걸 의식적으로 해내야 하는 영역이 있습니다. 못 하는 게 아니라 애초에 안 갖고 태어난 쪽이라 같은 결과를 내도 훨씬 크게 지칩니다. 그래서 이 부분만큼은 억지로 채우려 애쓰기보다 그 자리를 채워 줄 사람을 곁에 두는 편이 낫습니다.`,
+    `${S}또래와 같은 상황인데 혼자 다르게 반응했던 기억이 있을 겁니다. 자라면서 만들어진 게 아니라 처음부터 그랬던 쪽이라 바꾸려 해도 잘 안 바뀝니다. 억지로 남들 속도에 맞추려 할 때 가장 크게 지치고, 반대로 이 온도가 그대로 통하는 자리에서는 애쓰지 않아도 편합니다.`,
+    `${S}자기 성격이라고 믿는 것 중 일부는 사실 자라온 환경에서 익은 습관입니다. 타고난 건 못 바꿔도 익힌 건 바꿀 수 있는데, 이 사람은 그 둘을 잘 구분하지 않습니다. "난 원래 이런 사람"이라며 접어둔 것 중에 사실은 그냥 익숙해진 것뿐인 게 섞여 있습니다.`,
+    `${S}첫인상과 오래 겪은 뒤의 평가가 갈립니다. 짧게 보는 사람일수록 이 사람을 잘못 읽어서, 한 번 보고 판단되는 자리가 상대적으로 불리합니다. 반대로 시간이 쌓이는 관계에서는 평가가 계속 올라갑니다. 급하게 인정받으려 애쓰기보다 겪을 시간을 확보하는 쪽이 결과가 좋습니다.`,
+    `${S}편하다고 느끼는 사람의 유형이 꽤 일정합니다. 조건이 아무리 좋아도 결이 안 맞으면 끝내 편해지지 않고, 반대로 특별할 것 없어 보여도 이상하게 오래 가는 사람이 생깁니다. 사람을 조건으로 고를 때보다 같이 있을 때 마음이 편한지로 고를 때 결과가 좋았을 겁니다.`,
+    `${S}상대에게 무엇을 먼저 기대하는지가 이미 정해져 있습니다. 매번 비슷한 유형에게 끌리거나 늘 비슷한 지점에서 어긋났다면 그건 취향 문제가 아니라 반복되는 패턴입니다. 패턴을 알아채기 전까지는 상대만 바뀌고 결말은 같은 일이 되풀이됩니다.`,
+    `${S}고치려고 오래 애썼지만 끝내 안 바뀐 부분이 하나 있을 겁니다. 여러 각도로 봐도 같은 방향을 가리키는 성향이라 노력으로는 잘 안 깎입니다. 그러니 바꾸려 들기보다 이게 장점이 되는 관계를 고르는 편이 빠르고, 그런 상대 앞에서는 애쓰지 않아도 좋게 보입니다.`,
+    `${S}"머리로 아는 이상형"과 "실제로 끌리는 사람"이 어긋납니다. 조건표를 아무리 잘 써놔도 실제 선택이 그 표를 벗어나는데, 스스로 "왜 자꾸 이런 사람한테 끌리지" 싶었다면 취향이 이상한 게 아닙니다. 머리로 세운 기준과 마음이 반응하는 기준이 애초에 다릅니다.`,
+    `${S}힘이 빠지는 시점이 대체로 정해져 있습니다. 남들은 버티는 자리에서 먼저 지치는데, 체력이나 의지가 아니라 원래 얇게 타고난 부분이라 스스로를 탓해도 나아지지 않습니다. 그 구간만 미리 알고 여유를 두면 결과가 확 달라집니다.`,
+    `${S}혼자 다 감당하려 할수록 손해를 봅니다. 잘하는 쪽으로 밀어붙이는 힘은 확실한데, 안 되는 자리까지 스스로 메우려 들면 시간과 마음이 배로 듭니다. 문제는 기대는 걸 부족함으로 여기는 경향이 있다는 점입니다. 잘하는 것에 집중하고 나머지를 넘겼을 때 결과가 가장 좋았을 텐데, 정작 그 경험을 잘 기억하지 못합니다.`,
+    ];
+  };
+  const angles = mkAngles(subject);
   // 리포트 전체에서 이미 쓴 앵글을 우선 피한다. 예전엔 문항 단위로만 중복을 막아서, 문항이
   // 10개 넘어가는 리포트(궁합 14문항 × 7문단 = 98회 추첨)에서 같은 문단이 대여섯 번씩 반복됐다.
   // 연애 전용 문단(상대에게 기대하는 것 / 이상형과 실제의 간극)은 커리어·재물·건강·평생 총론에
@@ -447,12 +441,6 @@ function extraGrounds(
     fresh = fresh.filter((i) => i !== idx);
     stale = stale.filter((i) => i !== idx);
   }
-  // 앵글을 전부 topic으로 시작하게 하니 이번엔 한 문항 안에서 같은 어구가 대여섯 번 반복됐다.
-  // 첫 문단만 토픽을 그대로 부르고, 이후 문단은 지시어로 받아 자연스럽게 이어지게 한다.
-  // 지시어가 토픽을 "대체"하면 문항이 달라도 문단이 똑같아진다(문항 간 중복 급증).
-  // 토픽은 항상 남겨 문항별 고유성을 지키고, 앞에 붙는 도입 어구만 슬롯마다 바꾼다.
-  // "이 대목, 그러니까 ~", "같은 자리인 ~", "지금 보는 ~" 같은 기계적 접속사를 문단마다 붙였더니
-  // 변수명만 바뀐 시스템 문구가 반복돼 글의 흐름을 끊었다. 문단 제목이 이미 연결 역할을 하므로 뺀다.
   return { texts: indices.map((i) => angles[i]), indices };
 }
 
@@ -621,7 +609,7 @@ function flow(c: Chart, salt: number, topic: string) {
 
 /* ───────────────────── 평생 연애 총론 ───────────────────── */
 
-function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<number>): Para[] {
+function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<number>, qi: number = 0): Para[] {
   const e = EL[me.dayMaster];
   const g = grounding(me);
   const who = name ? `${name}님은` : "당신은";
@@ -746,10 +734,10 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
   })();
   {
     const qt = qTopic(q, "연애");
-    const first = extraGrounds(g, me.seed + strHash(q), qt, 4, [], ledger);
+    const first = extraGrounds(g, me.seed + strHash(q), "", qi === 0 ? 6 : 1, [], ledger);
     const [a1, a2, a3, a4] = first.texts;
     const qt2 = qt.endsWith("순간") ? `${qt}${ga(qt)} 반복되는 실제 상황` : `${qt}의 실제 순간`;
-    const [a5, a6] = extraGrounds(g, me.seed + strHash(q) * 7 + 41, qt2, 2, first.indices, ledger).texts;
+    const [a5, a6] = qi === 0 ? extraGrounds(g, me.seed + strHash(q) * 7 + 41, "", 2, first.indices, ledger).texts : [];
     paras.push(
       P("다른 각도로 보면", a1),
       P("한 가지 더", a2),
@@ -764,7 +752,7 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
 
 /* ───────────────────── 연애 궁합 총론 ───────────────────── */
 
-function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: string, v: string, ledger?: Set<number>): Para[] {
+function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: string, v: string, ledger?: Set<number>, qi: number = 0): Para[] {
   const em = EL[me.dayMaster], ep = EL[pt.dayMaster];
   const gm = grounding(me), gp = grounding(pt);
   const rel = relation(me.dayMaster, pt.dayMaster);
@@ -910,11 +898,11 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
     const onlyP = /^(상대방|상대가)/.test(q);
     const mine = onlyP
       ? { texts: [] as string[], indices: [] as number[] }
-      : extraGrounds(gm, me.seed + pt.seed + strHash(q), scopeTopic(qt, meWord), onlyMe ? 7 : 4, [], ledger);
+      : extraGrounds(gm, me.seed + pt.seed + strHash(q), meWord, qi === 0 ? 6 : onlyMe ? 2 : 1, [], ledger);
     const [a1, a2, a3, a4, a5, a6, a7] = mine.texts;
     const theirs = onlyMe
       ? []
-      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, scopeTopic(qt, pWord), onlyP ? 7 : 3, mine.indices, ledger).texts;
+      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, pWord, qi === 0 ? 4 : onlyP ? 2 : 1, mine.indices, ledger).texts;
     const [b1, b2, b3, b4, b5, b6, b7] = theirs;
     const labels = ["다른 각도로 보면", "한 가지 더", "덧붙이면", "이어서", "계속하면", "조금 더 보면", "마지막으로"];
     if (onlyP) {
@@ -932,7 +920,7 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
 
 /* ───────────────────── 재회운 총론 ───────────────────── */
 
-function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: string, v: string, ledger?: Set<number>): Para[] {
+function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: string, v: string, ledger?: Set<number>, qi: number = 0): Para[] {
   const rel = relation(me.dayMaster, pt.dayMaster);
   const ep = EL[pt.dayMaster];
   const gm = grounding(me), gp = grounding(pt);
@@ -1056,11 +1044,11 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
     const onlyP = /^(상대방|상대가)/.test(q);
     const mine = onlyP
       ? { texts: [] as string[], indices: [] as number[] }
-      : extraGrounds(gm, me.seed + pt.seed + strHash(q), scopeTopic(qt, meWord), onlyMe ? 7 : 4, [], ledger);
+      : extraGrounds(gm, me.seed + pt.seed + strHash(q), meWord, qi === 0 ? 6 : onlyMe ? 2 : 1, [], ledger);
     const [a1, a2, a3, a4, a5, a6, a7] = mine.texts;
     const theirs = onlyMe
       ? []
-      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, scopeTopic(qt, pWord), onlyP ? 7 : 3, mine.indices, ledger).texts;
+      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, pWord, qi === 0 ? 4 : onlyP ? 2 : 1, mine.indices, ledger).texts;
     const [b1, b2, b3, b4, b5, b6, b7] = theirs;
     const labels = ["다른 각도로 보면", "한 가지 더", "덧붙이면", "이어서", "계속하면", "조금 더 보면", "마지막으로"];
     if (onlyP) {
@@ -1078,7 +1066,7 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
 
 /* ───────────────────── 평생 총론 ───────────────────── */
 
-function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Set<number>): Para[] {
+function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Set<number>, qi: number = 0): Para[] {
   const le = LIFE_EL[me.dayMaster];
   const whoBase = name ? `${name}님` : "당신";
   const who = `${whoBase}은`;
@@ -1217,7 +1205,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
   }
   })();
   {
-    const [a1, a2, a3, a4] = extraGrounds(g, me.seed + strHash(q), qTopic(q, "삶 전반"), 4, [], ledger, false).texts;
+    const [a1, a2, a3, a4] = extraGrounds(g, me.seed + strHash(q), "", qi === 0 ? 6 : 1, [], ledger, false).texts;
     paras.push(P("다른 각도로 보면", a1), P("한 가지 더", a2), P("덧붙이면", a3), P("이어서", a4));
   }
   return paras;
@@ -1225,7 +1213,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
 
 /* ───────────────────── 커리어/재물/건강 (컴팩트) ───────────────────── */
 
-function light(cat: Category, q: string, me: Chart, v: string, ledger?: Set<number>): Para[] {
+function light(cat: Category, q: string, me: Chart, v: string, ledger?: Set<number>, qi: number = 0): Para[] {
   const P = (label: string, text: string): Para => ({ label, text });
   const el = ELEMENTS[me.dominant];
   const lack = ELEMENTS[me.lacking];
@@ -1378,7 +1366,7 @@ function light(cat: Category, q: string, me: Chart, v: string, ledger?: Set<numb
   paras.push(P("명반 근거", ground));
   paras.push(P("타고난 결로 보면", persona));
   {
-    const [a1, a2] = extraGrounds(g, me.seed + strHash(q), qt, 2, [], ledger, false).texts;
+    const [a1, a2] = extraGrounds(g, me.seed + strHash(q), "", qi === 0 ? 4 : 1, [], ledger, false).texts;
     paras.push(P("다른 각도로 보면", a1), P("한 가지 더", a2));
   }
   return paras;
@@ -1675,7 +1663,7 @@ export function generateReport(input: ReportInput): Report | null {
   // 문항별로만 중복을 막던 시절엔 궁합 14문항에서 같은 문단이 대여섯 번씩 반복됐다.
   const ledger = new Set<number>();
 
-  const sections: Section[] = category.questions.map((q) => {
+  const sections: Section[] = category.questions.map((q, qi) => {
     const val = vals[q] ?? { v: "" };
     const stat = category.previewStats?.find((s) => s.label === q);
     const headline = !stat
@@ -1685,11 +1673,11 @@ export function generateReport(input: ReportInput): Report | null {
         : `${stat.subject === "partner" ? pWho : who}의 ${stat.prefix}${val.v}${stat.suffix ?? ""}`;
 
     let paragraphs: Para[];
-    if (category.id === "love-life") paragraphs = loveLife(q, me, input.name ?? "", val.v, ledger);
-    else if (category.id === "love-compatibility" && pt) paragraphs = compat(q, me, pt, input.name ?? "", input.partnerName ?? "", val.v, ledger);
-    else if (category.id === "love-reunion" && pt) paragraphs = reunion(q, me, pt, input.name ?? "", input.partnerName ?? "", val.v, ledger);
-    else if (category.id === "life-overview") paragraphs = lifeOverview(q, me, input.name ?? "", val.v, ledger);
-    else paragraphs = light(category, q, me, val.v, ledger);
+    if (category.id === "love-life") paragraphs = loveLife(q, me, input.name ?? "", val.v, ledger, qi);
+    else if (category.id === "love-compatibility" && pt) paragraphs = compat(q, me, pt, input.name ?? "", input.partnerName ?? "", val.v, ledger, qi);
+    else if (category.id === "love-reunion" && pt) paragraphs = reunion(q, me, pt, input.name ?? "", input.partnerName ?? "", val.v, ledger, qi);
+    else if (category.id === "life-overview") paragraphs = lifeOverview(q, me, input.name ?? "", val.v, ledger, qi);
+    else paragraphs = light(category, q, me, val.v, ledger, qi);
 
     return { question: q, headline, gauge: val.gauge, content: joinParas(paragraphs) };
   });
