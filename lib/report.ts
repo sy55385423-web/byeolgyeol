@@ -10,7 +10,7 @@
  *  ⚠️ 실LLM 연동 시 computeChart 결과를 구조화 입력으로 넘겨 이 톤의 시스템 프롬프트로 생성하는 구조로 교체 가능. */
 
 import { computeChart, popularityPct, ELEMENTS, type Chart, type Element } from "./saju";
-import { grounding, starMeaning } from "./grounding";
+import { grounding, starMeaning, starInDomain } from "./grounding";
 import { marriageAgeFromSeed } from "./top1";
 import { categories, type Category } from "@/data/categories";
 
@@ -1352,16 +1352,16 @@ function light(cat: Category, q: string, me: Chart, v: string, ledger?: Set<numb
   // 궁에 따라 뚜렷한 주성 없이 비어있는 "공궁"일 수 있다 — 그럴 땐 없는 별 이름을 지어내는 대신
   // 옆 궁들의 기운을 그대로 받아들이는 자리라는, 공궁 자체의 실제 의미로 문장을 만든다.
   const starPart = star
-    ? `${groundLabel}에 ${star}성이 자리해 ${starTrait(star)}.`
+    ? `${groundLabel}에 ${star}성이 자리합니다. ${starInDomain(star, cat.id === "career" ? "career" : cat.id === "wealth" ? "wealth" : "health")}.`
     : `${groundLabel}엔 이렇다 할 주성이 없는 자리라, 오히려 주변 궁들의 기운을 그대로 흡수해 상황 따라 색이 달라집니다.`;
   // 예전엔 명반 사실이 문장 앞에 오고 qt가 맨 뒤에 붙어서, 한 리포트의 모든 문항이 똑같은
   // 문장으로 시작하는 것처럼 보였다. qt를 앞으로 빼고 인용하는 명반 자리도 문항마다 가른다.
   const spread = g.elSpread.map((x) => `${x.el} ${x.n}자`).join(" · ");
   const ground = pick([
-    `'${qt}'${eul(qt)} 명반에서 짚으면 ${groundLabel}부터 봅니다. ${starPart} 여기에 일간 ${g.ilgan}의 기운이 얹힙니다. ${delove(g.ilganMech)}.`,
+    `'${qt}'${eul(qt)} 명반에서 짚을 때 먼저 볼 자리는 정해져 있습니다. ${starPart} 여기에 일간 ${g.ilgan}의 기운이 얹힙니다. ${delove(g.ilganMech)}.`,
     `'${qt}'의 근거는 오행 분포에 있습니다. 여덟 글자가 ${spread}로 갈려 ${el} 기운이 두껍고 ${lack} 기운이 얇은데, 이 편중이 ${topicWord} 전반의 기본값을 정합니다. ${starPart}`,
-    `'${qt}'${eul(qt)} 볼 때 가장 먼저 짚어야 할 건 일간입니다. ${g.ilgan}에 해당하고, ${delove(g.ilganMech)}. 여기에 ${groundLabel}의 상태가 겹칩니다. ${starPart}`,
-    `'${qt}'${neun(qt)} 태어난 달의 기운에서 출발합니다. 월지가 ${g.wolji}라 계절의 기운을 쥔 이 자리가 방향을 잡고, ${groundLabel}이 그걸 구체적인 결과로 바꿉니다. ${starPart}`,
+    `'${qt}'${eul(qt)} 볼 때 가장 먼저 짚어야 할 건 일간입니다. ${g.ilgan}에 해당하고, ${delove(g.ilganMech)}. 여기에 그 자리의 상태가 겹칩니다. ${starPart}`,
+    `'${qt}'${neun(qt)} 태어난 달의 기운에서 출발합니다. 월지가 ${g.wolji}${ira(g.wolji)} 계절의 기운을 쥔 이 자리가 큰 방향을 잡습니다. ${starPart}`,
     `'${qt}'에서 강점과 약점이 갈리는 지점은 분명합니다. ${el} 기운이 강하고 ${lack} 기운이 약한 구조라 ${topicWord}에서도 같은 편차가 나옵니다. ${starPart} 일간 ${g.ilgan}${ga(g.ilgan)} 그 위에 놓입니다.`,
   ], strHash(q));
   const persona = pick([
@@ -1635,7 +1635,7 @@ export function deterministicAdvice(ctx: Ctx): string {
   const star = g.gongStar(palace);
   const topicWord = category.id === "career" ? "커리어" : category.id === "wealth" ? "재물" : "건강";
   const starLine = star
-    ? `${palace}궁의 ${star}성(${starTrait(star)})이 ${topicWord} 전반의 결을 정합니다. 이 별의 기운을 거스르지 않는 선택이 대체로 더 오래, 더 무리 없이 갑니다.`
+    ? `${palace}궁의 ${star}성이 ${topicWord} 전반의 결을 정합니다. ${starInDomain(star, category.id === "career" ? "career" : category.id === "wealth" ? "wealth" : "health")}. 이 별의 기운을 거스르지 않는 선택이 대체로 더 오래, 더 무리 없이 갑니다.`
     : `${palace}궁엔 이렇다 할 주성이 없어, ${topicWord} 전반의 결은 오히려 주변 궁들의 기운에 따라 유연하게 달라집니다. 한 가지 색에 스스로를 가두지 않는 편이 대체로 더 오래, 더 무리 없이 갑니다.`;
   return [
     `${who}에게 필요한 조언은 ${el} 기운을 억누르지 말고 ${lack} 기운을 억지로 채우려 하지도 않는 것입니다. 강한 쪽으로 승부를 보고, 약한 쪽은 사람이나 시스템으로 보완하는 편이 훨씬 효율적입니다.`,
