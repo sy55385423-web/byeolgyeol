@@ -30,7 +30,7 @@ const STAR_LOVE: Record<string, { ming: string; bucho: string }> = {
   태양: { ming: "밝고 베푸는 별이라 표현이 시원한 대신 안으로 지칠 때가 있습니다", bucho: "활동적이고 사회성 좋은 상대를 뜻합니다. 밖으로 도는 사람이라 외로움을 느낄 수 있습니다" },
   무곡: { ming: "현실감과 결단의 별이라 감정 표현이 무뚝뚝해 오해를 삽니다", bucho: "표현은 서툴러도 책임감 강한 상대를 뜻합니다. 애정 표현이 적어 서운할 수 있습니다" },
   천동: { ming: "정 많고 느긋한 별이라 편안하지만 우유부단합니다", bucho: "다정하고 편안한 상대를 뜻하지만, 결정이 느려 답답할 수 있습니다" },
-  염정: { ming: "강렬한 끌림과 까다로움을 함께 주는 별이라, 감정 기복이 연애에 그대로 드러납니다", bucho: "끌림이 강한 상대를 뜻하지만, 밀당과 감정 굴곡이 잦습니다" },
+  염정: { ming: "강렬한 매력과 까다로움을 함께 주는 별이라, 감정 기복이 겉으로 그대로 드러납니다", bucho: "끌림이 강한 상대를 뜻하지만, 밀당과 감정 굴곡이 잦습니다" },
   천부: { ming: "포용과 안정의 별이라 무리하지 않고 관계를 지키는 편입니다", bucho: "안정적이고 살림을 잘 꾸리는 상대를 뜻합니다" },
   태음: { ming: "섬세한 감수성과 내향성의 별이라, 표현보다 분위기로 마음을 전합니다", bucho: "배려 깊고 섬세한 상대를 뜻하지만, 예민함이 갈등의 씨앗이 됩니다" },
   탐랑: { ming: "매력과 다재다능의 별이라 인기가 많은 만큼 유혹도 많습니다", bucho: "매력적이고 사교적인 상대를 뜻합니다. 주변 이성이 많아 신경 쓰입니다" },
@@ -104,7 +104,10 @@ export function grounding(c: Chart) {
     myungWhy: (STAR_LOVE[c.mingStar] ?? STAR_LOVE["자미"]).ming,
     myungBranch, // 명궁이 자리한 12지지 (자미두수 — 오행보다 세밀한 12분류)
     myungBranchTrait: branchTrait(myungBranch),
-    buchoStar: buchoGong.star,
+    // 부처궁도 명궁처럼 공궁(주성 없음)일 수 있다 — buchoWhy가 이미 천동으로 폴백하므로
+    // buchoStar도 같은 별로 폴백시켜, 화면에 빈 문자열이 찍히거나 별명과 성향 문구가
+    // 어긋나는(예: 별 이름은 비어 있는데 성향은 천동 것) 일이 없게 한다.
+    buchoStar: buchoGong.star || "천동",
     buchoWhy: (STAR_LOVE[buchoGong.star] ?? STAR_LOVE["천동"]).bucho,
     gongStar: (name: string) => gong(name).star,
     sun: c.sun,
