@@ -119,6 +119,7 @@ export function grounding(c: Chart) {
     ilju: c.pillars.day.ko, // 일주 60갑자 원문 (예: "갑인") — 일간10×일지12 중 실제 존재하는 60가지 조합
     iljuHanja: c.pillars.day.hanja,
     wolji,
+    woljiTrait: branchTrait(BRANCHES[c.pillars.month.branch]), // 월지의 결 — 용어만 설명하지 않고 의미를 말하기 위해
     myungStar: c.mingStar,
     myungWhy: (STAR_LOVE[c.mingStar] ?? STAR_LOVE["자미"]).ming,
     myungBranch, // 명궁이 자리한 12지지 (자미두수 — 오행보다 세밀한 12분류)
