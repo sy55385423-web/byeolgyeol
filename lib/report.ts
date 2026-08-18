@@ -349,7 +349,7 @@ function openerFor(g: ReturnType<typeof grounding>, seed: number): string {
     `${g.wolji}월의 기운을 타고난 만큼`, `일간 ${g.ilgan}의 성질대로`, `부처궁 ${g.buchoStar}성의 영향까지 더해져`,
     `${g.myungBranch} 자리에 명궁이 놓인 결로`, `${g.moon} 달궁의 감정 처리 방식까지 겹쳐`, `${g.ilju} 일주를 타고난 만큼`,
     `${g.domEl} 기운이 두꺼운 구조라`, `${g.lackEl} 기운이 얇은 만큼`, `${g.myungStar}성과 ${g.buchoStar}성이 함께 걸려`,
-    `${g.sun}과 ${g.moon}이 만드는 온도차 때문에`, `일간 ${g.ilgan}에 일지 ${g.ilji}가 붙은 구조라`,
+    `${g.sun}${wa(g.sun)} ${g.moon}${ga(g.moon)} 만드는 온도차 때문에`, `일간 ${g.ilgan}에 일지 ${g.ilji}가 붙은 구조라`,
     `${g.domEl}이 강하고 ${g.lackEl}이 약한 편차대로`, `명궁이 ${g.myungBranch}에 자리한 만큼`,
     `${g.myungStar}성의 기질이 앞서서`, `${g.wolji}월생 특유의 결이 남아`, `${g.ilju} 일주의 바탕 위에서`,
     `${g.moon} 달궁이 감정을 다루는 방식대로`,
