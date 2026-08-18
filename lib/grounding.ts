@@ -118,6 +118,20 @@ export function grounding(c: Chart) {
     ascLove: c.asc ? SIGN_LOVE[c.asc] ?? "" : null,
     domEl: ELEMENTS[c.dominant],
     lackEl: ELEMENTS[c.lacking],
+    // 오행 분포 원본 — "여덟 글자 중 토가 네 자"처럼 실제 수치를 인용해야 근거가 구체해진다.
+    // 지금까지는 domEl/lackEl(강·약 라벨)만 써서 어느 명반이든 같은 문장이 나왔다.
+    domCount: c.elementCount[c.dominant],
+    lackCount: c.elementCount[c.lacking],
+    totalChars: c.elementCount.reduce((a, b) => a + b, 0),
+    // 아예 없는 오행 — 있으면 "무(無)○" 구조라 해석의 결정적 단서가 된다.
+    missingEls: ELEMENTS.filter((_, i) => c.elementCount[i] === 0),
+    // 오행을 많은 순으로 정렬한 라벨 (예: "토 4 · 금 2 · 수 1")
+    elSpread: ELEMENTS.map((e, i) => ({ el: e, n: c.elementCount[i] }))
+      .filter((x) => x.n > 0)
+      .sort((a, b) => b.n - a.n),
+    yearPillar: c.pillars.year.ko,
+    monthPillar: c.pillars.month.ko,
+    timeKnown: c.timeKnown,
     // 태양-달 원소 일치 여부 (겉/속 온도차)
     sunMoonAligned: sunEl(c.sun) === sunEl(c.moon),
   };
