@@ -4,10 +4,18 @@ import CreatureIcon from "@/components/persona/CreatureIcon";
 
 export const runtime = "nodejs";
 
-const W = 1200;
-const H = 630;
+// 카카오톡 등에서 실제 결과 카드처럼 세로로 크게 보이도록 4:5 세로 비율로 만든다.
+const W = 1080;
+const H = 1350;
 const PAPER = "#FAF9F5";
 const GOLD = "#c9a45c";
+
+function firstSentences(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  const cut = text.slice(0, maxLen);
+  const lastDot = cut.lastIndexOf(". ");
+  return (lastDot > 40 ? cut.slice(0, lastDot + 1) : cut.trim()) + "…";
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -29,8 +37,8 @@ export async function GET(req: Request) {
             color: PAPER,
           }}
         >
-          <div style={{ display: "flex", fontSize: 72, fontWeight: 700 }}>별:결</div>
-          <div style={{ display: "flex", fontSize: 30, color: GOLD, marginTop: 16 }}>
+          <div style={{ display: "flex", fontSize: 64, fontWeight: 700 }}>별:결</div>
+          <div style={{ display: "flex", fontSize: 28, color: GOLD, marginTop: 16 }}>
             나는 어떤 결의 사람일까요
           </div>
         </div>
@@ -44,7 +52,7 @@ export async function GET(req: Request) {
   const who = decoded.n ? `${decoded.n}님은` : "당신은";
 
   // 실제 카드(PersonaCard)와 같은 구성 — 오행별 배경색·배지·이모지 대신 크리처 아이콘·이름·태그라인 —
-  // 을 그대로 미리보기 이미지로 써서 공유했을 때 링크 미리보기가 곧 카드처럼 보이게 한다.
+  // 을 세로로 쌓아서 링크 미리보기가 곧 결과 카드처럼 크게 보이게 한다.
   // next/og(Satori)는 SVG 안에서 커스텀 컴포넌트를 <Tag/> JSX로 쓰면 렌더링이 깨지므로
   // (CreatureIcon 내부에서 이미 순수 함수 호출 방식으로 정리해둠), 여기서도 함수 호출로 쓴다.
   return new ImageResponse(
@@ -54,6 +62,7 @@ export async function GET(req: Request) {
           width: "100%",
           height: "100%",
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
           background: type.badge.dark,
@@ -64,9 +73,6 @@ export async function GET(req: Request) {
         <div
           style={{
             display: "flex",
-            position: "absolute",
-            top: 56,
-            left: 72,
             fontSize: 26,
             letterSpacing: 6,
             color: GOLD,
@@ -76,34 +82,50 @@ export async function GET(req: Request) {
           MY 별:결
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 72 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 260,
-              height: 260,
-              borderRadius: "50%",
-              background: type.badge.bg,
-              border: `6px solid ${type.badge.ring}`,
-            }}
-          >
-            {CreatureIcon({ sign: type.sign, size: 210 })}
-          </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 360,
+            height: 360,
+            borderRadius: "50%",
+            background: type.badge.bg,
+            border: `7px solid ${type.badge.ring}`,
+            marginTop: 30,
+          }}
+        >
+          {CreatureIcon({ sign: type.sign, size: 290 })}
+        </div>
 
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-            <div style={{ display: "flex", fontSize: 28, color: "rgba(250,249,245,0.55)" }}>{who}</div>
-            <div style={{ display: "flex", fontSize: 68, fontWeight: 700, marginTop: 8 }}>{type.name}</div>
-            <div style={{ display: "flex", fontSize: 30, color: GOLD, marginTop: 14 }}>{type.tagline}</div>
-          </div>
+        <div style={{ display: "flex", fontSize: 28, color: "rgba(250,249,245,0.55)", marginTop: 30 }}>
+          {who}
+        </div>
+        <div style={{ display: "flex", fontSize: 62, fontWeight: 700, marginTop: 8 }}>{type.name}</div>
+        <div style={{ display: "flex", fontSize: 30, color: GOLD, marginTop: 14 }}>{type.tagline}</div>
+
+        <div
+          style={{
+            display: "flex",
+            marginTop: 30,
+            maxWidth: 780,
+            padding: "24px 30px",
+            borderRadius: 22,
+            background: "rgba(250,249,245,0.08)",
+            fontSize: 24,
+            lineHeight: 1.6,
+            textAlign: "center",
+            color: "rgba(250,249,245,0.75)",
+          }}
+        >
+          {firstSentences(type.description, 110)}
         </div>
 
         <div
           style={{
             display: "flex",
             position: "absolute",
-            bottom: 44,
+            bottom: 48,
             fontSize: 22,
             color: "rgba(250,249,245,0.4)",
           }}
