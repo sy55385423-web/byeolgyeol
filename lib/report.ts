@@ -894,9 +894,25 @@ function relation(a: Element, b: Element): "生나→상대" | "生상대→나"
 /** 시기 문단. 예전엔 템플릿이 3개뿐이라 리포트 안에서 같은 문장이 반복됐고, 넘겨받은
  *  topic(문항 주제)을 쓰지도 않아 어느 질문에 붙어도 똑같은 말이 나왔다. 이제 topic을
  *  문장에 박고, 좋은 달·주의할 달에 더해 "무엇이 달라지는지"까지 명반 값으로 갈라 쓴다. */
-function flow(c: Chart, salt: number, topic: string) {
-  const good = 1 + ((c.seed + salt * 5) % 12);
-  const risk = 1 + ((c.seed + 7 + salt * 3) % 12);
+/** 리포트 한 부 안에서 "잘 풀리는 시기"와 "조심할 시기"는 어느 문항에서든 같아야 한다.
+ *  예전엔 flow()가 호출부마다 다른 salt로 달을 계산해서, 같은 사람의 리포트인데 문항마다
+ *  다른 달이 나왔고 문항 답(values)과도 어긋났다. 영역별로 하나씩 고정하고, 커리어·재물은
+ *  values()가 답으로 쓰는 식을 그대로 써서 본문과 답이 어긋나지 않게 한다. */
+function seasonOf(seed: number, dom: Domain, seed2 = 0): { good: number; risk: number } {
+  switch (dom) {
+    case "career": return { good: 1 + (seed % 12), risk: 1 + ((seed + 6) % 12) };
+    case "wealth": return { good: 1 + ((seed + 9) % 12), risk: 1 + ((seed + 7) % 12) };
+    case "health": return { good: 1 + ((seed + 2) % 12), risk: 1 + ((seed + 5) % 12) };
+    // 재회는 두 사람 명반으로 계산한다. values()의 "재회 시기"와 같은 식을 써야
+    // 본문이 "재회의 창은 7월"이라 하고 답은 "10월"이라고 하는 모순이 안 생긴다.
+    case "reunion": return { good: 1 + ((seed + seed2 + 4) % 12), risk: 1 + ((seed + seed2 + 9) % 12) };
+    // 연애·궁합·평생총론은 values()의 "연애운이 가장 좋은 시기"/"주의할 점"과 같은 값
+    default: return { good: 1 + ((seed + 10) % 12), risk: 1 + ((seed + 3) % 12) };
+  }
+}
+
+function flow(c: Chart, salt: number, topic: string, dom: Domain = "love", seed2 = 0) {
+  const { good, risk } = seasonOf(c.seed, dom, seed2);
   const g = grounding(c);
   // 이 사람이 좋은 시기에 실제로 뭘 하게 되는지 — 강한 오행 기준으로 갈린다.
   const move = [
@@ -1106,15 +1122,6 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
       return [P("해석", e.charm)];
   }
   })();
-  {
-    const qt = qTopic(q, "연애");
-    // 본문의 대부분을 질문과 무관한 성격 문단으로 채우던 구조를 바꾼다. 명반 지표를 짚는
-    // 해석을 먼저 넣고(질문 + 명반 양쪽에 묶임), 범용 문단은 결을 채우는 정도로만 남긴다.
-    chartReading(g, q, qt, "love", 1, ledger, joinParas(paras), v).forEach((t, i) =>
-      paras.push(P(i === 0 ? "명반으로 보면" : "짚고 갈 자리", t)),
-    );
-
-  }
   return paras;
 }
 
@@ -1199,7 +1206,7 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
         P("결론", `지속력은 ${v} 정도로 읽힙니다. 다만 기간보다 중요한 건 고비를 넘기는 방식입니다.`),
         P("명반 근거", `${meWord} 부처궁 ${gm.buchoStar}성과 ${pWord} 부처궁 ${gp.buchoStar}성의 조합은 ${rel === "比" ? "비슷해서 오래 편한 대신 권태가 최대 고비입니다" : rel.startsWith("剋") ? "끌림은 강하지만 부딪힘이 잦아 회복 방식이 관건입니다" : `${followWord}이 받아주는 흐름이라 균형만 지키면 길게 갑니다`}.`),
         P("고비의 지점", `${rel === "比" ? "편함이 지루함으로 바뀌는 순간을 조심하세요." : "한쪽은 확인하려 다가가고 한쪽은 거리를 두려 해서, 좋아할수록 서로를 더 불안하게 만들 수 있습니다."}`),
-        P("흐름", flow(me, 4, "관계의 전환점")),
+        P("흐름", flow(me, 4, "관계의 전환점", "compat")),
       ];
     case "결혼 가능성":
       return [
@@ -1319,7 +1326,7 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
         P("결론", `다시 만날 가능성은 ${v}% 정도입니다. 연락이 올 가능성은 이보다 높지만, 연락과 재회는 다른 문제입니다.`),
         P("명반 근거", `두 사람의 부처궁(${gm.buchoStar}·${gp.buchoStar})이 다시 맞물리는 흐름이 ${+v.replace(/[^0-9]/g, "") >= 50 ? "약하게나마 보입니다" : "아직 뚜렷하지 않습니다"}. ${rel.startsWith("剋") ? "상극 관계라 재회해도 같은 갈등이 재현되기 쉬워, 문제 해결이 전제되어야 합니다." : "인연의 끈은 남아 있지만, 시기가 무르익어야 합니다."}`),
         P("냉정하게 보면", `${+v.replace(/[^0-9]/g, "") >= 50 ? "흐름은 나쁘지 않습니다. 다만 헤어진 이유가 해결된 상태여야 재회가 유지됩니다." : "지금 당장은 재회보다, 왜 멀어졌는지를 정리하는 게 먼저인 시기입니다. 서두르면 같은 결말이 반복됩니다."}`),
-        P("흐름", flow(me, 5, "재회의 창")),
+        P("흐름", flow(me, 5, "재회의 창", "reunion", pt.seed)),
       ];
     case "연락 타이밍":
       return [
@@ -1464,7 +1471,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
         P("점성술로 보면", `${g.sunLove} 본질이 이 시기에 가장 여과 없이 드러나는 편이라, 어릴 때의 성향을 떠올려보면 지금과 크게 다르지 않았을 겁니다. 그 시절 주변에서 들었던 평가가 지금도 은근히 이어지고 있을 확률이 높습니다.`),
         P("실제로는", `${openerFor(g, me.seed + strHash(q) + 28)} 이 시기의 선택을 지금 기준으로 후회할 필요는 없습니다. 그때는 최선의 판단이었고, 그 경험이 지금의 감각을 만든 재료입니다.`),
         P("이미 그때부터", `${essenceCore(le)} 결은 이 시기부터 이미 있었습니다. 어릴 때 주변 어른들이 "이 아이는 좀 다르다"고 느꼈던 지점이 있다면, 그게 바로 지금까지 이어지는 본질입니다.`),
-        P("흐름", flow(me, 11, "초년의 방향")),
+        P("흐름", flow(me, 11, "초년의 방향", "life")),
       ];
     case "나의 청년운":
       return [
@@ -1474,7 +1481,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
         P("실제로는", `이 시기의 성패를 지금 당장의 성과만으로 판단하지 마세요. ${g.domEl} 기운이 강한 만큼 초반의 굴곡은 나중에 방향을 다듬는 재료로 쓰일 확률이 높습니다. 남들과 속도를 비교하며 조급해지기 가장 쉬운 시기이기도 합니다.`),
         P("점성술로 보면", `${g.moonLove} 방식으로 감정이 움직이는 시기라, 이 무렵의 선택에는 논리보다 그때그때의 기분이 더 크게 작용했을 가능성이 있습니다.`),
         P("미리 알아두면", `${le.caution} 이 패턴이 가장 먼저 티가 나는 게 바로 이 시기입니다. 지금 알아채면, 중년 이후에는 같은 실수를 반복하지 않을 수 있습니다.`),
-        P("흐름", flow(me, 12, "청년기의 전환")),
+        P("흐름", flow(me, 12, "청년기의 전환", "life")),
       ];
     case "나의 중년운":
       return [
@@ -1484,7 +1491,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
         P("점성술로 보면", `${astro(strHash(q))} 본질과 첫인상의 차이가 있었더라도, 중년기에는 오래 겪은 사람들의 평가가 더 크게 작용해 그 간극이 자연스럽게 줄어듭니다.`),
         P("실제로는", `${openerFor(g, me.seed + strHash(q) + 28)} 이 시기부터는 혼자 쌓아온 것을 사람들과 나누는 방식으로 무게중심이 옮겨갑니다. 여태 벌여둔 것 중 가장 튼튼한 하나가 이 무렵 실제 성과로 드러납니다.`),
         P("전성기와의 관계", `${le.peak} 중년기는 그 전성기가 준비되는 구간이라고 보면 정확합니다. 지금 당장 눈에 띄지 않아도, 쌓이고 있다는 신호로 받아들이세요.`),
-        P("흐름", flow(me, 13, "중년의 전환점")),
+        P("흐름", flow(me, 13, "중년의 전환점", "life")),
       ];
     case "나의 말년운":
       return [
@@ -1494,7 +1501,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
         P("실제로는", `직접 뛰어드는 역할에서 지켜보고 물려주는 역할로 옮겨가는 걸 밀려나는 것으로 받아들이지 마세요. ${g.lackEl} 기운이 약했던 자리를 그동안 곁에 둔 사람들이 채워주는 시기이기도 합니다.`),
         P("점성술로 보면", `${g.sunLove} 본질이 이 시기에는 조급함 없이 편안하게 드러납니다. 젊을 때 어색했던 표현이 이 무렵에는 자연스럽게 몸에 배어 있을 겁니다.`),
         P("돌아보면", `${essenceCore(le)} 결이 평생 이어졌다는 걸 이 시기에 와서야 온전히 받아들이게 됩니다. 애써 다른 사람이 되려 하지 않았던 선택이 결국 옳았다는 걸 확인하는 시기이기도 합니다.`),
-        P("흐름", flow(me, 14, "말년의 결실")),
+        P("흐름", flow(me, 14, "말년의 결실", "life")),
       ];
     case "대운이 바뀌는 시기":
       return [
@@ -1512,7 +1519,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
         P("명반 근거", `${starGround(strHash(q))} 이 별의 기운이 가장 크게 열리는 시점이 전성기와 겹칩니다.`),
         P("주의할 패턴", rephrase(le.caution, g, me.seed + 8)),
         P("점성술로 보면", `${g.sunLove} 본질이 유독 강하게 튀어나오는 시기와 전성기가 겹치는 편이라, 평소보다 자기다움을 숨기지 않을 때 오히려 흐름이 잘 풀립니다.`),
-        P("흐름", flow(me, 15, "전성기 전후")),
+        P("흐름", flow(me, 15, "전성기 전후", "life")),
       ];
     case "나에게 맞는 지역과 환경":
       return [
@@ -1929,7 +1936,7 @@ export function deterministicAdvice(ctx: Ctx): string {
     return [
       `이 관계에서 ${who}에게 필요한 조언은 한 문장입니다. ${relAdvice}`,
       `당신의 부처궁 ${g.buchoStar}성(${g.buchoWhy})과 상대의 부처궁 ${gp.buchoStar}성(${gp.buchoWhy})을 겹쳐보면, 두 사람이 애정을 표현하는 방식 자체가 다릅니다. 다투는 대부분의 이유가 사실 애정이 없어서가 아니라 표현법이 어긋나서라는 뜻입니다.`,
-      `구체적으로는, 서운함을 느낀 순간 바로 말하지 말고 하루만 묵혀보세요. 그 하루 사이에 상대의 행동이 '무관심'이 아니라 '표현 방식의 차이'였다는 걸 알아채는 경우가 많습니다. ${flow(me, 22, "이 관계의 다음 국면")}`,
+      `구체적으로는, 서운함을 느낀 순간 바로 말하지 말고 하루만 묵혀보세요. 그 하루 사이에 상대의 행동이 '무관심'이 아니라 '표현 방식의 차이'였다는 걸 알아채는 경우가 많습니다. ${flow(me, 22, "이 관계의 다음 국면", "compat")}`,
       `결국 이 궁합의 강점은 ${rel.startsWith("生") ? "서로를 밀어 올리는 힘" : rel.startsWith("剋") ? "서로를 자극해 성장시키는 힘" : "함께 있을 때의 안정감"}입니다. 약점을 없애려 하기보다 강점을 더 자주 쓰는 쪽으로 관계를 끌고 가세요.`,
       `명궁 ${g.myungStar}성(${starTrait(g.myungStar)})과 상대 명궁 ${gp.myungStar}성(${starTrait(gp.myungStar)})을 나란히 두고 보면, 둘이 부딪히는 지점은 대개 정해져 있습니다. 그 지점을 매번 새로운 문제처럼 대하지 말고, 반복되는 패턴이라는 걸 서로 인정하는 것부터 시작하세요.`,
     ].join("\n\n");
@@ -1941,7 +1948,7 @@ export function deterministicAdvice(ctx: Ctx): string {
     return [
       `재회를 정말 원한다면, ${who}에게 필요한 건 연락 타이밍보다 먼저 스스로에게 던지는 질문입니다. 헤어진 진짜 이유가 아직 그대로인데 감정만 그리운 건 아닌지부터 확인하세요.`,
       `상대의 부처궁 ${gp.buchoStar}성(${gp.buchoWhy})으로 보면, 상대는 지금 마음을 완전히 정리하지 못한 채 애매한 지점에 머물러 있을 확률이 높습니다. 이 애매함을 조급하게 확인하려 들면 오히려 상대가 더 멀어집니다.`,
-      `구체적으로는, 먼저 연락하기 전에 최소 한 가지는 확실히 해두세요. 그때와 달라진 게 무엇인지 스스로 설명할 수 있어야 합니다. 설명이 안 된다면 아직 시기가 아닙니다. ${flow(me, 23, "재회의 다음 국면")}`,
+      `구체적으로는, 먼저 연락하기 전에 최소 한 가지는 확실히 해두세요. 그때와 달라진 게 무엇인지 스스로 설명할 수 있어야 합니다. 설명이 안 된다면 아직 시기가 아닙니다. ${flow(me, 23, "재회의 다음 국면", "reunion", pt?.seed ?? 0)}`,
       `${rel.startsWith("剋") ? "끌림은 여전해도 부딪히던 구조 자체는 그대로 남아 있습니다. 그 구조를 손보지 않은 재회는 같은 이유로 다시 끝날 확률이 높습니다." : "편안했던 관계인 만큼, 재회 자체보다 권태를 다시 어떻게 다룰지가 더 중요한 질문입니다."} 재회는 결승선이 아니라 다시 시작하는 출발선이라는 걸 기억하세요.`,
       `일간 ${g.ilgan}${wa(g.ilgan)} 상대의 일간 ${gp.ilgan}${neun(gp.ilgan)} 관계를 다시 한번 짚으면, 예전과 똑같은 방식으로 다가가는 순간 같은 자리에서 어긋날 확률이 높습니다. 그때는 몰랐던 상대의 결을 지금은 알고 있다는 것, 그게 재회를 시도할 유일한 명분입니다.`,
       `명궁 ${g.myungStar}성(${starTrait(g.myungStar)})과 상대 명궁 ${gp.myungStar}성(${starTrait(gp.myungStar)})을 나란히 보면, 두 사람이 각자 무엇 때문에 힘들었는지가 더 선명해집니다. 그 지점을 서로 말없이 넘어가려 하지 말고, 재회 전에 짧게라도 짚고 넘어가는 편이 두 번째 이별을 막습니다.`,
@@ -1952,7 +1959,7 @@ export function deterministicAdvice(ctx: Ctx): string {
     return [
       `${who}의 삶 전체를 관통하는 조언은 하나입니다. ${le.caution.replace(/^(다만 |)/, "")} 이 패턴이 반복되는 순간을 알아채는 것부터가 시작입니다.`,
       `일간 ${g.ilgan}${wa(g.ilgan)} 명궁 ${g.myungStar}성(${starTrait(g.myungStar)})을 함께 보면, ${who.replace("님","")}님의 삶은 ${le.growth} 지금 느리게 가는 것 같다고 조급해할 필요도, 빠르게 가는 것 같다고 자만할 필요도 없습니다.`,
-      `구체적으로는, ${le.peak} 이 흐름을 앞당기려 무리하기보다, 지금 단계에서 해야 할 것에 집중하는 편이 결과적으로 더 빠른 길입니다. ${flow(me, 24, "삶 전체의 흐름")}`,
+      `구체적으로는, ${le.peak} 이 흐름을 앞당기려 무리하기보다, 지금 단계에서 해야 할 것에 집중하는 편이 결과적으로 더 빠른 길입니다. ${flow(me, 24, "삶 전체의 흐름", "life")}`,
       `오행으로 약한 ${g.lackEl} 기운은 스스로 채우려 애쓰기보다, 그 기운을 가진 사람이나 환경을 곁에 두는 쪽이 훨씬 효율적입니다. 모든 걸 혼자 갖추려 하지 마세요. 그게 이 명반이 말하는 삶의 요령입니다.`,
       `${le.essence} 이 결을 부끄러워하거나 고치려 든 시간이 있었다면, 이제 그만해도 됩니다. 태양궁 ${g.sun}${wa(g.sun)} 달궁 ${g.moon}까지 같은 방향을 가리키는 걸 보면, 이건 우연히 만들어진 성격이 아니라 여러 체계가 겹쳐 확인한 결입니다.`,
       `${le.outerImage} 이 인상을 스스로도 받아들이는 순간부터, 애써 다른 사람처럼 보이려는 데 쓰던 에너지를 온전히 자기 몫으로 쓸 수 있게 됩니다. 결국 가장 오래가는 전략은 타고난 결을 거스르지 않는 것입니다.`,
@@ -1970,7 +1977,7 @@ export function deterministicAdvice(ctx: Ctx): string {
     : `${palace}궁엔 이렇다 할 주성이 없어, ${topicWord} 전반의 결은 오히려 주변 궁들의 기운에 따라 유연하게 달라집니다. 한 가지 색에 스스로를 가두지 않는 편이 대체로 더 오래, 더 무리 없이 갑니다.`;
   return [
     `${who}에게 필요한 조언은 ${el} 기운을 억누르지 말고 ${lack} 기운을 억지로 채우려 하지도 않는 것입니다. 강한 쪽으로 승부를 보고, 약한 쪽은 사람이나 시스템으로 보완하는 편이 훨씬 효율적입니다.`,
-    `${starLine} ${flow(me, 25, `${topicWord} 전반의 흐름`)}`,
+    `${starLine} ${flow(me, 25, `${topicWord} 전반의 흐름`, domainOf(category.id))}`,
   ].join("\n\n");
 }
 
