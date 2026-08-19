@@ -998,14 +998,6 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
   // 눌리는 쪽이 맞춘다 — 둘 다 "나→상대" 방향이면 나(meWord)가 이끄는 쪽. 比(대등)에서는 쓰지 않는다.
   const leadWord = rel === "生나→상대" || rel === "剋나→상대" ? meWord : pWord;
   const followWord = leadWord === meWord ? pWord : meWord;
-  // 상대 쪽 문단으로 넘어가는 전환 문구 — 문항마다 같은 문장이면 리포트가 기계처럼 읽힌다.
-  const pTurn = (seed: number) => pick([
-    "이번엔 반대편 명반입니다.",
-    "같은 자리를 반대쪽에서 보면 이렇습니다.",
-    "이제 상대 쪽 명반으로 넘어가 보겠습니다.",
-    "반대편은 결이 조금 다릅니다.",
-    "상대 쪽 근거도 나란히 짚어보겠습니다.",
-  ], seed);
   const P = (label: string, text: string): Para => ({ label, text });
 
   const relText: Record<string, string> = {
@@ -1144,7 +1136,7 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
       [b1, b2, b3, b4, b5, b6, b7].forEach((t, i) => { if (t) paras.push(P(labels[i], t)); });
     } else {
       [a1, a2, a3, a4, a5, a6, a7].forEach((t, i) => { if (t) paras.push(P(labels[i], t)); });
-      if (b1) paras.push(P("상대방 이야기로 넘어가면", `${pTurn(strHash(q))} ${b1}`));
+      if (b1) paras.push(P("상대방 이야기로 넘어가면", b1));
       if (b2) paras.push(P("계속하면", b2));
       if (b3) paras.push(P("마지막으로", b3));
     }
@@ -1163,14 +1155,6 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
   // compat()과 동일한 헬퍼 — 生 관계는 에너지를 주던 쪽이 lead, 剋 관계는 누르던 쪽이 lead.
   const leadWord = rel === "生나→상대" || rel === "剋나→상대" ? meWord : pWord;
   const followWord = leadWord === meWord ? pWord : meWord;
-  // 상대 쪽 문단으로 넘어가는 전환 문구 — 문항마다 같은 문장이면 리포트가 기계처럼 읽힌다.
-  const pTurn = (seed: number) => pick([
-    "이번엔 반대편 명반입니다.",
-    "같은 자리를 반대쪽에서 보면 이렇습니다.",
-    "이제 상대 쪽 명반으로 넘어가 보겠습니다.",
-    "반대편은 결이 조금 다릅니다.",
-    "상대 쪽 근거도 나란히 짚어보겠습니다.",
-  ], seed);
   const P = (label: string, text: string): Para => ({ label, text });
   const relName = rel.startsWith("生") ? "상생" : rel.startsWith("剋") ? "상극" : "비화";
 
@@ -1290,7 +1274,7 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
       [b1, b2, b3, b4, b5, b6, b7].forEach((t, i) => { if (t) paras.push(P(labels[i], t)); });
     } else {
       [a1, a2, a3, a4, a5, a6, a7].forEach((t, i) => { if (t) paras.push(P(labels[i], t)); });
-      if (b1) paras.push(P("상대방 이야기로 넘어가면", `${pTurn(strHash(q))} ${b1}`));
+      if (b1) paras.push(P("상대방 이야기로 넘어가면", b1));
       if (b2) paras.push(P("계속하면", b2));
       if (b3) paras.push(P("마지막으로", b3));
     }
