@@ -108,7 +108,30 @@ function toClockHour(hourBranch: number | undefined): number {
   return hourBranch === 0 ? 0 : hourBranch * 2;
 }
 
+/** 같은 생년월일시는 항상 같은 명반이 나오는 순수 계산인데, 실제로는 한 요청 안에서
+ *  여러 번 반복 호출된다 (API 라우트에서 한 번 → generateReport/values/radarStats에서 또,
+ *  화면 쪽은 Flow·ReportView·SajuCharts가 각자 렌더마다). 이 함수의 99%는 iztro의
+ *  만세력 계산(약 13ms)이라, 중복 호출이 그대로 응답 지연이 된다.
+ *  반환된 Chart는 앱 전체에서 읽기 전용으로만 쓰이므로(변형하는 코드 없음) 그대로 공유한다.
+ *  ⚠️ Chart를 수정하는 코드를 새로 추가하면 캐시가 오염된다 — 필요하면 복사해서 쓸 것. */
+const chartCache = new Map<string, Chart>();
+const CHART_CACHE_MAX = 500;
+
 export function computeChart(b: Birth): Chart {
+  const key = `${b.y}-${b.m}-${b.d}-${b.hourBranch ?? "x"}`;
+  const hit = chartCache.get(key);
+  if (hit) return hit;
+  const chart = computeChartUncached(b);
+  // 단순 상한 — 넘으면 가장 오래된 항목부터 버린다(Map은 삽입 순서를 유지한다).
+  if (chartCache.size >= CHART_CACHE_MAX) {
+    const oldest = chartCache.keys().next().value;
+    if (oldest !== undefined) chartCache.delete(oldest);
+  }
+  chartCache.set(key, chart);
+  return chart;
+}
+
+function computeChartUncached(b: Birth): Chart {
   const { y, m, d } = b;
   const timeKnown = b.hourBranch !== undefined;
   const gender = "男"; // 자미두수 대한 순역만 성별에 의존 — 이 리포트가 쓰는 명궁/12궁/사화엔 영향 없음
