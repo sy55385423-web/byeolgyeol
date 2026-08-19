@@ -646,7 +646,12 @@ function extraGrounds(
     `${S}${GAP}. 그래서 잘하는 쪽은 확실한데 안 되는 자리는 계속 안 되는 채로 남습니다. 잘하는 것에 집중하고 나머지를 넘겼을 때 결과가 가장 좋았을 텐데, 정작 그 경험을 잘 기억하지 못합니다.`,
     ];
   };
+  // 문단마다 "서연님은"을 붙이면 같은 주어가 서너 번 연달아 나와 어색하다.
+  // 한국어는 주어를 생략해도 이어지므로, 블록의 첫 문단에만 이름을 두고
+  // 이후 문단은 주어를 비우거나 짧은 지시어로 받는다.
   const angles = mkAngles(subject);
+  const anglesNoSubj = mkAngles("");
+  const softSubj = ["", "이 사람", "", "본인", ""];
   // 리포트 전체에서 이미 쓴 앵글을 우선 피한다. 예전엔 문항 단위로만 중복을 막아서, 문항이
   // 10개 넘어가는 리포트(궁합 14문항 × 7문단 = 98회 추첨)에서 같은 문단이 대여섯 번씩 반복됐다.
   // 연애 전용 문단(상대에게 기대하는 것 / 이상형과 실제의 간극)은 커리어·재물·건강·평생 총론에
@@ -665,7 +670,12 @@ function extraGrounds(
     fresh = fresh.filter((i) => i !== idx);
     stale = stale.filter((i) => i !== idx);
   }
-  return { texts: indices.map((i) => angles[i]), indices };
+  return {
+    texts: indices.map((i, k) =>
+      k === 0 ? angles[i] : (softSubj[k % softSubj.length] ? mkAngles(softSubj[k % softSubj.length])[i] : anglesNoSubj[i]),
+    ),
+    indices,
+  };
 }
 
 /* ───────────────────── 오행 인생 페르소나 (평생 총론 · 커리어 · 재물 · 건강 공용) ─────────────────────
@@ -1126,7 +1136,7 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
     const [a1, a2, a3, a4, a5, a6, a7] = mine.texts;
     const theirs = onlyMe
       ? []
-      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, pWord, qi === 0 ? 6 : topicOnly(q) ? 2 : onlyP ? 4 : 3, [], ledgerP).texts;
+      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, pWord, qi === 0 ? 6 : topicOnly(q) ? 2 : onlyP ? 4 : 3, mine.indices, ledgerP).texts;
     const [b1, b2, b3, b4, b5, b6, b7] = theirs;
     const labels = ["다른 각도로 보면", "한 가지 더", "덧붙이면", "이어서", "계속하면", "조금 더 보면", "마지막으로"];
     if (onlyP) {
@@ -1272,7 +1282,7 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
     const [a1, a2, a3, a4, a5, a6, a7] = mine.texts;
     const theirs = onlyMe
       ? []
-      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, pWord, qi === 0 ? 6 : topicOnly(q) ? 2 : onlyP ? 4 : 3, [], ledgerP).texts;
+      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, pWord, qi === 0 ? 6 : topicOnly(q) ? 2 : onlyP ? 4 : 3, mine.indices, ledgerP).texts;
     const [b1, b2, b3, b4, b5, b6, b7] = theirs;
     const labels = ["다른 각도로 보면", "한 가지 더", "덧붙이면", "이어서", "계속하면", "조금 더 보면", "마지막으로"];
     if (onlyP) {
