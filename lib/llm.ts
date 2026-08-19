@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { query } from "@anthropic-ai/claude-agent-sdk";
 
 /**
  * 우선순위:
@@ -7,7 +8,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
  * 2) GEMINI_API_KEY → Google Gemini (모델명은 아래 GEMINI_MODEL 참고)
  * 3) ANTHROPIC_API_KEY → Claude Sonnet (종량 과금)
  * 4) NVIDIA_API_KEY → NVIDIA NIM (build.nvidia.com) — ⚠️ 무료 티어는 상업적 이용 불가라 최후순위로만 둠
- * 키가 없으면 호출하지 않는다. 리포트 기본 생성은 로컬 결정론적 엔진이 맡는다.
+ * 5) 없으면 로컬 claude CLI OAuth 세션
  */
 
 // Bytez는 HuggingFace 모델 경로를 그대로 model ID로 씀. Qwen처럼 오픈소스 모델은
@@ -51,7 +52,7 @@ export async function generateCompletion(
   if (process.env.NVIDIA_API_KEY) {
     return generateWithNvidia(userPrompt, systemPrompt, maxTokens);
   }
-  throw new Error("호출 가능한 LLM API 키가 없습니다.");
+  return generateWithOAuth(userPrompt, systemPrompt);
 }
 
 async function generateWithBytez(
@@ -198,4 +199,37 @@ async function generateWithApiKey(
     throw new Error("모델 응답에서 텍스트를 찾을 수 없습니다.");
   }
   return textBlock.text;
+}
+
+async function generateWithOAuth(
+  userPrompt: string,
+  systemPrompt: string,
+): Promise<string> {
+  let resultText: string | null = null;
+
+  for await (const message of query({
+    prompt: userPrompt,
+    options: {
+      systemPrompt,
+      tools: [],
+      maxTurns: 1,
+    },
+  })) {
+    if (message.type === "result") {
+      if (message.subtype === "success") {
+        resultText = message.result;
+      } else {
+        throw new Error(
+          `claude 로그인 세션으로 응답을 생성하지 못했습니다 (${message.subtype}). 터미널에서 'claude login'을 실행했는지 확인해 주세요.`,
+        );
+      }
+    }
+  }
+
+  if (!resultText) {
+    throw new Error(
+      "claude 로그인 세션을 찾지 못했습니다. 터미널에서 'claude login'을 실행한 뒤 다시 시도해 주세요.",
+    );
+  }
+  return resultText;
 }
