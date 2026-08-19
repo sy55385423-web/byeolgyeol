@@ -32,11 +32,10 @@ export async function POST(req: NextRequest) {
     const userPrompt = buildQuestionPrompt({
       category,
       question: question.trim(),
-      factsBlock,
       name: order.n,
     });
 
-    const raw = await generateCompletion(userPrompt, systemPrompt);
+    const raw = await generateCompletion(userPrompt, systemPrompt, undefined, factsBlock);
     const { content } = parseSectionResponse(raw);
 
     return NextResponse.json({ content });

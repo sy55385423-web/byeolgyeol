@@ -24,6 +24,26 @@ const GEMINI_MODEL = "gemini-2.5-flash";
 // build.nvidia.com 대시보드에서 실제로 발급받은/접근 가능한 모델 ID로 교체할 것.
 const NVIDIA_MODEL = "meta/llama-3.3-70b-instruct";
 
+// claude-sonnet-4-6 정가 (1M 토큰당, USD). 캐시 쓰기 1.25배, 캐시 읽기 0.1배는
+// Anthropic 프롬프트 캐싱 표준 배율. 모델이나 가격이 바뀌면 같이 갱신할 것.
+const SONNET_PRICE = { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3 };
+
+/** 호출 1건의 실제 usage를 비용과 함께 콘솔에 남긴다 — "토큰이 과도하다"는 감으로만
+ *  판단하지 않고 실측하기 위한 용도. 프로덕션에서 usage 대시보드/로그 수집기로 보내려면
+ *  여기서 외부로 내보내면 된다. */
+function logUsage(usage: Anthropic.Messages.Usage): void {
+  const cacheWriteTok = usage.cache_creation_input_tokens ?? 0;
+  const cacheReadTok = usage.cache_read_input_tokens ?? 0;
+  const costUsd =
+    (usage.input_tokens / 1e6) * SONNET_PRICE.input +
+    (cacheWriteTok / 1e6) * SONNET_PRICE.cacheWrite +
+    (cacheReadTok / 1e6) * SONNET_PRICE.cacheRead +
+    (usage.output_tokens / 1e6) * SONNET_PRICE.output;
+  console.log(
+    `[llm usage] in=${usage.input_tokens} cacheWrite=${cacheWriteTok} cacheRead=${cacheReadTok} out=${usage.output_tokens} → $${costUsd.toFixed(4)}`,
+  );
+}
+
 /** 호출 가능한 LLM 프로바이더 키가 하나라도 있는지 — 없으면 API 요청 자체를 시도하지 않고
  *  바로 결정론적 엔진(lib/report.ts)을 primary로 사용한다 (느린 실패 없이, 비용 없이). */
 export function hasLlmKey(): boolean {
@@ -39,20 +59,24 @@ export async function generateCompletion(
   userPrompt: string,
   systemPrompt: string,
   maxTokens: number = 4000,
+  // 리포트 한 건 안에서 매 문항 호출마다 동일하게 반복되는 프리픽스(명식 사실 블록 등).
+  // Anthropic 경로에서만 프롬프트 캐싱 브레이크포인트로 사용해 중복 입력 토큰을 줄인다.
+  cacheablePrefix?: string,
 ): Promise<string> {
+  const combined = cacheablePrefix ? `${cacheablePrefix}\n\n${userPrompt}` : userPrompt;
   if (process.env.BYTEZ_API_KEY) {
-    return generateWithBytez(userPrompt, systemPrompt, maxTokens);
+    return generateWithBytez(combined, systemPrompt, maxTokens);
   }
   if (process.env.GEMINI_API_KEY) {
-    return generateWithGemini(userPrompt, systemPrompt, maxTokens);
+    return generateWithGemini(combined, systemPrompt, maxTokens);
   }
   if (process.env.ANTHROPIC_API_KEY) {
-    return generateWithApiKey(userPrompt, systemPrompt, maxTokens);
+    return generateWithApiKey(userPrompt, systemPrompt, maxTokens, cacheablePrefix);
   }
   if (process.env.NVIDIA_API_KEY) {
-    return generateWithNvidia(userPrompt, systemPrompt, maxTokens);
+    return generateWithNvidia(combined, systemPrompt, maxTokens);
   }
-  return generateWithOAuth(userPrompt, systemPrompt);
+  return generateWithOAuth(combined, systemPrompt);
 }
 
 async function generateWithBytez(
@@ -186,14 +210,25 @@ async function generateWithApiKey(
   userPrompt: string,
   systemPrompt: string,
   maxTokens: number,
+  cacheablePrefix?: string,
 ): Promise<string> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  // 리포트 한 건당 같은 명식 사실 블록으로 문항마다(최대 16회) 별도 호출이 나가므로,
+  // 그 반복 프리픽스를 캐시 브레이크포인트로 표시해 두 번째 호출부터 입력 토큰의
+  // ~90%를 캐시로 처리한다 (5분 TTL — mapWithConcurrency로 짧은 시간 안에 몰아치므로 충분히 유효).
+  const content = cacheablePrefix
+    ? [
+        { type: "text" as const, text: cacheablePrefix, cache_control: { type: "ephemeral" as const } },
+        { type: "text" as const, text: userPrompt },
+      ]
+    : userPrompt;
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: maxTokens,
     system: systemPrompt,
-    messages: [{ role: "user", content: userPrompt }],
+    messages: [{ role: "user", content }],
   });
+  logUsage(message.usage);
   const textBlock = message.content.find((block) => block.type === "text");
   if (!textBlock || textBlock.type !== "text") {
     throw new Error("모델 응답에서 텍스트를 찾을 수 없습니다.");
