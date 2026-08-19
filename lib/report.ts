@@ -19,7 +19,7 @@
  *  텍스트는 결정적(같은 입력=같은 리포트)이라 공유 링크가 성립한다. */
 
 import { computeChart, popularityPct, ELEMENTS, BRANCHES, type Chart, type Element } from "./saju";
-import { grounding, starMeaning, starInDomain } from "./grounding";
+import { grounding, starMeaning, starInDomain, branchTrait } from "./grounding";
 import { marriageAgeFromSeed } from "./top1";
 import { categories, type Category } from "@/data/categories";
 
@@ -735,35 +735,26 @@ function extraGrounds(
     `${S}${lackN} 자리가 반복해서 발목을 잡습니다. 이미 두 번 같은 지점에서 걸렸다면 세 번째도 같은 자리일 확률이 높은데, 노력이 부족해서가 아니라 구조가 그렇습니다. 이 대목만 따로 표시해 두고 사람이나 시스템으로 메우는 편이 훨씬 빠릅니다.`,
     ];
   };
-  // 위 문단 대부분은 명반과 무관한 고정 문장이라, 인구 전체로 보면 같은 문장이 계속 재사용된다
-  // (300명 표본에서 문장 하나가 평균 6번). 각 문단 끝에 "언제 이 모습이 세지고 언제 약해지는지"를
-  // 붙이되, 그 선택을 명반 값으로 갈라서 같은 문단이라도 사람마다 다르게 끝나게 한다.
-  // 단정 대신 조건을 붙이는 형태라 톤 원칙(확신+조건)에도 맞는다.
-  const COND_TAILS = [
-    "여유가 있을 때는 잘 안 드러나다가 일정이 몰리는 시기에 선명해집니다.",
-    "상대가 속도를 맞춰 주는 관계에서는 같은 성향이 장점 쪽으로만 나옵니다.",
-    "혼자 정리할 시간이 확보되면 이 패턴은 눈에 띄게 줄어듭니다.",
-    "결정을 재촉받는 상황에서만 유독 크게 나오는 편입니다.",
-    "익숙한 자리에서는 거의 안 보이고, 낯선 자리에서 먼저 튀어나옵니다.",
-    "컨디션이 좋을 때와 나쁠 때의 차이가 이 대목에서 가장 크게 벌어집니다.",
-    "이 부분을 미리 말해 두면 상대의 해석이 달라져 마찰이 크게 줄어듭니다.",
-    "짧게 보는 사이에서는 오해를 사고, 오래 겪는 사이에서는 신뢰가 됩니다.",
-    "판이 커질수록 오히려 통제가 잘 되는 쪽이라, 작은 일에서 더 자주 새어 나옵니다.",
-    "비슷한 결의 사람과 있을 때는 문제가 안 되다가, 반대 결을 만나면 바로 드러납니다.",
-    "스스로 자각하고 나면 조절이 되는 편이라, 알아채는 것만으로 절반은 해결됩니다.",
-    "반복되는 일상에서는 잠잠하고, 변수가 생긴 국면에서 크게 작동합니다.",
-    "중요한 관계일수록 더 강하게 나와서, 정작 아무 사이도 아닌 사람에겐 잘 안 보입니다.",
-    "시간이 쌓일수록 완화되는 쪽이라, 예전만큼은 아니라는 걸 본인이 먼저 느낍니다.",
-    "말로 확인만 한 번 거치면 대부분 그 자리에서 정리되는 문제입니다.",
-    "잘 풀리는 시기에는 강점으로, 막히는 시기에는 약점으로 같은 성향이 뒤집힙니다.",
-    "상대가 이유를 먼저 물어봐 주는 관계에서는 거의 문제가 되지 않습니다.",
-    "혼자 결정해야 하는 자리에서 특히 도드라지고, 같이 정하는 자리에서는 완화됩니다.",
-    "결과가 걸린 일에서는 잘 조절되다가, 사소한 일에서 오히려 그대로 나옵니다.",
-    "상대를 잘 아는 사이일수록 세지는 쪽이라, 가까운 사람이 먼저 부딪힙니다.",
-    "미리 시간을 벌어 두면 같은 상황에서도 전혀 다른 선택이 나옵니다.",
-    "쫓기지 않는 조건에서는 이 성향이 오히려 가장 큰 강점으로 작동합니다.",
-    "한 번 크게 겪고 나면 눈에 띄게 달라지는 부분이기도 합니다.",
-    "말로 설명하려 들수록 꼬이고, 행동으로 보여줄 때 가장 빨리 풀립니다.",
+  // 위 문단 대부분은 명반과 무관한 고정 문장이다. 그래서 예전에는 리포트를 읽어도 "왜 내가
+  // 그렇다는 건지" 근거가 안 보이고 행동 예시만 나열되는 글이 됐다(문단의 42%만 근거 노출).
+  // 각 문단 끝에 "어느 자리에서 나온 결인지"를 한 구절로 붙이고, 이어서 "언제 세지고 언제
+  // 약해지는지" 조건을 붙인다. 근거(명반) + 조건(확신+조건 화법)을 한 문장에 담는 구조다.
+  //
+  // 근거 구절 — 실제 계산된 값을 인용하되 한 구절로 짧게 끊는다. 용어를 여러 개 늘어놓으면
+  // 교과서 나열이 되고, 아예 빼면 지금처럼 근거 없는 예시글이 된다.
+  const GROUND_CLAUSES = [
+    `일간 ${g.ilgan}의 결이 만드는 부분이라,`,
+    `명궁의 ${g.myungStar}성이 받치는 자리라,`,
+    `여덟 글자 중 ${g.domEl}이 ${g.domCount}자로 두꺼운 구조라,`,
+    `${g.lackEl} 기운이 ${lackEnd.replace(/니다$/, "는")} 구조라,`,
+    `일지 ${g.ilji}의 결이 깔려 있어서,`,
+    `달궁 ${g.moon}이 감정을 처리하는 방식과 이어지는 대목이라,`,
+    `부처궁 ${g.buchoStar}성의 영향이 겹치는 지점이라,`,
+    `태양궁 ${g.sun}의 기질이 그대로 나오는 부분이라,`,
+    `명궁이 ${g.myungBranch}에 놓인 구조와 맞물려서,`,
+    `${g.ilju} 일주의 바탕에서 나오는 결이라,`,
+    `${g.wolji}월의 기운을 타고난 만큼,`,
+    `${g.domEl}${ga(g.domEl)} 강하고 ${g.lackEl}${ga(g.lackEl)} 얇은 편차 그대로,`,
   ];
   // 명반 값을 한데 섞어 꼬리 조합의 시작점을 잡는다. 축이 적으면 서로 다른 사람인데도
   // 같은 시작점으로 몰려서 조합이 몇 가지로 붕괴한다. 일지·명궁 지지·강약 오행에
@@ -784,9 +775,12 @@ function extraGrounds(
   const anglesFor = (subj: string) => {
     let a = angleCache.get(subj);
     if (!a) {
-      // 문단별로 다른 조건절을 붙인다. 인덱스를 섞어 넣어 한 리포트 안에서 같은 꼬리가
-      // 연달아 나오지 않게 하고, tailBase 덕분에 사람이 달라지면 조합도 통째로 달라진다.
-      a = mkAngles(subj).map((t, i) => `${t} ${COND_TAILS[(tailBase + i * 5) % COND_TAILS.length]}`);
+      // 문단마다 "근거 구절 + 조건절"을 붙인다. 두 표의 길이가 서로소가 아니면 조합이
+      // 몇 가지로 붕괴하므로 12와 25로 두고, 인덱스 증분도 서로 다르게 준다.
+      a = mkAngles(subj).map(
+        (t, i) =>
+          `${t} ${GROUND_CLAUSES[(tailBase + i * 5) % GROUND_CLAUSES.length]} ${COND_TAILS[(tailBase + i * 7) % COND_TAILS.length]}`,
+      );
       angleCache.set(subj, a);
     }
     return a;
@@ -820,6 +814,257 @@ function extraGrounds(
 /** "다른 각도" 문단에 붙는 소제목 풀. 예전엔 모든 문항이 "다른 각도로 보면 → 한 가지 더 →
  *  덧붙이면 → 이어서" 순서를 그대로 반복해서, 리포트를 내리다 보면 같은 소제목이 열 번 넘게
  *  나왔다. 문항 주제로 시작 지점을 돌려 문항마다 다른 순서가 나오게 한다. */
+/* ───────────────────── 명반 지표 기반 문항별 해석 ─────────────────────
+ * extraGrounds()는 질문과 무관한 성격 문단 168개 풀에서 해시로 뽑아 쓴다. 그래서 문항 본문의
+ * 절반 이상이 "몰래 좋아한 사람 수"를 물었는데 업무 마감 얘기가 나오는 식으로 어긋났고,
+ * 명반 용어를 일부러 감춘 설계라 근거도 안 보여서 예시 나열처럼 읽혔다.
+ *
+ * 여기서는 반대로 간다. 실제 상담이 그렇듯 명반 지표를 하나씩 짚고(일간·일지·명궁 주성·
+ * 영역궁 주성·태양궁·달궁·오행 편중·월지), 그 지표가 "이 질문 영역에서 무엇을 관장하는지"를
+ * 붙인다. 지표 값은 사람마다 다르고 해석 렌즈는 질문 영역마다 다르므로, 결과적으로
+ * 문단이 그 사람의 명반 + 그 질문 둘 다에 묶인다. */
+
+/** 성향이 "언제 세지고 언제 약해지는지" 조건절. 단정 대신 조건을 붙이는 톤 원칙에 맞고,
+ *  명반 값으로 골라 쓰면 같은 문단이라도 사람마다 다르게 끝난다.
+ *  extraGrounds와 chartReading 양쪽에서 쓰므로 모듈 스코프에 둔다. */
+const COND_TAILS = [
+    "여유가 있을 때는 잘 안 드러나다가 일정이 몰리는 시기에 선명해집니다.",
+    "상대가 속도를 맞춰 주는 관계에서는 같은 성향이 장점 쪽으로만 나옵니다.",
+    "혼자 정리할 시간이 확보되면 이 패턴은 눈에 띄게 줄어듭니다.",
+    "결정을 재촉받는 상황에서만 유독 크게 나오는 편입니다.",
+    "익숙한 자리에서는 거의 안 보이고, 낯선 자리에서 먼저 튀어나옵니다.",
+    "컨디션이 좋을 때와 나쁠 때의 차이가 이 대목에서 가장 크게 벌어집니다.",
+    "이 부분을 미리 말해 두면 상대의 해석이 달라져 마찰이 크게 줄어듭니다.",
+    "짧게 보는 사이에서는 오해를 사고, 오래 겪는 사이에서는 신뢰가 됩니다.",
+    "판이 커질수록 오히려 통제가 잘 되는 쪽이라, 작은 일에서 더 자주 새어 나옵니다.",
+    "비슷한 결의 사람과 있을 때는 문제가 안 되다가, 반대 결을 만나면 바로 드러납니다.",
+    "스스로 자각하고 나면 조절이 되는 편이라, 알아채는 것만으로 절반은 해결됩니다.",
+    "반복되는 일상에서는 잠잠하고, 변수가 생긴 국면에서 크게 작동합니다.",
+    "중요한 관계일수록 더 강하게 나와서, 정작 아무 사이도 아닌 사람에겐 잘 안 보입니다.",
+    "시간이 쌓일수록 완화되는 쪽이라, 예전만큼은 아니라는 걸 본인이 먼저 느낍니다.",
+    "말로 확인만 한 번 거치면 대부분 그 자리에서 정리되는 문제입니다.",
+    "잘 풀리는 시기에는 강점으로, 막히는 시기에는 약점으로 같은 성향이 뒤집힙니다.",
+    "상대가 이유를 먼저 물어봐 주는 관계에서는 거의 문제가 되지 않습니다.",
+    "혼자 결정해야 하는 자리에서 특히 도드라지고, 같이 정하는 자리에서는 완화됩니다.",
+    "결과가 걸린 일에서는 잘 조절되다가, 사소한 일에서 오히려 그대로 나옵니다.",
+    "상대를 잘 아는 사이일수록 세지는 쪽이라, 가까운 사람이 먼저 부딪힙니다.",
+    "미리 시간을 벌어 두면 같은 상황에서도 전혀 다른 선택이 나옵니다.",
+    "쫓기지 않는 조건에서는 이 성향이 오히려 가장 큰 강점으로 작동합니다.",
+    "한 번 크게 겪고 나면 눈에 띄게 달라지는 부분이기도 합니다.",
+    "말로 설명하려 들수록 꼬이고, 행동으로 보여줄 때 가장 빨리 풀립니다.",
+];
+
+type AxisKind = "ilgan" | "ilji" | "myung" | "palace" | "sun" | "moon" | "dom" | "lack" | "wolji" | "asc";
+type Domain = "love" | "compat" | "reunion" | "life" | "career" | "wealth" | "health";
+
+function domainOf(catId: string): Domain {
+  if (catId === "love-life") return "love";
+  if (catId === "love-compatibility") return "compat";
+  if (catId === "love-reunion") return "reunion";
+  if (catId === "career") return "career";
+  if (catId === "wealth") return "wealth";
+  if (catId === "health") return "health";
+  return "life";
+}
+
+/** 각 지표가 그 영역에서 무엇을 관장하는지 — 지표 인용이 "근거"로 읽히려면 이 문장이 있어야 한다. */
+const AXIS_ROLE: Record<AxisKind, Record<Domain, string>> = {
+  ilgan: {
+    love: "애정을 주고받는 방식의 바탕을 잡는 자리입니다",
+    compat: "두 사람의 기운이 서로 받쳐 주는지 부딪히는지를 가르는 축입니다",
+    reunion: "헤어진 뒤 남은 마음을 어떻게 처리하는지를 정하는 축입니다",
+    life: "삶 전체를 끌고 가는 기본 동력에 해당합니다",
+    career: "일을 대하는 기본 태도와 그릇을 정하는 자리입니다",
+    wealth: "돈이 들어오고 나가는 기본 방식을 정하는 자리입니다",
+    health: "타고난 체력의 바탕과 회복 속도를 정하는 자리입니다",
+  },
+  ilji: {
+    love: "가까워진 뒤에 실제로 어떤 모습이 나오는지를 보여주는 자리입니다",
+    compat: "일상을 함께 보낼 때의 온도를 결정하는 자리입니다",
+    reunion: "관계가 끝난 자리를 어떻게 정리하는지 보여주는 자리입니다",
+    life: "겉으로 드러나지 않는 안쪽의 결에 해당합니다",
+    career: "실무에서 실제로 일하는 방식이 드러나는 자리입니다",
+    wealth: "돈을 실제로 관리하는 습관이 드러나는 자리입니다",
+    health: "생활 리듬이 무너지는 지점을 알려주는 자리입니다",
+  },
+  myung: {
+    love: "사람을 끌어당기는 방식 자체를 정하는 별입니다",
+    compat: "관계에서 어느 쪽이 주도권을 쥐는지를 가르는 별입니다",
+    reunion: "이별을 받아들이는 태도를 정하는 별입니다",
+    life: "인생 전체의 기본 성향을 잡는 별입니다",
+    career: "커리어에서 값이 매겨지는 지점을 정하는 별입니다",
+    wealth: "재물을 다루는 그릇의 크기를 정하는 별입니다",
+    health: "체질의 강약이 어디로 쏠리는지를 정하는 별입니다",
+  },
+  palace: {
+    love: "배우자·연인 자리를 직접 관장하는 궁입니다",
+    compat: "두 사람이 맺는 관계의 형태를 직접 관장하는 궁입니다",
+    reunion: "인연이 다시 이어지는지를 직접 관장하는 궁입니다",
+    life: "삶의 굴곡이 실제로 나타나는 궁입니다",
+    career: "일과 성취를 직접 관장하는 관록궁입니다",
+    wealth: "재물의 출입을 직접 관장하는 재백궁입니다",
+    health: "몸의 약한 자리를 직접 관장하는 질액궁입니다",
+  },
+  sun: {
+    love: "연애에서 겉으로 드러나는 본질에 해당합니다",
+    compat: "상대에게 보이는 모습을 만드는 축입니다",
+    reunion: "상대의 기억에 남은 인상을 만든 축입니다",
+    life: "타고난 본성이 밖으로 나오는 방향입니다",
+    career: "일할 때 남에게 보이는 인상을 만드는 축입니다",
+    wealth: "돈에 대해 겉으로 드러나는 태도를 만드는 축입니다",
+    health: "평소 활동량과 에너지의 방향을 정하는 축입니다",
+  },
+  moon: {
+    love: "감정을 안에서 처리하는 방식에 해당합니다",
+    compat: "서운함과 애정이 안에서 어떻게 쌓이는지를 정합니다",
+    reunion: "미련이 얼마나 오래 남는지를 정하는 축입니다",
+    life: "혼자 있을 때의 실제 상태를 보여주는 축입니다",
+    career: "압박을 받을 때 안에서 벌어지는 일을 보여줍니다",
+    wealth: "불안할 때 돈을 어떻게 쓰는지를 보여줍니다",
+    health: "스트레스가 몸으로 넘어가는 경로를 보여줍니다",
+  },
+  dom: {
+    love: "연애에서 가장 자주 반복되는 행동의 출처입니다",
+    compat: "관계에서 이 사람이 밀어붙이는 방향입니다",
+    reunion: "이별 후에도 그대로 반복되는 패턴의 출처입니다",
+    life: "삶에서 가장 크게 작동하는 힘입니다",
+    career: "일에서 성과가 가장 잘 나는 방향입니다",
+    wealth: "재물이 실제로 들어오는 통로입니다",
+    health: "몸에서 가장 강하게 버텨 주는 부분입니다",
+  },
+  lack: {
+    love: "연애에서 반복해서 걸리는 지점의 출처입니다",
+    compat: "관계에서 자꾸 어긋나는 자리의 출처입니다",
+    reunion: "관계를 끝내거나 되돌릴 때 가장 힘든 자리입니다",
+    life: "인생에서 같은 지점에 반복해 걸리는 이유입니다",
+    career: "일에서 유독 소모가 큰 영역입니다",
+    wealth: "돈이 새어 나가는 자리입니다",
+    health: "먼저 신호가 오는 약한 자리입니다",
+  },
+  wolji: {
+    love: "연애의 속도와 계절감을 만드는 자리입니다",
+    compat: "관계가 무르익는 속도를 만드는 자리입니다",
+    reunion: "시간이 지나며 마음이 식는 속도를 만드는 자리입니다",
+    life: "성장의 속도와 시기를 만드는 자리입니다",
+    career: "커리어가 무르익는 시기를 만드는 자리입니다",
+    wealth: "재물이 쌓이는 속도를 만드는 자리입니다",
+    health: "회복이 빠른 계절과 느린 계절을 가르는 자리입니다",
+  },
+  asc: {
+    love: "첫인상에서 상대가 먼저 읽는 인상입니다",
+    compat: "상대가 처음 이 사람을 판단한 기준입니다",
+    reunion: "상대가 아직 기억하고 있는 겉모습입니다",
+    life: "세상이 이 사람을 처음 분류하는 방식입니다",
+    career: "면접이나 첫 미팅에서 먼저 읽히는 인상입니다",
+    wealth: "돈 문제에서 남들이 먼저 갖는 인상입니다",
+    health: "겉으로 드러나는 체형과 인상입니다",
+  },
+};
+
+/** 지표를 질문에 붙이는 연결 어구. 하나로 고정하면 한 문항 안에서 "○○을 놓고 보면"이
+ *  세 번 연달아 나와 기계가 조립한 글처럼 읽힌다. (qt) => 문장 형태로 두어 돌려 쓴다. */
+const AXIS_TIE: ((qt: string) => string)[] = [
+  (qt) => `${qt}${eul(qt)} 놓고 보면`,
+  (qt) => `${qt} 쪽에서는`,
+  (qt) => `이 질문, 그러니까 ${qt}${eul(qt)} 볼 때`,
+  (qt) => `${qt}${ga(qt)} 걸리는 지점이 바로 여기라`,
+  (qt) => `${qt}${wa(qt)} 직접 이어지는 자리로,`,
+  (qt) => `${qt}${eul(qt)} 물었을 때 먼저 확인하는 게 이 자리인데,`,
+];
+
+/** 축 사용 이력은 리포트 한 부 단위로 관리해야 같은 지표가 문항마다 되풀이되지 않는다.
+ *  기존 "다른 각도" 원장(Set<number>)이 이미 리포트 단위로 살아 있으므로, 시그니처를
+ *  다섯 군데 고치는 대신 그 원장에 축 원장을 붙여 수명을 맞춘다. */
+const axisLedgers = new WeakMap<Set<number>, Set<AxisKind>>();
+function axisLedgerFor(ledger?: Set<number>): Set<AxisKind> | undefined {
+  if (!ledger) return undefined;
+  let s = axisLedgers.get(ledger);
+  if (!s) { s = new Set(); axisLedgers.set(ledger, s); }
+  return s;
+}
+
+/** 명반 지표를 하나씩 짚어 이 질문 영역에서의 의미를 붙인 문단을 만든다.
+ *  원장으로 리포트 전체에서 같은 지표가 반복해 나오지 않게 돌려 쓴다. */
+function chartReading(
+  g: ReturnType<typeof grounding>,
+  q: string,
+  qt: string,
+  dom: Domain,
+  count: number,
+  numLedger?: Set<number>,
+  // 이 문항의 집필 문단이 이미 인용한 지표는 건너뛴다. 안 그러면 "부처궁 천량성" 설명이
+  // 한 문항 안에서 토씨 하나 안 틀리고 두 번 나온다.
+  avoidText = "",
+): string[] {
+  const ledger = axisLedgerFor(numLedger);
+  const love = dom === "love" || dom === "compat" || dom === "reunion";
+  const palaceName = dom === "career" ? "관록" : dom === "wealth" ? "재백" : dom === "health" ? "질액" : "부처";
+  const palaceStar = love ? g.buchoStar : g.gongStar(palaceName) || g.myungStar;
+  const soften = (s: string) => (love ? s : delove(s));
+  // branchTrait()는 "사"처럼 지지 한 글자를 받는데 g.wolji는 "사(巳)" 형태라 매칭에 실패했고,
+  // 그 결과 모든 사용자에게 자(子)의 성질이 붙었다. 한자 꼬리를 떼고 넘긴다.
+  const woljiTrait = branchTrait(BRANCHES[branchIdx(g.wolji)]);
+
+  // 축: 식별자 / 인용 문장(실제 값 + 성질) / 중복 판정용 토큰
+  const axes: { kind: AxisKind; head: string; token: string }[] = [
+    { kind: "ilgan", token: "일간", head: `일간은 ${g.ilgan}입니다. ${soften(g.ilganMech)}` },
+    { kind: "ilji", token: "일지", head: `일지 ${g.ilji}${neun(g.ilji)} ${g.iljiTrait}${ira(g.iljiTrait)} 불립니다.` },
+    {
+      kind: "myung",
+      token: "명궁",
+      head: `명궁에 ${g.myungStar}성이 자리합니다. ${love ? soften(g.myungWhy) : starInDomain(g.myungStar, dom === "life" ? "career" : (dom as "career" | "wealth" | "health"))}`,
+    },
+    {
+      kind: "palace",
+      token: `${palaceName}궁`,
+      head: `${palaceName}궁에는 ${palaceStar}성이 들었습니다. ${love ? soften(g.buchoWhy) : starInDomain(palaceStar, dom === "life" ? "career" : (dom as "career" | "wealth" | "health"))}`,
+    },
+    { kind: "sun", token: "태양궁", head: `태양궁 ${g.sun}${neun(g.sun)} ${g.sunLove} 결입니다.` },
+    { kind: "moon", token: "달궁", head: `달궁 ${g.moon}${neun(g.moon)} ${g.moonLove} 방식으로 감정을 다룹니다.` },
+    {
+      kind: "dom",
+      token: "가장 두껍",
+      head: `여덟 글자 중 ${g.domEl}${ga(g.domEl)} ${g.domCount}자로 가장 두껍습니다.`,
+    },
+    {
+      kind: "lack",
+      token: "가장 얇",
+      head: g.lackCount === 0
+        ? `${g.lackEl} 기운은 여덟 글자 안에 아예 없습니다.`
+        : `${g.lackEl} 기운은 ${g.lackCount}자에 그쳐 가장 얇습니다.`,
+    },
+    { kind: "wolji", token: "월지", head: `월지는 ${g.wolji}입니다. ${woljiTrait}${ga(woljiTrait)} 바탕에 깔립니다.` },
+    ...(g.ascLove
+      ? [{ kind: "asc" as AxisKind, token: "상승궁", head: `상승궁은 ${g.asc}${ira(g.asc!)}, ${g.ascLove} 인상을 만듭니다.` }]
+      : []),
+  ];
+
+  const seed = Math.abs(strHash(q) + strHash(g.ilju) * 3);
+  const out: string[] = [];
+  const used = new Set<AxisKind>();
+  const clash = (a: { token: string }) => avoidText.includes(a.token);
+  for (let i = 0; i < count; i++) {
+    // 우선순위: 이번 문항 집필 문단과 겹치지 않고 → 리포트에서 아직 안 쓴 축.
+    let pool = axes.filter((a) => !used.has(a.kind) && !clash(a) && !ledger?.has(a.kind));
+    if (!pool.length) pool = axes.filter((a) => !used.has(a.kind) && !clash(a));
+    if (!pool.length) pool = axes.filter((a) => !used.has(a.kind));
+    if (!pool.length) break;
+    const a = pool[(seed + i * 7) % pool.length];
+    used.add(a.kind);
+    ledger?.add(a.kind);
+    const role = AXIS_ROLE[a.kind][dom];
+    const tie = AXIS_TIE[(seed + i * 5) % AXIS_TIE.length](qt);
+    // 인용문(g.ilganMech·buchoWhy 등 기존 데이터)은 마침표로 끝나지 않는 것이 섞여 있어,
+    // 그대로 이어 붙이면 "…느껴질 수 있습니다 몰래 받은 호감을…"처럼 두 문장이 붙어 버린다.
+    const head = /[.!?]$/.test(a.head.trim()) ? a.head.trim() : `${a.head.trim()}.`;
+    // 근거(명반 값) → 이 질문과의 연결(role)까지만 쓰면 설명하다 끝난다.
+    // 실제로 언제 드러나는지 조건을 붙여야 해석이 완성된다.
+    const cond = COND_TAILS[(seed + i * 11) % COND_TAILS.length];
+    out.push(`${head} ${tie} ${role}. ${cond}`);
+  }
+  return out;
+}
+
 const ANGLE_LABELS = [
   "다른 각도로 보면", "한 가지 더", "덧붙이면", "이어서", "계속하면",
   "조금 더 들어가면", "여기서 한 번 더", "짚고 갈 부분", "함께 보면", "끝으로",
@@ -1152,9 +1397,13 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
   })();
   {
     const qt = qTopic(q, "연애");
-    const first = extraGrounds(g, me.seed + strHash(q), "", qi === 0 ? 8 : topicOnly(q) ? 2 : 3, [], ledger);
-    const more = qi === 0 ? extraGrounds(g, me.seed + strHash(q) * 7 + 41, "", 2, first.indices, ledger).texts : [];
-    pushAngles(paras, qt, [...first.texts, ...more]);
+    // 본문의 대부분을 질문과 무관한 성격 문단으로 채우던 구조를 바꾼다. 명반 지표를 짚는
+    // 해석을 먼저 넣고(질문 + 명반 양쪽에 묶임), 범용 문단은 결을 채우는 정도로만 남긴다.
+    chartReading(g, q, qt, "love", qi === 0 ? 7 : 5, ledger, joinParas(paras)).forEach((t, i) =>
+      paras.push(P(i === 0 ? "명반으로 보면" : "짚고 갈 자리", t)),
+    );
+    const first = extraGrounds(g, me.seed + strHash(q), "", qi === 0 ? 2 : 1, [], ledger);
+    pushAngles(paras, qt, first.texts);
   }
   return paras;
 }
@@ -1290,14 +1539,24 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
     // "대현님 쪽 내가 쥔 기준"처럼 사람과 주제가 정면으로 어긋난다. 해당 인물 쪽만 붙인다.
     const onlyMe = /^(나의|나에게|내가)/.test(q);
     const onlyP = /^(상대방|상대가)/.test(q);
+    // 질문과 무관한 성격 문단으로 본문을 채우던 구조를 바꾼다 — 명반 지표 해석을 주로 쓰고
+    // 범용 문단은 결을 채우는 정도로만 남긴다.
+    if (!onlyP) {
+      chartReading(gm, q, qt, "compat", qi === 0 ? 5 : 4, ledger, joinParas(paras)).forEach((t, i) =>
+        paras.push(P(i === 0 ? `${meWord} 명반으로 보면` : "짚고 갈 자리", t)),
+      );
+    }
     const mine = onlyP
       ? { texts: [] as string[], indices: [] as number[] }
-      : extraGrounds(gm, me.seed + pt.seed + strHash(q), meWord, qi === 0 ? 8 : topicOnly(q) ? 2 : onlyMe ? 4 : 3, [], ledger);
+      : extraGrounds(gm, me.seed + pt.seed + strHash(q), meWord, qi === 0 ? 2 : 1, [], ledger);
     const theirs = onlyMe
       ? []
-      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, pWord, qi === 0 ? 6 : topicOnly(q) ? 2 : onlyP ? 4 : 3, mine.indices, ledgerP).texts;
+      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, pWord, qi === 0 ? 2 : 1, mine.indices, ledgerP).texts;
     if (onlyP) {
       // 상대방만 묻는 문항 — 전부 상대 쪽 근거로 채운다
+      chartReading(gp, q, qt, "compat", qi === 0 ? 5 : 4, ledgerP, joinParas(paras)).forEach((t, i) =>
+        paras.push(P(i === 0 ? `${pWord} 명반으로 보면` : "짚고 갈 자리", t)),
+      );
       pushAngles(paras, qt, theirs);
     } else {
       pushAngles(paras, qt, mine.texts);
@@ -1419,14 +1678,24 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
     // "대현님 쪽 내가 쥔 기준"처럼 사람과 주제가 정면으로 어긋난다. 해당 인물 쪽만 붙인다.
     const onlyMe = /^(나의|나에게|내가)/.test(q);
     const onlyP = /^(상대방|상대가)/.test(q);
+    // 질문과 무관한 성격 문단으로 본문을 채우던 구조를 바꾼다 — 명반 지표 해석을 주로 쓰고
+    // 범용 문단은 결을 채우는 정도로만 남긴다.
+    if (!onlyP) {
+      chartReading(gm, q, qt, "reunion", qi === 0 ? 5 : 4, ledger, joinParas(paras)).forEach((t, i) =>
+        paras.push(P(i === 0 ? `${meWord} 명반으로 보면` : "짚고 갈 자리", t)),
+      );
+    }
     const mine = onlyP
       ? { texts: [] as string[], indices: [] as number[] }
-      : extraGrounds(gm, me.seed + pt.seed + strHash(q), meWord, qi === 0 ? 8 : topicOnly(q) ? 2 : onlyMe ? 4 : 3, [], ledger);
+      : extraGrounds(gm, me.seed + pt.seed + strHash(q), meWord, qi === 0 ? 2 : 1, [], ledger);
     const theirs = onlyMe
       ? []
-      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, pWord, qi === 0 ? 6 : topicOnly(q) ? 2 : onlyP ? 4 : 3, mine.indices, ledgerP).texts;
+      : extraGrounds(gp, pt.seed + me.seed + strHash(q) + 3, pWord, qi === 0 ? 2 : 1, mine.indices, ledgerP).texts;
     if (onlyP) {
       // 상대방만 묻는 문항 — 전부 상대 쪽 근거로 채운다
+      chartReading(gp, q, qt, "reunion", qi === 0 ? 5 : 4, ledgerP, joinParas(paras)).forEach((t, i) =>
+        paras.push(P(i === 0 ? `${pWord} 명반으로 보면` : "짚고 갈 자리", t)),
+      );
       pushAngles(paras, qt, theirs);
     } else {
       pushAngles(paras, qt, mine.texts);
@@ -1580,10 +1849,15 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
   }
   })();
   {
+    const qt = qTopic(q, "이 흐름");
+    // 명반 지표 해석을 본문의 축으로 쓰고, 범용 문단은 결을 채우는 정도로만 남긴다.
+    chartReading(g, q, qt, "life", qi === 0 ? 7 : 5, ledger, joinParas(paras)).forEach((t, i) =>
+      paras.push(P(i === 0 ? "명반으로 보면" : "짚고 갈 자리", t)),
+    );
     // 예전엔 최대 8개를 뽑아 놓고 앞 4개만 꺼내 썼다. 버려진 4개도 ledger에는 "사용됨"으로
     // 남아서, 문단 풀만 축내고 뒤 문항들이 쓸 후보를 줄이는 손해가 있었다.
-    const texts = extraGrounds(g, me.seed + strHash(q), "", qi === 0 ? 8 : topicOnly(q) ? 2 : 3, [], ledger, false).texts;
-    pushAngles(paras, qTopic(q, "이 흐름"), texts);
+    const texts = extraGrounds(g, me.seed + strHash(q), "", qi === 0 ? 2 : 1, [], ledger, false).texts;
+    pushAngles(paras, qt, texts);
   }
   return paras;
 }
@@ -1743,8 +2017,13 @@ function light(cat: Category, q: string, me: Chart, v: string, ledger?: Set<numb
   paras.push(P("명반 근거", ground));
   paras.push(P("타고난 결로 보면", persona));
   {
+    // 명반 지표 해석을 본문의 축으로 쓴다. 커리어·재물·건강은 명궁/관록·재백·질액궁을
+    // 그 영역 기준으로 읽어야 해서 domainOf로 카테고리에 맞는 렌즈를 고른다.
+    chartReading(g, q, qt, domainOf(cat.id), qi === 0 ? 7 : 5, ledger, joinParas(paras)).forEach((t, i) =>
+      paras.push(P(i === 0 ? "명반으로 보면" : "짚고 갈 자리", t)),
+    );
     // lifeOverview와 같은 문제 — 6개를 뽑아 2개만 쓰고 나머지는 ledger만 소모했다.
-    const texts = extraGrounds(g, me.seed + strHash(q), "", qi === 0 ? 6 : 3, [], ledger, false).texts;
+    const texts = extraGrounds(g, me.seed + strHash(q), "", qi === 0 ? 2 : 1, [], ledger, false).texts;
     pushAngles(paras, qt, texts);
   }
   return paras;
