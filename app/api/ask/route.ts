@@ -4,8 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { decodeOrder } from "@/lib/order";
 import { categories } from "@/data/categories";
 import { computeChart } from "@/lib/saju";
-import { generateCompletion } from "@/lib/llm";
-import { buildSystemPrompt, buildFactsBlock, buildQuestionPrompt, parseSectionResponse } from "@/lib/prompt";
+import { generateCompletion, hasLlmKey } from "@/lib/llm";
+import { buildCompactFollowUpPrompt } from "@/lib/prompt";
+import { answerParagraphs, joinParas, TOPIC } from "@/lib/report";
 
 export const runtime = "nodejs";
 
@@ -27,17 +28,25 @@ export async function POST(req: NextRequest) {
       ? computeChart({ y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h })
       : undefined;
 
-    const factsBlock = buildFactsBlock(category, me, pt, order.n, order.pn);
-    const systemPrompt = buildSystemPrompt(category);
-    const userPrompt = buildQuestionPrompt({
+    // 추가 질문도 기본값은 비용 없는 결정론적 답변이다. LLM 보완은 명시적으로 켠 경우에만
+    // 짧은 프롬프트와 700토큰 상한으로 한 번 실행한다.
+    const fallback = joinParas(answerParagraphs(me, pt, question.trim(), TOPIC[category.id] ?? "이 흐름"));
+    if (process.env.BYEOLGYEOL_LLM_FOLLOW_UPS !== "true" || !hasLlmKey()) {
+      return NextResponse.json({ content: fallback });
+    }
+
+    const userPrompt = buildCompactFollowUpPrompt({
       category,
       question: question.trim(),
-      factsBlock,
+      me,
+      partner: pt,
       name: order.n,
+      partnerName: order.pn,
     });
-
-    const raw = await generateCompletion(userPrompt, systemPrompt);
-    const { content } = parseSectionResponse(raw);
+    const content = await generateCompletion(userPrompt, "", 700).catch((error) => {
+      console.error("[api/ask] LLM 보완 실패, 결정론적 답변 사용:", error);
+      return fallback;
+    });
 
     return NextResponse.json({ content });
   } catch (e) {
