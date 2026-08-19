@@ -51,6 +51,10 @@ export type Chart = {
   asc: string | null;          // 시간 있을 때만
   seed: number;                // 결정적 파생값 생성용 (프리뷰 훅 등 비핵심 콘텐츠에만 사용)
   timeKnown: boolean;
+  birthYear: number;           // 대한(大限) 구간을 나이로 찾을 때 쓴다
+  // 자미두수 대한 — iztro가 궁마다 계산해 주는 10년 단위 구간. lib/timing.ts가
+  // 현재 나이로 해당 구간을 찾아 "지금 어떤 흐름에 있는지"를 판단한다.
+  decadals: { from: number; to: number; stem: string; branch: string; branchIdx: number }[];
 };
 
 const ZODIAC_KO_FROM_EN: Record<string, string> = {
@@ -192,6 +196,23 @@ function computeChartUncached(b: Birth): Chart {
 
   const seed = y * 372 + m * 31 + d + (b.hourBranch ?? 0) * 7;
 
+  // 대한 — 궁마다 [시작나이, 끝나이]와 간지가 붙어 있다. 나이로 찾을 수 있게 펼쳐 둔다.
+  const decadals = astrolabe.palaces
+    .map((p) => {
+      const dc = (p as { decadal?: { range?: number[]; heavenlyStem?: string; earthlyBranch?: string } }).decadal;
+      if (!dc?.range || dc.range.length < 2) return null;
+      const branch = dc.earthlyBranch ?? "";
+      return {
+        from: dc.range[0],
+        to: dc.range[1],
+        stem: dc.heavenlyStem ?? "",
+        branch,
+        branchIdx: Math.max(0, BRANCHES.indexOf(branch)),
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => !!x)
+    .sort((a2, b2) => a2.from - b2.from);
+
   return {
     pillars: { year, month, day, hour },
     dayMaster,
@@ -205,6 +226,8 @@ function computeChartUncached(b: Birth): Chart {
     asc,
     seed,
     timeKnown,
+    birthYear: y,
+    decadals,
   };
 }
 
