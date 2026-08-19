@@ -869,7 +869,7 @@ const BRANCH_BEHAVIOR = {
   love: [
     "속을 바로 꺼내지 않습니다. 상대가 어디까지 받아줄 사람인지 확인이 끝나야 진짜 얘기가 나오고, 그전까지는 무난한 말만 오갑니다",
     "한번 정한 사람을 잘 안 바꿉니다. 관계가 식어도 정리를 미루는 편이라 끝내는 데 남들보다 오래 걸립니다",
-    "마음이 생기면 행동이 먼저 나갑니다. 약속을 잡거나 뭘 챙기는 게 고백보다 빨라서, 정작 말로는 아무것도 안 한 상태가 됩니다",
+    "좋아지면 상대의 일정부터 외웁니다. 언제 바쁜지 언제 한가한지를 먼저 파악해 두고, 정작 그걸 아는 티는 내지 않습니다",
     "상대의 기분 변화를 빨리 읽습니다. 다만 읽고 나서 확인하지 않고 혼자 결론을 내려, 짧게 끝날 오해를 며칠씩 끌고 갑니다",
     "관계를 단계별로 밟습니다. 급하게 가까워지려는 상대 앞에서는 오히려 한 발 물러서고, 그 반응이 무관심으로 읽힙니다",
     "좋아할수록 말을 고릅니다. 아무 말이나 못 던져서 타이밍을 놓치고, 상대는 그 신중함을 거리감으로 받아들입니다",
@@ -882,16 +882,16 @@ const BRANCH_BEHAVIOR = {
   ],
   life: [
     "생각이 끝나야 몸이 움직입니다. 느린 게 아니라 이미 여러 경우를 다 돌려본 뒤라, 한번 정하면 번복이 거의 없습니다",
-    "쌓아 두는 방식으로 일합니다. 짧게 평가받는 자리보다 오래 지켜보는 자리에서 값이 제대로 매겨집니다",
+    "중간에 방향을 잘 안 바꿉니다. 한번 정한 길이면 성과가 늦게 나와도 계속 붙어 있어서, 주변이 먼저 조바심을 냅니다",
     "준비가 덜 돼도 일단 시작합니다. 기회를 먼저 잡는 대신 마무리 안 된 일이 늘 몇 개씩 남아 있습니다",
     "분위기를 먼저 읽고 움직입니다. 눈치가 빠른 만큼 남의 기분에 에너지를 많이 쓰고, 그게 쌓이면 혼자 지칩니다",
-    "판이 흔들릴 때 오히려 침착해집니다. 평소엔 존재감이 옅다가 상황이 어그러지면 앞에 나서서 정리합니다",
-    "속도를 스스로 정합니다. 남의 일정에 끌려다니는 환경에서는 실력이 그대로 안 나옵니다",
-    "드러나는 자리에서 힘이 붙습니다. 혼자 오래 파고드는 일만 이어지면 동력이 빠르게 떨어집니다",
-    "한 번에 하나씩 처리합니다. 여러 갈래를 동시에 굴리면 유독 소모가 커서, 순서를 정해 닫아 나갈 때 가장 빠릅니다",
+    "급한 상황에서 판단이 빨라집니다. 여유가 있을 때는 오히려 결정을 미루다가, 마감이 닥쳐야 실제로 움직입니다",
+    "자기 방식이 정해져 있습니다. 더 나은 방법을 알려 줘도 익숙한 순서를 바꾸는 데 시간이 오래 걸립니다",
+    "인정받는 감각이 동력입니다. 결과보다 그걸 알아봐 주는 사람이 있느냐에 따라 몰입도가 크게 달라집니다",
+    "마무리 직전에 손이 느려집니다. 거의 다 해 놓고 마지막 확인을 미루다가, 끝냈어야 할 일이 계속 열려 있습니다",
     "손에 잡히는 결과가 나와야 마음이 놓입니다. 중간 성과가 자주 보이는 구조가 체질에 맞습니다",
     "시작 전에 기준부터 세웁니다. 흔들림이 적은 대신, 상황이 바뀌어 기준을 고쳐야 할 때 전환이 늦습니다",
-    "맡은 자리를 끝까지 지킵니다. 신뢰가 쌓이는 만큼 일이 계속 몰려도 거절을 잘 못 합니다",
+    "책임 범위를 넓게 잡습니다. 자기 몫이 아닌 것까지 챙기다 정작 본인 일이 뒤로 밀리는 일이 반복됩니다",
     "절차보다 흐름을 봅니다. 규칙이 촘촘한 조직보다 재량이 있는 자리에서 강점이 살아납니다",
   ],
 };
@@ -900,18 +900,59 @@ type AxisKind = "ilgan" | "ilji" | "myung" | "palace" | "sun" | "moon" | "dom" |
 type Domain = "love" | "compat" | "reunion" | "life" | "career" | "wealth" | "health";
 
 /** 문단의 마무리 — 그 축의 성격에서 실제로 따라 나오는 실용적인 한마디.
- *  범용 조건절을 돌려 쓰면 매력을 설명하다 "판이 커질수록 통제가"로 끝나는 식으로 겉돈다. */
-const AXIS_CLOSE: Record<AxisKind, string> = {
-  ilgan: "타고난 바탕이라 바꾸기 어려운 쪽입니다. 고치려 들기보다 이 결이 그대로 통하는 자리를 고르는 편이 빠릅니다.",
-  ilji: "겉으로는 잘 안 보이는 자리라, 오래 겪은 사람만 이 모습을 압니다.",
-  myung: "이 별의 성질은 나이가 들어도 크게 달라지지 않아서, 지금까지의 패턴이 앞으로도 비슷하게 반복됩니다.",
-  palace: "이 궁의 흐름이 흔들리는 시기에는 큰 결정을 서두르지 않는 것만으로 결과가 달라집니다.",
-  sun: "겉으로 먼저 읽히는 부분이라, 속과 어긋날 때 오해가 생깁니다.",
-  moon: "안에서만 벌어지는 일이라 상대는 잘 모릅니다. 말로 꺼내지 않으면 전달되지 않습니다.",
-  dom: "가장 두꺼운 힘인 만큼 평소에는 강점이지만, 과해지면 같은 이유로 문제가 됩니다.",
-  lack: "억지로 메우려 애쓰기보다, 이 자리를 대신해 줄 사람이나 장치를 곁에 두는 편이 실질적입니다.",
-  wolji: "타고난 속도라, 남의 속도에 억지로 맞추려 할 때 결과가 가장 나쁩니다.",
-  asc: "첫 만남에서 크게 작동하고 관계가 쌓일수록 영향이 줄어드는 자리입니다.",
+ *  범용 조건절을 돌려 쓰면 매력을 설명하다 "판이 커질수록 통제가"로 끝나는 식으로 겉돈다.
+ *  한 리포트 안에서 같은 축이 여러 문항에 걸쳐 나오므로 축마다 몇 가지를 두고 돌려 쓴다. */
+const AXIS_CLOSE: Record<AxisKind, string[]> = {
+  ilgan: [
+    "타고난 바탕이라 바꾸기 어려운 쪽입니다. 고치려 들기보다 이 결이 그대로 통하는 자리를 고르는 편이 빠릅니다.",
+    "억지로 다른 방식을 흉내 내면 오래 못 갑니다. 이 결을 인정하고 쓰는 쪽이 결과가 낫습니다.",
+    "나이가 들어도 이 바탕은 거의 그대로입니다. 달라지는 건 이걸 다루는 요령 쪽입니다.",
+  ],
+  ilji: [
+    "겉으로는 잘 안 보이는 자리라, 오래 겪은 사람만 이 모습을 압니다.",
+    "짧게 만나는 사이에서는 거의 드러나지 않습니다.",
+    "본인은 당연하게 여겨서 스스로 자각하기 어려운 부분이기도 합니다.",
+  ],
+  myung: [
+    "이 별의 성질은 나이가 들어도 크게 달라지지 않습니다.",
+    "지금까지 반복돼 온 패턴이라면 앞으로도 비슷하게 나올 확률이 높습니다.",
+    "환경이 바뀌어도 이 축은 웬만해선 흔들리지 않습니다.",
+  ],
+  palace: [
+    "이 궁의 흐름이 흔들리는 시기에는 큰 결정을 서두르지 않는 것만으로 결과가 달라집니다.",
+    "이 자리가 받쳐 줄 때와 아닐 때의 차이가 꽤 큽니다.",
+    "같은 상황이라도 이 궁의 상태에 따라 결말이 갈립니다.",
+  ],
+  sun: [
+    "겉으로 먼저 읽히는 부분이라, 속과 어긋날 때 오해가 생깁니다.",
+    "처음 보는 사람은 이 결만 보고 판단하는 경우가 많습니다.",
+    "숨기려 해도 잘 안 숨겨지는 쪽입니다.",
+  ],
+  moon: [
+    "안에서만 벌어지는 일이라 상대는 잘 모릅니다. 말로 꺼내지 않으면 전달되지 않습니다.",
+    "겉으로는 티가 안 나서, 스스로도 나중에야 알아채는 경우가 많습니다.",
+    "혼자 정리할 시간이 있느냐 없느냐가 여기서 큰 차이를 만듭니다.",
+  ],
+  dom: [
+    "가장 두꺼운 힘인 만큼 평소에는 강점이지만, 과해지면 같은 이유로 문제가 됩니다.",
+    "잘 풀릴 때 이 힘을 더 밀어붙이다 탈이 나는 패턴을 조심하면 됩니다.",
+    "이 방향으로 쓰는 일에서는 애쓰지 않아도 결과가 납니다.",
+  ],
+  lack: [
+    "억지로 메우려 애쓰기보다, 이 자리를 대신해 줄 사람이나 장치를 곁에 두는 편이 실질적입니다.",
+    "노력이 부족해서가 아니라 처음부터 얇게 타고난 자리라, 같은 결과를 내도 더 크게 지칩니다.",
+    "여기만 따로 표시해 두면 같은 실수를 반복하는 횟수가 눈에 띄게 줄어듭니다.",
+  ],
+  wolji: [
+    "타고난 속도라, 남의 속도에 억지로 맞추려 할 때 결과가 가장 나쁩니다.",
+    "이 리듬이 지켜지는 환경에서 실력이 제대로 나옵니다.",
+    "빠르고 느린 문제가 아니라 결이 맞느냐의 문제입니다.",
+  ],
+  asc: [
+    "첫 만남에서 크게 작동하고 관계가 쌓일수록 영향이 줄어드는 자리입니다.",
+    "짧게 보는 자리에서는 유리하게도 불리하게도 크게 작용합니다.",
+    "실제 성격과 다르게 읽히는 일이 잦은 지점이기도 합니다.",
+  ],
 };
 
 function domainOf(catId: string): Domain {
@@ -1078,7 +1119,7 @@ function chartReading(
   //  read  — 그 값이 이 사람의 어떤 행동으로 나타나는지 (구체적 장면)
   // 예전에는 read 없이 "이 주제와 이어지는 자리입니다" 같은 분류 라벨만 붙여서,
   // 문장은 그럴듯한데 정작 무슨 뜻인지 알 수 없는 글이 됐다.
-  const axes: { kind: AxisKind; token: string; fact: string; read: string }[] = [
+  const axes: { kind: AxisKind; token: string; fact: string; read: string; dup?: string }[] = [
     {
       kind: "ilgan", token: "일간",
       fact: `일간이 ${g.ilgan}입니다`,
@@ -1103,11 +1144,13 @@ function chartReading(
       kind: "sun", token: "태양궁",
       fact: `태양궁이 ${g.sun}입니다`,
       read: `${g.sunLove} 결이 겉으로 먼저 나옵니다`,
+      dup: `sign:${g.sunLove}`,
     },
     {
       kind: "moon", token: "달궁",
       fact: `달궁이 ${g.moon}입니다`,
       read: `안에서는 ${g.moonLove} 방식으로 감정을 처리합니다`,
+      dup: `sign:${g.moonLove}`,
     },
     {
       kind: "dom", token: "가장 두껍",
@@ -1131,59 +1174,50 @@ function chartReading(
           kind: "asc" as AxisKind, token: "상승궁",
           fact: `상승궁이 ${g.asc}입니다`,
           read: `처음 보는 사람에게는 ${g.ascLove} 인상으로 읽힙니다`,
+          dup: `sign:${g.ascLove}`,
         }]
       : []),
   ];
 
+  // 태양궁·달궁·상승궁이 같은 별자리인 사람이 흔하다(각각 12분의 1). 그러면 read 문구가
+  // 글자 그대로 같아져서 "느리게 다가가도…있는 결" 설명이 한 섹션에 두 번 나온다.
+  // 앞선 축이 이미 같은 말을 했으면 뒤 축은 후보에서 뺀다.
+  const seenRead = new Set<string>();
+  const uniqueAxes = axes.filter((a) => {
+    // 문장 틀이 달라도 안에 든 수식어가 같으면 중복이다(태양궁·상승궁이 같은 별자리인 경우).
+    const key = a.dup ?? a.read;
+    if (seenRead.has(key)) return false;
+    seenRead.add(key);
+    return true;
+  });
+
   const seed = Math.abs(strHash(q) + strHash(g.ilju) * 3);
   const out: string[] = [];
   const used = new Set<AxisKind>();
-  const clash = (a: { token: string }) => avoidText.includes(a.token);
+  // 집필 문단과 겹치는지는 지표 이름(명궁·부처궁…)만이 아니라 실제 해석 문구로도 본다.
+  // 명궁과 재백궁에 같은 주성이 든 사람이면 두 축의 해석 문장이 글자 그대로 같아진다.
+  const clash = (a: { token: string; read: string }) =>
+    avoidText.includes(a.token) || avoidText.includes(a.read);
   const period = (s: string) => (/[.!?]$/.test(s.trim()) ? s.trim() : `${s.trim()}.`);
 
   for (let i = 0; i < count; i++) {
     // 우선순위: 이번 문항 집필 문단과 겹치지 않고 → 리포트에서 아직 안 쓴 축.
-    let pool = axes.filter((a) => !used.has(a.kind) && !clash(a) && !ledger?.has(a.kind));
-    if (!pool.length) pool = axes.filter((a) => !used.has(a.kind) && !clash(a));
-    if (!pool.length) pool = axes.filter((a) => !used.has(a.kind));
+    let pool = uniqueAxes.filter((a) => !used.has(a.kind) && !clash(a) && !ledger?.has(a.kind));
+    // 리포트 전체에서 이미 쓴 축까지는 다시 쓸 수 있다. 다만 이번 문항의 집필 문단이 인용한
+    // 축(clash)은 절대 다시 쓰지 않는다 — 예전엔 후보가 떨어지면 이 필터까지 풀어 버려서
+    // 같은 일간 설명이 한 문항 안에 두 번 나왔다. 후보가 없으면 문단 수를 줄이는 쪽이 낫다.
+    if (!pool.length) pool = uniqueAxes.filter((a) => !used.has(a.kind) && !clash(a));
     if (!pool.length) break;
     const a = pool[(seed + i * 7) % pool.length];
     used.add(a.kind);
     ledger?.add(a.kind);
 
-    // 문단은 하나의 논증이 되게 잇는다.
-    //   [명반 사실] → [그래서 이 사람은 이렇게 행동한다] → [그래서 이 질문의 답이 이것이다]
-    //   → [다만 이런 조건에서는 달라진다]
-    // 답(answer)까지 끌어와야 각 문단이 결론을 뒷받침하는 근거로 읽히고, 따로 노는 문단이 안 된다.
+    // 문단 구조: [명반 사실] → [그 값이 만드는 구체적 행동] → [그 축의 성격에서 따라 나오는 마무리]
     //
-    // 다만 약한 오행(lack) 축은 "못 하는 것"을 말하는 자리라, 이걸 결론의 근거라고 쓰면
-    // "끊지를 못한다 → 그래서 매력이 안정감이다" 같은 억지 논리가 된다. 축의 성격에 따라
-    // 결론으로 잇는 방식을 나눈다. 한 문항에서 같은 다리 문장이 세 번 반복되던 것도 함께 흩는다.
-    const weak = a.kind === "lack";
-    // 답이 "6"(호감도 차이 %p)이나 "82"(궁합 총점)처럼 숫자만인 문항이 있다. 이걸 그대로
-    // 따오면 "이 결이 그대로 '6'이라는 답으로 이어집니다"가 되어 말이 안 된다.
-    // 숫자만인 답은 인용하지 않고 중립 문장으로 잇는다.
-    const answerPhrase = answer && !/^\d+(\.\d+)?$/.test(answer.trim()) ? answer.trim() : "";
-    const bridge = !answerPhrase
-      ? pick([
-          `${qt}${eul(qt)} 볼 때 먼저 짚는 자리가 여기입니다.`,
-          `이 자리를 빼면 ${qt}에 대한 설명이 반쯤 비게 됩니다.`,
-        ], seed + i)
-      : weak
-        ? pick([
-            `'${answerPhrase}'${ira(answerPhrase)}는 결론의 이면이 바로 이 지점입니다.`,
-            `${qt}${ga(qt)} '${answerPhrase}' 쪽으로 기우는 만큼, 그 반대편에서 이 문제가 따라옵니다.`,
-            `강점이 '${answerPhrase}'인 사람이 같은 이유로 걸리는 자리이기도 합니다.`,
-          ], seed + i * 3)
-        : pick([
-            `${qt}${ga(qt)} '${answerPhrase}'${ro(answerPhrase)} 읽히는 근거가 여기 있습니다.`,
-            `'${answerPhrase}'${ira(answerPhrase)}는 결론은 이 자리에서 나옵니다.`,
-            `이 결이 그대로 '${answerPhrase}'${ira(answerPhrase)}는 답으로 이어집니다.`,
-            `${qt}${eul(qt)} '${answerPhrase}'${ro(answerPhrase)} 정리한 것도 이 때문입니다.`,
-          ], seed + i * 3);
-    // 마무리는 축의 성격에서 따라 나오는 것이어야 한다. 예전엔 범용 조건절을 붙여서
-    // 매력을 설명하다 "판이 커질수록 통제가 잘 되는 쪽이라"로 끝나는 식으로 겉돌았다.
-    out.push(`${period(a.fact)} ${period(a.read)} ${bridge} ${AXIS_CLOSE[a.kind]}`);
+    // 예전에는 여기에 "그래서 이 질문의 답이 '○○'이다"라는 다리 문장을 문단마다 넣었다.
+    // 그 결과 한 화면에서 답("오래 품는 안정감")이 네 번, 문항 주제가 세 번 반복돼 글이
+    // 눌어붙었다. 답은 섹션 제목과 첫 문단이 이미 말하고 있으므로 본문에서 되풀이하지 않는다.
+    out.push(`${period(a.fact)} ${period(a.read)} ${pick(AXIS_CLOSE[a.kind], seed + i * 3)}`);
   }
   return out;
 }
@@ -1202,9 +1236,24 @@ function pushAngles(paras: Para[], qt: string, texts: (string | undefined)[]) {
   let n = 0;
   for (const t of texts) {
     if (!t) continue;
+    // 범용 문단과 명반 해석 문단은 같은 행동 문구(오행별 DOM/LACK_BEHAVIOR 등)를 공유한다.
+    // 그래서 한 문항 안에서 "끊어내야 할 때 못 끊습니다" 같은 문장이 두 번 나오곤 했다.
+    // 이미 나온 문장을 다시 담은 후보는 통째로 건너뛴다 — 범용 문단은 보조라 빠져도 된다.
+    if (repeatsSentence(paras, t)) continue;
     paras.push({ label: ANGLE_LABELS[(off + n) % ANGLE_LABELS.length], text: t });
     n++;
   }
+}
+
+/** 이미 쌓인 문단들에 후보 문단의 문장이 그대로 들어 있는지. 짧은 문장은 우연히 겹칠 수
+ *  있으므로 어느 정도 길이가 있는 문장만 본다. */
+function repeatsSentence(paras: Para[], candidate: string): boolean {
+  const existing = paras.map((p) => p.text).join(" ");
+  return candidate
+    .split(/(?<=다\.)\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 14)
+    .some((s) => existing.includes(s));
 }
 
 /* ───────────────────── 오행 인생 페르소나 (평생 총론 · 커리어 · 재물 · 건강 공용) ─────────────────────
@@ -1684,9 +1733,17 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
     } else {
       pushAngles(paras, qt, mine.texts);
       // 상대 쪽으로 넘어가는 첫 문단은 화자가 바뀌는 지점이라 라벨을 고정해 둔다.
-      const [b1, ...restB] = theirs;
-      if (b1) paras.push(P("상대방 이야기로 넘어가면", b1));
-      pushAngles(paras, `${qt}·상대`, restB.slice(0, 2));
+      // 다만 이 문단만 중복 가드를 안 거쳐서, 두 사람의 강·약 오행이 같으면 "먼저 다가가는 게
+      // 유독 어렵습니다" 같은 문장이 나 쪽과 상대 쪽에 그대로 두 번 나왔다. 겹치지 않는
+      // 첫 후보를 골라 쓴다.
+      const bFresh = theirs.filter((t): t is string => !!t);
+      const bIdx = bFresh.findIndex((t) => !repeatsSentence(paras, t));
+      if (bIdx >= 0) {
+        paras.push(P("상대방 이야기로 넘어가면", bFresh[bIdx]));
+        pushAngles(paras, `${qt}·상대`, bFresh.filter((_, k) => k !== bIdx).slice(0, 2));
+      } else {
+        pushAngles(paras, `${qt}·상대`, bFresh.slice(0, 2));
+      }
     }
   }
   return paras;
@@ -1823,9 +1880,17 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
     } else {
       pushAngles(paras, qt, mine.texts);
       // 상대 쪽으로 넘어가는 첫 문단은 화자가 바뀌는 지점이라 라벨을 고정해 둔다.
-      const [b1, ...restB] = theirs;
-      if (b1) paras.push(P("상대방 이야기로 넘어가면", b1));
-      pushAngles(paras, `${qt}·상대`, restB.slice(0, 2));
+      // 다만 이 문단만 중복 가드를 안 거쳐서, 두 사람의 강·약 오행이 같으면 "먼저 다가가는 게
+      // 유독 어렵습니다" 같은 문장이 나 쪽과 상대 쪽에 그대로 두 번 나왔다. 겹치지 않는
+      // 첫 후보를 골라 쓴다.
+      const bFresh = theirs.filter((t): t is string => !!t);
+      const bIdx = bFresh.findIndex((t) => !repeatsSentence(paras, t));
+      if (bIdx >= 0) {
+        paras.push(P("상대방 이야기로 넘어가면", bFresh[bIdx]));
+        pushAngles(paras, `${qt}·상대`, bFresh.filter((_, k) => k !== bIdx).slice(0, 2));
+      } else {
+        pushAngles(paras, `${qt}·상대`, bFresh.slice(0, 2));
+      }
     }
   }
   return paras;
