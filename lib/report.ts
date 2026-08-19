@@ -1049,7 +1049,7 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
     const qt = qTopic(q, "연애");
     // 본문의 대부분을 질문과 무관한 성격 문단으로 채우던 구조를 바꾼다. 명반 지표를 짚는
     // 해석을 먼저 넣고(질문 + 명반 양쪽에 묶임), 범용 문단은 결을 채우는 정도로만 남긴다.
-    chartReading(g, q, qt, "love", qi === 0 ? 8 : 6, ledger, joinParas(paras), v).forEach((t, i) =>
+    chartReading(g, q, qt, "love", qi === 0 ? 3 : 2, ledger, joinParas(paras), v).forEach((t, i) =>
       paras.push(P(i === 0 ? "명반으로 보면" : "짚고 갈 자리", t)),
     );
 
@@ -1192,13 +1192,13 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
     // 문단을 섞어 분량을 채웠는데, "몰래 좋아한 사람 수"를 물었는데 업무 마감 얘기가
     // 나오는 식으로 어긋나서 전부 걷어냈다.
     if (!onlyP) {
-      chartReading(gm, q, qt, "compat", qi === 0 ? 6 : 5, ledger, joinParas(paras), v).forEach((t, i) =>
+      chartReading(gm, q, qt, "compat", 2, ledger, joinParas(paras), v).forEach((t, i) =>
         paras.push(P(i === 0 ? `${meWord} 명반으로 보면` : "짚고 갈 자리", t)),
       );
     }
     if (!onlyMe) {
       // 상대 쪽으로 넘어가는 첫 문단은 화자가 바뀌는 지점이라 라벨을 고정해 둔다.
-      chartReading(gp, q, qt, "compat", onlyP ? (qi === 0 ? 6 : 5) : 3, ledgerP, joinParas(paras), v).forEach((t, i) =>
+      chartReading(gp, q, qt, "compat", 2, ledgerP, joinParas(paras), v).forEach((t, i) =>
         paras.push(P(i === 0 ? `${pWord} 명반으로 보면` : "상대 쪽에서 짚을 자리", t)),
       );
     }
@@ -1319,13 +1319,13 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
     // 문단을 섞어 분량을 채웠는데, "몰래 좋아한 사람 수"를 물었는데 업무 마감 얘기가
     // 나오는 식으로 어긋나서 전부 걷어냈다.
     if (!onlyP) {
-      chartReading(gm, q, qt, "reunion", qi === 0 ? 6 : 5, ledger, joinParas(paras), v).forEach((t, i) =>
+      chartReading(gm, q, qt, "reunion", 2, ledger, joinParas(paras), v).forEach((t, i) =>
         paras.push(P(i === 0 ? `${meWord} 명반으로 보면` : "짚고 갈 자리", t)),
       );
     }
     if (!onlyMe) {
       // 상대 쪽으로 넘어가는 첫 문단은 화자가 바뀌는 지점이라 라벨을 고정해 둔다.
-      chartReading(gp, q, qt, "reunion", onlyP ? (qi === 0 ? 6 : 5) : 3, ledgerP, joinParas(paras), v).forEach((t, i) =>
+      chartReading(gp, q, qt, "reunion", 2, ledgerP, joinParas(paras), v).forEach((t, i) =>
         paras.push(P(i === 0 ? `${pWord} 명반으로 보면` : "상대 쪽에서 짚을 자리", t)),
       );
     }
@@ -1476,7 +1476,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
   {
     const qt = qTopic(q, "이 흐름");
     // 명반 지표 해석을 본문의 축으로 쓰고, 범용 문단은 결을 채우는 정도로만 남긴다.
-    chartReading(g, q, qt, "life", qi === 0 ? 8 : 6, ledger, joinParas(paras), v).forEach((t, i) =>
+    chartReading(g, q, qt, "life", qi === 0 ? 3 : 2, ledger, joinParas(paras), v).forEach((t, i) =>
       paras.push(P(i === 0 ? "명반으로 보면" : "짚고 갈 자리", t)),
     );
     // 예전엔 최대 8개를 뽑아 놓고 앞 4개만 꺼내 썼다. 버려진 4개도 ledger에는 "사용됨"으로
@@ -1647,7 +1647,7 @@ function light(cat: Category, q: string, me: Chart, v: string, ledger?: Set<numb
   {
     // 명반 지표 해석을 본문의 축으로 쓴다. 커리어·재물·건강은 명궁/관록·재백·질액궁을
     // 그 영역 기준으로 읽어야 해서 domainOf로 카테고리에 맞는 렌즈를 고른다.
-    chartReading(g, q, qt, domainOf(cat.id), qi === 0 ? 8 : 6, ledger, joinParas(paras), v).forEach((t, i) =>
+    chartReading(g, q, qt, domainOf(cat.id), qi === 0 ? 3 : 2, ledger, joinParas(paras), v).forEach((t, i) =>
       paras.push(P(i === 0 ? "명반으로 보면" : "짚고 갈 자리", t)),
     );
     // lifeOverview와 같은 문제 — 6개를 뽑아 2개만 쓰고 나머지는 ledger만 소모했다.
