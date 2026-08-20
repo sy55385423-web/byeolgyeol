@@ -21,6 +21,10 @@
 import { computeChart, popularityPct, ELEMENTS, BRANCHES, type Chart, type Element } from "./saju";
 import { grounding, starMeaning, starInDomain } from "./grounding";
 import { analyzeTiming, timingReason } from "./timing";
+import { buildFacts } from "./knowledge/facts";
+import { compose, newLedger, type ComposeLedger } from "./knowledge/compose";
+import { topicOf } from "./knowledge/topicMap";
+import type { Facts } from "./knowledge/types";
 import { marriageAgeFromSeed } from "./top1";
 import { categories, type Category } from "@/data/categories";
 
@@ -890,6 +894,46 @@ function relation(a: Element, b: Element): "生나→상대" | "生상대→나"
   return "比";
 }
 
+/* ───────────────────── 규칙 엔진 연결 ─────────────────────
+ * 리포트 본문은 lib/knowledge의 규칙 엔진이 만든다. 규칙은 계산된 사실(신강약·용신·십신·
+ * 합충·신살·대운·세운)을 조건으로 걸고, 조건이 참인 것만 문단이 된다.
+ *
+ * Facts와 규칙 원장은 리포트 한 부 단위로 살아 있어야 하는데, 그걸 다섯 개 생성 함수의
+ * 시그니처에 끼워 넣는 대신 이미 리포트 단위로 도는 원장(Set<number>)에 붙여 수명을 맞춘다. */
+type RuleState = { me?: Facts; pt?: Facts; led: ComposeLedger };
+const ruleStates = new WeakMap<Set<number>, RuleState>();
+
+function ruleStateFor(ledger?: Set<number>): RuleState | undefined {
+  if (!ledger) return undefined;
+  let st = ruleStates.get(ledger);
+  if (!st) { st = { led: newLedger() }; ruleStates.set(ledger, st); }
+  return st;
+}
+
+/** 규칙 엔진이 만든 문단. 조건에 걸리는 규칙이 없으면 빈 배열이 나오고, 그때는 문단을
+ *  억지로 만들지 않는다 — 근거 없는 문장을 채우느니 짧은 편이 낫다. */
+function rulePassages(
+  chart: Chart,
+  q: string,
+  categoryId: string,
+  count: number,
+  ledger?: Set<number>,
+  name?: string,
+  side: "me" | "pt" = "me",
+): string[] {
+  const st = ruleStateFor(ledger);
+  if (!st) return [];
+  try {
+    if (side === "me" && !st.me) st.me = buildFacts(chart, name);
+    if (side === "pt" && !st.pt) st.pt = buildFacts(chart, name);
+    const f = side === "me" ? st.me! : st.pt!;
+    return compose(f, topicOf(q, categoryId), count, st.led).map((c) => c.text);
+  } catch {
+    // 규칙 엔진이 실패해도 리포트 전체가 죽으면 안 된다.
+    return [];
+  }
+}
+
 /* ───────────────────── 시기/흐름 문장 ───────────────────── */
 
 /** 시기 문단. 예전엔 템플릿이 3개뿐이라 리포트 안에서 같은 문장이 반복됐고, 넘겨받은
@@ -1113,6 +1157,12 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
       return [P("해석", e.charm)];
   }
   })();
+  {
+    // 명식에서 실제로 걸리는 근거를 덧붙인다. 조건에 걸리는 규칙이 없으면 아무것도 안 붙는다.
+    rulePassages(me, q, "love-life", qi === 0 ? 2 : 1, ledger, name, "me").forEach((t, i) =>
+      paras.push(P(i === 0 ? "명식에서 보면" : "덧붙이면", t)),
+    );
+  }
   return paras;
 }
 
@@ -1251,13 +1301,18 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
     // 문단을 섞어 분량을 채웠는데, "몰래 좋아한 사람 수"를 물었는데 업무 마감 얘기가
     // 나오는 식으로 어긋나서 전부 걷어냈다.
     if (!onlyP) {
-      chartReading(gm, q, qt, "compat", 2, ledger, joinParas(paras), v).forEach((t, i) =>
+      // 규칙 엔진이 먼저다. 조건에 걸리는 게 있으면 그걸 쓰고, 없을 때만 명반 축 해석으로 채운다.
+      const rp = rulePassages(me, q, "love-compatibility", 2, ledger, name, "me");
+      (rp.length ? rp : chartReading(gm, q, qt, "compat", 2, ledger, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${meWord} 명반으로 보면` : "짚고 갈 자리", t)),
       );
     }
     if (!onlyMe) {
       // 상대 쪽으로 넘어가는 첫 문단은 화자가 바뀌는 지점이라 라벨을 고정해 둔다.
-      chartReading(gp, q, qt, "compat", 2, ledgerP, joinParas(paras), v).forEach((t, i) =>
+      // 상대 쪽도 같은 규칙 원장을 쓴다. 따로 두면 두 사람이 같은 판정일 때(둘 다 신약 등)
+      // 설명 문장이 글자 그대로 두 번 나온다.
+      const rpP = rulePassages(pt, q, "love-compatibility", 2, ledger, partnerName, "pt");
+      (rpP.length ? rpP : chartReading(gp, q, qt, "compat", 2, ledgerP, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${pWord} 명반으로 보면` : "상대 쪽에서 짚을 자리", t)),
       );
     }
@@ -1378,13 +1433,17 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
     // 문단을 섞어 분량을 채웠는데, "몰래 좋아한 사람 수"를 물었는데 업무 마감 얘기가
     // 나오는 식으로 어긋나서 전부 걷어냈다.
     if (!onlyP) {
-      chartReading(gm, q, qt, "reunion", 2, ledger, joinParas(paras), v).forEach((t, i) =>
+      const rp = rulePassages(me, q, "love-reunion", 2, ledger, name, "me");
+      (rp.length ? rp : chartReading(gm, q, qt, "reunion", 2, ledger, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${meWord} 명반으로 보면` : "짚고 갈 자리", t)),
       );
     }
     if (!onlyMe) {
       // 상대 쪽으로 넘어가는 첫 문단은 화자가 바뀌는 지점이라 라벨을 고정해 둔다.
-      chartReading(gp, q, qt, "reunion", 2, ledgerP, joinParas(paras), v).forEach((t, i) =>
+      // 상대 쪽도 같은 규칙 원장을 쓴다. 따로 두면 두 사람이 같은 판정일 때(둘 다 신약 등)
+      // 설명 문장이 글자 그대로 두 번 나온다.
+      const rpP = rulePassages(pt, q, "love-reunion", 2, ledger, partnerName, "pt");
+      (rpP.length ? rpP : chartReading(gp, q, qt, "reunion", 2, ledgerP, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${pWord} 명반으로 보면` : "상대 쪽에서 짚을 자리", t)),
       );
     }
@@ -1535,7 +1594,8 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
   {
     const qt = qTopic(q, "이 흐름");
     // 명반 지표 해석을 본문의 축으로 쓰고, 범용 문단은 결을 채우는 정도로만 남긴다.
-    chartReading(g, q, qt, "life", qi === 0 ? 3 : 2, ledger, joinParas(paras), v).forEach((t, i) =>
+    const rp = rulePassages(me, q, "life-overview", qi === 0 ? 3 : 2, ledger, name, "me");
+    (rp.length ? rp : chartReading(g, q, qt, "life", qi === 0 ? 3 : 2, ledger, joinParas(paras), v)).forEach((t, i) =>
       paras.push(P(i === 0 ? "명반으로 보면" : "짚고 갈 자리", t)),
     );
     // 예전엔 최대 8개를 뽑아 놓고 앞 4개만 꺼내 썼다. 버려진 4개도 ledger에는 "사용됨"으로
@@ -1706,7 +1766,8 @@ function light(cat: Category, q: string, me: Chart, v: string, ledger?: Set<numb
   {
     // 명반 지표 해석을 본문의 축으로 쓴다. 커리어·재물·건강은 명궁/관록·재백·질액궁을
     // 그 영역 기준으로 읽어야 해서 domainOf로 카테고리에 맞는 렌즈를 고른다.
-    chartReading(g, q, qt, domainOf(cat.id), qi === 0 ? 3 : 2, ledger, joinParas(paras), v).forEach((t, i) =>
+    const rp = rulePassages(me, q, cat.id, qi === 0 ? 3 : 2, ledger, undefined, "me");
+    (rp.length ? rp : chartReading(g, q, qt, domainOf(cat.id), qi === 0 ? 3 : 2, ledger, joinParas(paras), v)).forEach((t, i) =>
       paras.push(P(i === 0 ? "명반으로 보면" : "짚고 갈 자리", t)),
     );
     // lifeOverview와 같은 문제 — 6개를 뽑아 2개만 쓰고 나머지는 ledger만 소모했다.

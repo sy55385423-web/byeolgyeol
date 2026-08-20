@@ -6,7 +6,7 @@
  *    이 사실은 Chart 자체가 아니라 리포트 생성 프롬프트 쪽에서 "시간 미상"으로 별도 처리한다. */
 
 import { astro } from "iztro";
-import { getVoidBranches } from "manseryeok";
+import { getVoidBranches, getLuckPillars } from "manseryeok";
 import { Origin, Horoscope } from "circular-natal-horoscope-js";
 
 export const STEMS = ["갑", "을", "병", "정", "무", "기", "경", "신", "임", "계"];
@@ -62,6 +62,9 @@ export type Chart = {
   voidBranches: string[]; // 공망 지지 두 개 — manseryeok 계산값
   isMale: boolean;        // 대운 순역 계산에 쓰는 값 (미입력 시 남성으로 가정)
   genderKnown: boolean;   // 사용자가 실제로 성별을 밝혔는지
+  // 사주 대운 — 절입 시각까지 계산해 시작 나이를 정한다(manseryeok).
+  // 자미두수 대한(decadals)과는 다른 체계라 따로 싣는다.
+  luck: { startAge: number; forward: boolean; list: { age: number; stem: number; branch: number; ko: string }[] };
 };
 
 const ZODIAC_KO_FROM_EN: Record<string, string> = {
@@ -205,6 +208,33 @@ function computeChartUncached(b: Birth): Chart {
 
   const seed = y * 372 + m * 31 + d + (b.hourBranch ?? 0) * 7;
 
+  // 사주 대운 — 출생에서 다음(순행)/이전(역행) 절(節)까지의 일수로 시작 나이를 정한다.
+  // 순역은 성별에 달려 있다(양남·음녀 순행 / 음남·양녀 역행).
+  let luck = { startAge: 0, forward: true, list: [] as { age: number; stem: number; branch: number; ko: string }[] };
+  try {
+    const instantUTCms = Date.UTC(y, m - 1, d, toClockHour(b.hourBranch) - 9, 0); // KST = UTC+9
+    const lp = getLuckPillars({
+      instantUTCms,
+      birthYear: y,
+      monthPillar: { heavenlyStem: STEMS[month.stem], earthlyBranch: BRANCHES[month.branch] } as Parameters<typeof getLuckPillars>[0]["monthPillar"],
+      sajuYearStemIndex: year.stem,
+      gender: (isMale ? "male" : "female") as Parameters<typeof getLuckPillars>[0]["gender"],
+      count: 9,
+    });
+    luck = {
+      startAge: lp.startAge,
+      forward: lp.forward,
+      list: lp.pillars.map((pp) => ({
+        age: pp.age,
+        stem: STEMS.indexOf(pp.pillar.heavenlyStem),
+        branch: BRANCHES.indexOf(pp.pillar.earthlyBranch),
+        ko: pp.korean,
+      })),
+    };
+  } catch {
+    // 절기 데이터 범위 밖의 연도 등 — 대운이 없어도 나머지 분석은 그대로 유효하다.
+  }
+
   // 공망 — 일주가 속한 순(旬)에서 빠지는 지지 두 개. manseryeok이 계산해 준다.
   let voidBranches: string[] = [];
   try {
@@ -251,6 +281,7 @@ function computeChartUncached(b: Birth): Chart {
     voidBranches,
     isMale,
     genderKnown,
+    luck,
   };
 }
 
