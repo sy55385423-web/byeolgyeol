@@ -383,12 +383,22 @@ export default function Flow({ category }: { category: Category }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me, partner, partnerName, category, name]);
 
-  // 무료로 공개되는 지표 — 실제 명반 엔진(values())에서 그대로 가져와 유료 리포트와 값이 일치함
-  const revealData = useMemo(() => {
-    if (!chartCtx) return { value: "", gauge: 0 };
-    const revealedStat = category.previewStats?.find((s) => s.revealed);
-    const val = revealedStat ? values(chartCtx)[revealedStat.label] : undefined;
-    return { value: val?.v ?? "", gauge: val?.gauge ?? 0 };
+  // 미리보기 값 — 전부 실제 명반 엔진(values())에서 가져온다.
+  //
+  // 예전에는 revealed 항목 하나만 실제 값이고 나머지 아홉은 data/categories.ts의
+  // 고정 샘플이었다. 누가 보든 "차분한 리더형 · 4회 · 31세"가 blur 뒤에 있었고,
+  // 결제하면 전혀 다른 값이 나왔다. 미리보기가 그 사람 것이 아니면 보여줄 이유가 없다.
+  const previewStats = useMemo(() => {
+    const base = category.previewStats;
+    if (!base) return undefined;
+    if (!chartCtx) return base;
+    const v = values(chartCtx);
+    return base.map((s) => {
+      const got = v[s.label];
+      // 엔진이 답을 못 내는 항목은 원래 샘플을 둔다(빈칸보다는 낫다).
+      if (!got?.v) return s;
+      return { ...s, value: got.v, gauge: got.gauge ?? s.gauge };
+    });
   }, [chartCtx, category.previewStats]);
 
   const progress = stepIdx / steps.length;
@@ -691,7 +701,7 @@ export default function Flow({ category }: { category: Category }) {
               </div>
             )}
 
-            {category.previewStats ? (
+            {previewStats ? (
               <>
                 {/* 카드뉴스형 미리보기 — 전 항목 기본 포함, 수치만 가림 */}
                 <div className="mt-6">
@@ -700,15 +710,11 @@ export default function Flow({ category }: { category: Category }) {
                       리포트 미리보기 · 수치만 가려져 있어요
                     </p>
                     <p className="text-xs text-ink-faint">
-                      전체 {category.previewStats.length}개 항목
+                      전체 {previewStats.length}개 항목
                     </p>
                   </div>
                   <StatGrid
-                    stats={category.previewStats.map((s) =>
-                      s.revealed
-                        ? { ...s, value: revealData.value, gauge: revealData.gauge }
-                        : s
-                    )}
+                    stats={previewStats}
                     name={name || undefined}
                     partnerName={partnerName || undefined}
                   />

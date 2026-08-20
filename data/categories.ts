@@ -70,8 +70,8 @@ export const categories: Category[] = [
       {
         label: "나의 타고난 매력은?",
         prefix: "타고난 매력은 ",
-        value: "잔잔한 흡인",
-        suffix: "형이에요",
+        value: "잔잔한 흡인력",
+        suffix: "이에요",
       },
       {
         label: "나는 어떤 사람에게 끌릴까",
@@ -108,14 +108,14 @@ export const categories: Category[] = [
       {
         label: "연애하면 안 되는 사람의 특징",
         prefix: "피해야 할 상대는 ",
-        value: "다정한 회피",
-        suffix: "형이에요",
+        value: "다정한 회피형",
+        suffix: "이에요",
       },
       {
         label: "운명의 상대의 특징과 외모",
         prefix: "운명의 상대는 ",
-        value: "말수 적은 실행",
-        suffix: "형이에요",
+        value: "말수 적은 실행형",
+        suffix: "을 가진 사람이에요",
       },
       {
         label: "나의 연애운이 가장 좋은 시기",

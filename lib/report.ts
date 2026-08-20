@@ -1858,7 +1858,11 @@ function light(cat: Category, q: string, me: Chart, v: string, ledger?: Set<numb
 export type Ctx = { me: Chart; pt?: Chart; c: Category; input: ReportInput };
 
 /** 접미사 맨 앞의 조사를 앞 값의 받침에 맞춘다. 조사로 시작하지 않으면 그대로 둔다. */
-const JOSA_PAIRS: [string, string][] = [["은", "는"], ["이", "가"], ["을", "를"], ["과", "와"], ["으로", "로"], ["이라", "라"]];
+// 긴 것부터 본다. "이에요"를 ["이","가"]가 먼저 집어가면 "가에요"가 된다.
+const JOSA_PAIRS: [string, string][] = [
+  ["이었어요", "였어요"], ["이에요", "예요"], ["이라", "라"], ["으로", "로"],
+  ["은", "는"], ["이", "가"], ["을", "를"], ["과", "와"],
+];
 export function fixJosa(suffix: string, value: string): string {
   if (!suffix) return suffix;
   const j = lastJong(value);
@@ -2296,8 +2300,10 @@ export function generateReport(input: ReportInput): Report | null {
   const pt = input.partner ? computeChart(input.partner) : undefined;
   const ctx: Ctx = { me, pt, c: category, input };
   const vals = values(ctx);
-  const who = input.name ? `${input.name} 님` : "당신";
-  const pWho = input.partnerName ? `${input.partnerName} 님` : "상대방";
+  // 본문은 전부 "수연님"으로 붙여 쓴다. 헤드라인만 "수연 님"이면 같은 화면에서
+  // 표기가 갈린다. 미리보기 카드(StatGrid)도 붙여 쓰므로 여기에 맞춘다.
+  const who = input.name ? `${input.name}님` : "당신";
+  const pWho = input.partnerName ? `${input.partnerName}님` : "상대방";
 
   // 리포트 한 부 전체에서 "다른 각도" 앵글이 겹치지 않도록 쓰인 인덱스를 누적한다.
   // 문항별로만 중복을 막던 시절엔 궁합 14문항에서 같은 문단이 대여섯 번씩 반복됐다.
