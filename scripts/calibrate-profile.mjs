@@ -9,7 +9,7 @@ import { buildProfile } from "../lib/core/profile.ts";
 import { computeChart } from "../lib/saju.ts";
 import { analyzeTiming } from "../lib/timing.ts";
 const mk=n=>{const a=[];for(let i=0;i<n;i++)a.push({y:1940+(i*3)%85,m:1+((i*5)%12),d:1+((i*11)%28),hourBranch:i%12,gender:i%2?"male":"female"});return a;};
-const P=mk(500);
+const P=mk(300);
 const dec=v=>{v.sort((a,b)=>a-b);return [1,2,3,4,5,6,7,8,9].map(q=>Math.round(v[Math.floor(v.length*q/10)]*10)/10);};
 const out={norm:{},ability:{}};
 for(const set of ["love","career","wealth"]){
