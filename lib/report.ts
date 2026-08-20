@@ -24,8 +24,9 @@ import { analyzeTiming, timingReason } from "./timing";
 import { buildFacts } from "./knowledge/facts";
 import { compose, newLedger, type ComposeLedger } from "./knowledge/compose";
 import { scoreDecadals, spanScore, scoreYears } from "./core/luck";
+import { buildProfile, type AbilitySet } from "./core/profile";
 import { comingMonths } from "./core/month";
-import { branchSix, branchClash, STEM_EL, BRANCH_EL, TRIPLE } from "./core/ganji";
+import { branchSix, branchClash, branchHarm, branchBreak, stemCombo, STEM_EL, BRANCH_EL, TRIPLE } from "./core/ganji";
 import { topicOf } from "./knowledge/topicMap";
 import type { Facts, Topic } from "./knowledge/types";
 import { marriageAgeFromSeed } from "./top1";
@@ -2245,15 +2246,23 @@ export type RadarStats = {
  *
  *  순서는 항상 비겁·식상·재성·관성·인성이다. */
 const RADAR_AXES: Record<string, string[]> = {
-  "love-life": ["자기 주장", "표현력", "현실 감각", "책임감", "받아주는 힘"],
-  career: ["주도성", "창의·표현", "성과 지향", "조직 적응", "전문성"],
-  wealth: ["나눔·동업", "만들어 버는 힘", "재물 감각", "관리·통제", "지키는 힘"],
+  // 아래 셋은 능력 프로파일 엔진(lib/core/profile.ts)이 만든다.
+  // 명반 → 원천 특성 20개 → 능력 다섯 개 → 잠재력·발현력·감당력·구조 보정 순서다.
+  "love-life": ["사교성", "감정표현", "독립성", "신뢰감", "책임감"],
+  career: ["리더십", "전문성", "적응력", "협업력", "실행력"],
+  wealth: ["저축력", "투자 감각", "소비 관리", "수입 다각화", "재물 그릇"],
+  // 아래는 십신·오행·기둥을 직접 읽는 자리라 프로파일 엔진을 거치지 않는다.
   "life-overview": ["자기 축", "재능 발산", "현실 성취", "사회적 자리", "배움과 수용"],
-  // 건강은 십신보다 강약·오행이 직접 답하는 자리라 그대로 둔다
   health: ["체력", "회복력", "면역력", "스트레스 관리", "생활 리듬"],
-  // 궁합·재회는 두 명식을 대조하는 자리다. 명리가 궁합에서 실제로 보는 다섯 곳.
   "love-compatibility": ["일간 관계", "배우자궁", "기운 교환", "힘의 균형", "시기 동조"],
   "love-reunion": ["일간 관계", "배우자궁", "기운 교환", "힘의 균형", "시기 동조"],
+};
+
+/** 능력 프로파일 엔진을 쓰는 카테고리 */
+const PROFILE_SET: Record<string, AbilitySet> = {
+  "love-life": "love",
+  career: "career",
+  wealth: "wealth",
 };
 
 /** 레이더 5축 — 명식에서 계산한다.
@@ -2289,8 +2298,25 @@ type AxisCtx = {
   useSwap?: number;
   /** 상대의 강약 점수 — 힘의 균형을 보려면 둘 다 필요하다 */
   otherStrength?: number;
-  /** 시기 동조 — 앞으로 10년에 두 사람 다 나쁘지 않은 해가 있는가 */
+  /** 시기 동조 — 앞으로 10년, 두 사람 중 나쁜 쪽 점수의 평균 */
   yearSync?: number;
+  /** 상대 오행 무게 — 내 부족분을 얼마나 채우는지 보려면 벡터가 필요하다 */
+  otherEl?: number[];
+  /** 상대 십신 무게 — 십신 분포의 상보성을 본다 */
+  otherG?: Record<"비겁" | "식상" | "재성" | "관성" | "인성", number>;
+  /** 배우자궁 관계 점수 — 육합·삼합·충·형·파해를 한 값으로 */
+  spouseSeat?: number;
+  /** 두 일간이 천간합인가 */
+  stemCombo?: boolean;
+  /** 상대가 내 부족한 오행을 채우는 양 / 기신을 더하는 양 — 근거 문구에 쓴다 */
+  fillAmt?: number;
+  harmAmt?: number;
+  /** 십신 상보성 — 내가 빈 자리를 상대가 채우는 양 */
+  compAmt?: number;
+  /** 상대 일지의 오행 */
+  seatEl?: number;
+  /** 두 일간의 음양이 다른가 */
+  yinYangMix?: boolean;
 };
 
 /** 태과불급(太過不及) — 명리는 부족한 것만큼 넘치는 것도 문제로 본다.
@@ -2348,19 +2374,46 @@ const fiveGods: ((c: AxisCtx) => number)[] = FIVE.map((k) => (c: AxisCtx) => god
 
 /** 궁합·재회 — 명리가 두 명식을 볼 때 짚는 다섯 자리.
  *
- *  각 자리의 뼈대는 셋 중 하나(상생·비화·상극 / 합·무관·충)로 떨어지지만,
- *  그것만 쓰면 값이 서너 종류로 뭉쳐 그림이 다 비슷해진다. 그 자리에 실제로
- *  얼마나 힘이 실렸는지(오행 무게·십신 무게)를 함께 봐서 폭을 만든다. */
+ *  앞선 판에서는 각 자리를 상생·비화·상극 같은 서너 가지 상태로만 봤다. 그래서
+ *  다섯 축이 서너 값에 뭉쳐 오각형이 밋밋했다. 같은 "상극"이어도 얼마나 세게
+ *  극하는지, 같은 "무관"이어도 다른 자리에서 얼마나 얽히는지가 다른데 그게
+ *  버려졌다. 각 자리를 그 자리 안에서 연속값으로 읽는다. */
 const pairAxes: ((c: AxisCtx) => number)[] = [
-  // 일간 관계 — 상생·비화·상극에 두 일간 오행의 두께를 얹는다
-  (c) => 55 + (c.dayRel ?? 0) * 16 + (c.el[c.dayEl] - 2) * 3,
-  // 배우자궁 — 육합·충에 일지가 실제로 얼마나 무거운지(월지 대비)를 얹는다
-  (c) => (c.six ? 82 : c.clash ? 38 : 58) + (c.g.비겁 + c.g.인성 - 2) * 3,
-  // 기운 교환 — 서로 용신을 갖는 자리 수에 그 기운의 실제 두께를 얹는다
-  (c) => 48 + (c.useSwap ?? 0) * 14 + (c.el[c.useEl] - 1.5) * 4,
-  // 힘의 균형 — 두 사람 강약 점수 차
-  (c) => 88 - Math.abs(c.strength - (c.otherStrength ?? 50)) * 0.55,
-  // 시기 동조 — 앞으로 10년에 둘 다 괜찮은 해가 몇 번인가
+  // 일간 관계 — 상생·상극에 천간합과 음양 조합을 얹는다.
+  // 명리에서 천간합은 두 사람이 서로에게 묶이는 자리로 크게 보고,
+  // 음양이 다르면 끌어당기고 같으면 밀어낸다.
+  (c) =>
+    55 + (c.dayRel ?? 0) * 15
+    + (c.stemCombo ? 13 : 0)
+    + (c.yinYangMix ? 6 : -5)
+    + (c.el[c.dayEl] - 2) * 2.5,
+  // 배우자궁 — 육합·삼합·충·형·파해를 한 값으로 본 뒤,
+  // 상대 일지가 내 용신인지 기신인지를 얹는다.
+  (c) => c.spouseSeat ?? 58,
+  // 기운 교환 — 내 부족분을 상대가 얼마나 채우는지 오행 벡터로 잰다.
+  // "상대가 내 용신을 가졌나"를 있다·없다로만 보면 두세 값에 뭉친다.
+  (c) => {
+    if (!c.otherEl) return 55;
+    let fill = 0, harm = 0;
+    for (let i = 0; i < 5; i++) {
+      const need = Math.max(0, 2 - c.el[i]) * (i === c.useEl ? 2 : i === c.helpEl ? 1.4 : 1);
+      fill += Math.min(need, c.otherEl[i]);
+      if (i === c.avoidEl) harm += c.otherEl[i];
+    }
+    return 48 + fill * 7 - harm * 3;
+  },
+  // 힘의 균형 — 강약 점수 차에 십신 분포의 상보성을 얹는다.
+  // 한쪽이 비어 있는 자리를 상대가 채우면 역할이 나뉜다.
+  (c) => {
+    const gap = Math.abs(c.strength - (c.otherStrength ?? 50));
+    let comp = 0;
+    if (c.otherG) {
+      for (const k of FIVE) comp += Math.min(Math.max(0, 2 - c.g[k]), c.otherG[k]);
+    }
+    return 78 - gap * 0.42 + comp * 4;
+  },
+  // 시기 동조 — 앞으로 10년, 두 사람 중 나쁜 쪽의 점수를 평균낸다.
+  // 한 명만 좋은 해는 같이 움직이기 어렵다.
   (c) => c.yearSync ?? 55,
 ];
 
@@ -2391,15 +2444,18 @@ const AXIS_BASIS: Record<string, ((c: AxisCtx) => string)[]> = {
     (["love-compatibility", "love-reunion"] as const).map((cid) => [
       cid,
       [
-        (c: AxisCtx) => `두 일간이 ${c.dayRel === 1 ? "상생" : c.dayRel === -1 ? "상극" : "비화"}`,
-        (c: AxisCtx) => `일지가 ${c.six ? "육합" : c.clash ? "충" : "직접 관계 없음"}`,
-        (c: AxisCtx) => `서로 용신을 가진 자리 ${c.useSwap ?? 0}곳`,
-        (c: AxisCtx) => `강약 ${c.strength}점 대 ${c.otherStrength ?? "—"}점`,
-        (c: AxisCtx) => `10년 세운에서 둘 다 괜찮은 해`,
+        (c: AxisCtx) =>
+          `두 일간이 ${c.dayRel === 1 ? "상생" : c.dayRel === -1 ? "상극" : "비화"}` +
+          `${c.stemCombo ? " · 천간합" : ""} · 음양 ${c.yinYangMix ? "다름" : "같음"}`,
+        (c: AxisCtx) => `배우자 자리끼리 ${c.six ? "육합" : c.clash ? "충" : "직접 합충 없음"} · 상대 일지가 ${c.seatEl === c.useEl ? "내 용신" : c.seatEl === c.avoidEl ? "내 기신" : "중립"}`,
+        (c: AxisCtx) => `상대가 채우는 오행 ${c.fillAmt ?? 0} · 기신을 더하는 양 ${c.harmAmt ?? 0}`,
+        (c: AxisCtx) => `강약 ${c.strength}점 대 ${c.otherStrength ?? "—"}점 · 상보 ${c.compAmt ?? 0}`,
+        (c: AxisCtx) => `10년 세운에서 둘 중 낮은 쪽 평균 ${Math.round(c.yearSync ?? 0)}점`,
       ],
     ]),
   ),
 };
+
 
 const AXIS_FN: Record<string, ((c: AxisCtx) => number)[]> = {
   "love-life": fiveGods,
@@ -2431,13 +2487,14 @@ const AXIS_FN: Record<string, ((c: AxisCtx) => number)[]> = {
  *  분포가 무너지면 잡아 준다. */
 const AXIS_DECILES: Record<string, number[][]> = {
   "love-life": [[31.5, 34.5, 39, 45, 47.5, 50.5, 56, 60.5, 68], [33.8, 38.3, 41.4, 44.6, 47.6, 50.7, 55.3, 60.6, 67.1], [33.3, 38.5, 42.1, 45.6, 48.9, 51.6, 55.4, 59.7, 68.1], [34.1, 39, 42.3, 46.2, 48.6, 51.5, 54, 59.4, 66.6], [33.5, 39, 45, 48.5, 51.5, 60, 63.5, 68, 75.9]],
-  "love-compatibility": [[37.8, 39.9, 42.2, 46.6, 55.3, 59.1, 69, 71.3, 74.2], [53.8, 56.8, 58.1, 59.2, 60.5, 61.9, 63.2, 64.6, 68.1], [44.1, 45.7, 46.4, 47.7, 49.6, 51.2, 58.4, 61.2, 64.3], [66, 70.4, 74.3, 76.5, 79.2, 80.9, 82.5, 84.2, 86.4], [42, 42, 56, 56, 70, 70, 70, 84, 84]],
-  "love-reunion": [[37.8, 39.9, 42.2, 46.6, 55.3, 59.1, 69, 71.3, 74.2], [53.8, 56.8, 58.1, 59.2, 60.5, 61.9, 63.2, 64.6, 68.1], [44.1, 45.7, 46.4, 47.7, 49.6, 51.2, 58.4, 61.2, 64.3], [66, 70.4, 74.3, 76.5, 79.2, 80.9, 82.5, 84.2, 86.4], [42, 42, 56, 56, 70, 70, 70, 84, 84]],
+  "love-compatibility": [[35.5, 39, 47.5, 51.5, 59, 62.5, 65.5, 71.3, 76.3], [48, 48, 58, 58, 58, 64, 70, 73, 79], [51, 54.6, 57, 59.6, 61.4, 63.5, 65.5, 68.7, 72.7], [71.9, 74.9, 76.8, 79.2, 80.9, 82.5, 83.8, 85.7, 87.7], [31.6, 35.1, 39.1, 41.4, 44, 46.3, 48.9, 51.2, 54.2]],
+  "love-reunion": [[35.5, 39, 47.5, 51.5, 59, 62.5, 65.5, 71.3, 76.3], [48, 48, 58, 58, 58, 64, 70, 73, 79], [51, 54.6, 57, 59.6, 61.4, 63.5, 65.5, 68.7, 72.7], [71.9, 74.9, 76.8, 79.2, 80.9, 82.5, 83.8, 85.7, 87.7], [31.6, 35.1, 39.1, 41.4, 44, 46.3, 48.9, 51.2, 54.2]],
   "life-overview": [[31.5, 34.5, 39, 45, 47.5, 50.5, 56, 60.5, 68], [33.8, 38.3, 41.4, 44.6, 47.6, 50.7, 55.3, 60.6, 67.1], [33.3, 38.5, 42.1, 45.6, 48.9, 51.6, 55.4, 59.7, 68.1], [34.1, 39, 42.3, 46.2, 48.6, 51.5, 54, 59.4, 66.6], [33.5, 39, 45, 48.5, 51.5, 60, 63.5, 68, 75.9]],
   "career": [[31.5, 34.5, 39, 45, 47.5, 50.5, 56, 60.5, 68], [33.8, 38.3, 41.4, 44.6, 47.6, 50.7, 55.3, 60.6, 67.1], [33.3, 38.5, 42.1, 45.6, 48.9, 51.6, 55.4, 59.7, 68.1], [34.1, 39, 42.3, 46.2, 48.6, 51.5, 54, 59.4, 66.6], [33.5, 39, 45, 48.5, 51.5, 60, 63.5, 68, 75.9]],
   "wealth": [[31.5, 34.5, 39, 45, 47.5, 50.5, 56, 60.5, 68], [33.8, 38.3, 41.4, 44.6, 47.6, 50.7, 55.3, 60.6, 67.1], [33.3, 38.5, 42.1, 45.6, 48.9, 51.6, 55.4, 59.7, 68.1], [34.1, 39, 42.3, 46.2, 48.6, 51.5, 54, 59.4, 66.6], [33.5, 39, 45, 48.5, 51.5, 60, 63.5, 68, 75.9]],
   "health": [[33, 39, 44, 49, 53, 56, 59, 63, 69], [32, 37, 41, 46, 50, 54, 59, 64, 70], [56.8, 62.4, 66.8, 70.4, 74, 77.6, 81.2, 84.4, 88.4], [56, 63.2, 66.8, 70.8, 73.6, 77.2, 80, 83.6, 88.4], [52.2, 56.2, 62, 66, 69.4, 73.1, 77.9, 82.7, 91.5]],
 };
+
 
 
 
@@ -2493,18 +2550,44 @@ function buildAxisCtx(ctx: Ctx): AxisCtx {
           const rel = A.dayEl === B.dayEl ? 0
             : (A.dayEl + 1) % 5 === B.dayEl || (B.dayEl + 1) % 5 === A.dayEl ? 1 : -1;
           const swap = (B.dominant === A.useEl ? 1 : 0) + (A.dominant === B.useEl ? 1 : 0);
-          // 두 사람의 좋은 해가 겹치는가 — 내 세운이 55점 이상이면서 상대 용신도 드는 해
-          const yrs = scoreYears(A, me.birthYear, new Date().getFullYear(), 10, me.luck?.list ?? []);
-          const both = yrs.filter(
-            (y) => y.score >= 52 && (STEM_EL[y.stem] === B.useEl || BRANCH_EL[y.branch] === B.useEl),
-          ).length;
+
+          // 배우자궁 — 육합·삼합·충·형·파해를 한 값으로 본 뒤, 상대 일지가
+          // 내 용신인지 기신인지를 얹는다. 같은 "무관"이어도 오행이 다르면 다르다.
+          const obEl = BRANCH_EL[ob];
+          let seat = 58;
+          if (branchSix(mb, ob)) seat += 26;
+          else if (TRIPLE.some((t) => t.members.includes(mb) && t.members.includes(ob)) && mb !== ob) seat += 15;
+          else if (branchClash(mb, ob)) seat -= 20;
+          else if (branchHarm(mb, ob) || branchBreak(mb, ob)) seat -= 8;
+          if (obEl === A.useEl) seat += 12;
+          else if (obEl === A.helpEl) seat += 6;
+          else if (obEl === A.avoidEl) seat -= 10;
+
+          // 시기 동조 — 두 사람 중 나쁜 쪽 점수의 10년 평균.
+          // 한 명만 좋은 해는 같이 움직이기 어렵다.
+          const y0 = new Date().getFullYear();
+          const mine = scoreYears(A, me.birthYear, y0, 10, me.luck?.list ?? []);
+          const theirs = scoreYears(B, pt.birthYear, y0, 10, pt.luck?.list ?? []);
+          const sync = mine.length && theirs.length
+            ? mine.reduce((sum, y, k) => sum + Math.min(y.score, theirs[k]?.score ?? y.score), 0) / mine.length
+            : 55;
+
           return {
             six: branchSix(mb, ob),
             clash: branchClash(mb, ob),
             dayRel: rel,
             useSwap: swap,
             otherStrength: B.strengthScore,
-            yearSync: Math.min(92, 42 + both * 14),
+            otherEl: B.elementWeight,
+            otherG: B.groupWeight,
+            spouseSeat: seat,
+            seatEl: obEl,
+            stemCombo: stemCombo(A.dayStem, B.dayStem) !== null,
+            fillAmt: (() => { let f = 0; for (let i = 0; i < 5; i++) f += Math.min(Math.max(0, 2 - A.elementWeight[i]), B.elementWeight[i]); return Math.round(f * 10) / 10; })(),
+            harmAmt: Math.round(B.elementWeight[A.avoidEl] * 10) / 10,
+            compAmt: (() => { let n = 0; for (const k of ["비겁", "식상", "재성", "관성", "인성"] as const) n += Math.min(Math.max(0, 2 - A.groupWeight[k]), B.groupWeight[k]); return Math.round(n * 10) / 10; })(),
+            yinYangMix: A.dayStem % 2 !== B.dayStem % 2,
+            yearSync: sync,
           };
         })()
       : {}),
@@ -2526,23 +2609,34 @@ export function radarStats(ctx: Ctx): RadarStats {
   const axisCtx = buildAxisCtx(ctx);
 
   const fns = AXIS_FN[category.id];
+  // 능력 프로파일을 쓰는 카테고리는 다층 엔진이 축과 종합 점수를 함께 낸다.
+  const set = PROFILE_SET[category.id];
+  const profile = set ? buildProfile(analyzeTiming(me).analysis, set) : undefined;
+
   const bases = AXIS_BASIS[category.id];
-  const axes = axesLabels.map((label, i) => ({
-    label,
-    value: fns?.[i] ? toPercentileScale(category.id, i, fns[i](axisCtx)) : 55,
-    basis: bases?.[i] ? bases[i](axisCtx) : "",
-  }));
+  const axes = profile
+    ? profile.abilities.map((ab) => ({
+        label: ab.label,
+        value: ab.score,
+        basis: `잠재 ${ab.potential} · 발현 ${ab.expression} · ${ab.basis}`,
+      }))
+    : axesLabels.map((label, i) => ({
+        label,
+        value: fns?.[i] ? toPercentileScale(category.id, i, fns[i](axisCtx)) : 55,
+        basis: bases?.[i] ? bases[i](axisCtx) : "",
+      }));
 
   const v = values(ctx);
   let title: string, score: number, caption: string;
 
   switch (category.id) {
     case "love-life": {
-      const stat = v["나의 타고난 인기는 상위 몇 %?"];
-      const pct = Number(stat?.v ?? "14");
-      title = "타고난 인기";
-      score = stat?.gauge ?? 100 - pct;
-      caption = `상위 ${pct}%`;
+      // 종합 점수와 백분위는 다른 값이다. 점수는 다섯 능력을 합쳐 표준화한 값이고,
+      // 백분위는 모집단 안에서의 순위다. 예전에는 100 − 상위%로 같은 숫자를 두 번
+      // 보여 주고 있었다.
+      title = "연애 종합 지수";
+      score = profile?.composite ?? 55;
+      caption = "상위 " + (profile?.percentile ?? 50) + "%";
       break;
     }
     case "love-compatibility": {
@@ -2560,17 +2654,15 @@ export function radarStats(ctx: Ctx): RadarStats {
       break;
     }
     case "career": {
-      const stat = v["성취·승진 운의 흐름"];
       title = "커리어 종합 지수";
-      score = stat?.gauge ?? 55 + (s % 40);
-      caption = stat?.v ?? "상승 흐름";
+      score = profile?.composite ?? 55;
+      caption = "상위 " + (profile?.percentile ?? 50) + "%";
       break;
     }
     case "wealth": {
-      const stat = v["타고난 재물의 그릇"];
       title = "재물 종합 지수";
-      score = stat?.gauge ?? 50 + (s % 45);
-      caption = stat?.v ?? "성장형";
+      score = profile?.composite ?? 55;
+      caption = "상위 " + (profile?.percentile ?? 50) + "%";
       break;
     }
     case "health": {
