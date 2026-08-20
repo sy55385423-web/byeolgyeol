@@ -24,6 +24,7 @@ import { analyzeTiming, timingReason } from "./timing";
 import { buildFacts } from "./knowledge/facts";
 import { compose, newLedger, type ComposeLedger } from "./knowledge/compose";
 import { scoreDecadals, spanScore, scoreYears } from "./core/luck";
+import { buildProfile, type AbilitySet } from "./core/profile";
 import { comingMonths } from "./core/month";
 import { branchSix, branchClash, branchHarm, branchBreak, stemCombo, STEM_EL, BRANCH_EL, TRIPLE } from "./core/ganji";
 import { topicOf } from "./knowledge/topicMap";
@@ -2245,15 +2246,23 @@ export type RadarStats = {
  *
  *  순서는 항상 비겁·식상·재성·관성·인성이다. */
 const RADAR_AXES: Record<string, string[]> = {
-  "love-life": ["자기 주장", "표현력", "현실 감각", "책임감", "받아주는 힘"],
-  career: ["주도성", "창의·표현", "성과 지향", "조직 적응", "전문성"],
-  wealth: ["나눔·동업", "만들어 버는 힘", "재물 감각", "관리·통제", "지키는 힘"],
+  // 아래 셋은 능력 프로파일 엔진(lib/core/profile.ts)이 만든다.
+  // 명반 → 원천 특성 20개 → 능력 다섯 개 → 잠재력·발현력·감당력·구조 보정 순서다.
+  "love-life": ["사교성", "감정표현", "독립성", "신뢰감", "책임감"],
+  career: ["리더십", "전문성", "적응력", "협업력", "실행력"],
+  wealth: ["저축력", "투자 감각", "소비 관리", "수입 다각화", "재물 그릇"],
+  // 아래는 십신·오행·기둥을 직접 읽는 자리라 프로파일 엔진을 거치지 않는다.
   "life-overview": ["자기 축", "재능 발산", "현실 성취", "사회적 자리", "배움과 수용"],
-  // 건강은 십신보다 강약·오행이 직접 답하는 자리라 그대로 둔다
   health: ["체력", "회복력", "면역력", "스트레스 관리", "생활 리듬"],
-  // 궁합·재회는 두 명식을 대조하는 자리다. 명리가 궁합에서 실제로 보는 다섯 곳.
   "love-compatibility": ["일간 관계", "배우자궁", "기운 교환", "힘의 균형", "시기 동조"],
   "love-reunion": ["일간 관계", "배우자궁", "기운 교환", "힘의 균형", "시기 동조"],
+};
+
+/** 능력 프로파일 엔진을 쓰는 카테고리 */
+const PROFILE_SET: Record<string, AbilitySet> = {
+  "love-life": "love",
+  career: "career",
+  wealth: "wealth",
 };
 
 /** 레이더 5축 — 명식에서 계산한다.
@@ -2600,23 +2609,34 @@ export function radarStats(ctx: Ctx): RadarStats {
   const axisCtx = buildAxisCtx(ctx);
 
   const fns = AXIS_FN[category.id];
+  // 능력 프로파일을 쓰는 카테고리는 다층 엔진이 축과 종합 점수를 함께 낸다.
+  const set = PROFILE_SET[category.id];
+  const profile = set ? buildProfile(analyzeTiming(me).analysis, set) : undefined;
+
   const bases = AXIS_BASIS[category.id];
-  const axes = axesLabels.map((label, i) => ({
-    label,
-    value: fns?.[i] ? toPercentileScale(category.id, i, fns[i](axisCtx)) : 55,
-    basis: bases?.[i] ? bases[i](axisCtx) : "",
-  }));
+  const axes = profile
+    ? profile.abilities.map((ab) => ({
+        label: ab.label,
+        value: ab.score,
+        basis: `잠재 ${ab.potential} · 발현 ${ab.expression} · ${ab.basis}`,
+      }))
+    : axesLabels.map((label, i) => ({
+        label,
+        value: fns?.[i] ? toPercentileScale(category.id, i, fns[i](axisCtx)) : 55,
+        basis: bases?.[i] ? bases[i](axisCtx) : "",
+      }));
 
   const v = values(ctx);
   let title: string, score: number, caption: string;
 
   switch (category.id) {
     case "love-life": {
-      const stat = v["나의 타고난 인기는 상위 몇 %?"];
-      const pct = Number(stat?.v ?? "14");
-      title = "타고난 인기";
-      score = stat?.gauge ?? 100 - pct;
-      caption = `상위 ${pct}%`;
+      // 종합 점수와 백분위는 다른 값이다. 점수는 다섯 능력을 합쳐 표준화한 값이고,
+      // 백분위는 모집단 안에서의 순위다. 예전에는 100 − 상위%로 같은 숫자를 두 번
+      // 보여 주고 있었다.
+      title = "연애 종합 지수";
+      score = profile?.composite ?? 55;
+      caption = "상위 " + (profile?.percentile ?? 50) + "%";
       break;
     }
     case "love-compatibility": {
@@ -2634,17 +2654,15 @@ export function radarStats(ctx: Ctx): RadarStats {
       break;
     }
     case "career": {
-      const stat = v["성취·승진 운의 흐름"];
       title = "커리어 종합 지수";
-      score = stat?.gauge ?? 55 + (s % 40);
-      caption = stat?.v ?? "상승 흐름";
+      score = profile?.composite ?? 55;
+      caption = "상위 " + (profile?.percentile ?? 50) + "%";
       break;
     }
     case "wealth": {
-      const stat = v["타고난 재물의 그릇"];
       title = "재물 종합 지수";
-      score = stat?.gauge ?? 50 + (s % 45);
-      caption = stat?.v ?? "성장형";
+      score = profile?.composite ?? 55;
+      caption = "상위 " + (profile?.percentile ?? 50) + "%";
       break;
     }
     case "health": {
