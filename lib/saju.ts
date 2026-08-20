@@ -66,6 +66,10 @@ export type Chart = {
   sun: string;
   moon: string;
   asc: string | null;          // 시간 있을 때만
+  /** 개인 행성의 별자리 — 금성은 사랑하는 방식, 화성은 욕망과 추진, 수성은 소통 */
+  planets: { mercury: string | null; venus: string | null; mars: string | null; jupiter: string | null; saturn: string | null };
+  /** 개인 행성 사이의 주요 각도. orb가 작을수록 강하게 작동한다. */
+  aspects: { a: string; b: string; type: string; orb: number }[];
   seed: number;                // 결정적 파생값 생성용 (프리뷰 훅 등 비핵심 콘텐츠에만 사용)
   timeKnown: boolean;
   birthYear: number;           // 대한(大限) 구간을 나이로 찾을 때 쓴다
@@ -81,6 +85,18 @@ export type Chart = {
   /** 자미두수 유년(流年) — 올해부터 10년. 그해 명궁이 어느 궁 자리에 앉고
    *  화록·화기가 어느 궁에 드는지. 대한(10년)만으로는 "올해"를 못 말한다. */
   yearly: YearFortune[];
+};
+
+type RawAspect = { point1Label: string; point2Label: string; aspectKey: string; orb?: number | string };
+
+/** 행성 이름 — 리포트에서 쓰는 한국어 표기 */
+const PLANET_KO: Record<string, string> = {
+  Sun: "태양", Moon: "달", Mercury: "수성", Venus: "금성",
+  Mars: "화성", Jupiter: "목성", Saturn: "토성",
+};
+/** 각도 이름. 조화각(삼각·육각)과 긴장각(합·대립·사각)으로 나뉜다. */
+const ASPECT_KO: Record<string, string> = {
+  conjunction: "합", opposition: "대립", trine: "삼각", square: "사각", sextile: "육각",
 };
 
 const ZODIAC_KO_FROM_EN: Record<string, string> = {
@@ -232,9 +248,12 @@ function computeChartUncached(b: Birth): Chart {
     origin,
     houseSystem: "whole-sign",
     zodiac: "tropical",
-    aspectPoints: [],
-    aspectWithPoints: [],
-    aspectTypes: [],
+    // 어스펙트(행성 사이 각도)를 켠다. 태양·달·상승궁 셋만으로는 점성술 쪽 근거가
+    // 늘 같은 세 문장으로 끝났다. 금성·화성·수성·목성·토성과 그 사이 각도까지 봐야
+    // "이 사람은 이렇게 사랑한다"를 실제 좌표로 말할 수 있다.
+    aspectPoints: ["bodies"],
+    aspectWithPoints: ["bodies"],
+    aspectTypes: ["conjunction", "opposition", "trine", "square", "sextile"],
     language: "en",
   });
   const bodies = horoscope.CelestialBodies as Record<string, { Sign: { label: string } }>;
@@ -243,6 +262,29 @@ function computeChartUncached(b: Birth): Chart {
   const asc = timeKnown
     ? toKo((horoscope.Ascendant as { Sign: { label: string } }).Sign.label)
     : null;
+
+  // 개인 행성 — 연애·소통·욕망을 읽는 자리
+  const sign = (k: string) => (bodies[k]?.Sign?.label ? toKo(bodies[k].Sign.label) : null);
+  const planets = {
+    mercury: sign("mercury"),
+    venus: sign("venus"),
+    mars: sign("mars"),
+    jupiter: sign("jupiter"),
+    saturn: sign("saturn"),
+  };
+  // 주요 각도 — 개인 행성끼리만 추린다. 느린 행성(천왕성~명왕성)은 세대 전체가
+  // 같은 각도를 가져서 개인 해석에 쓸 수 없다.
+  const PERSONAL = new Set(["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"]);
+  const rawAspects = ((horoscope.Aspects as { all?: RawAspect[] }).all ?? [])
+    .filter((a) => PERSONAL.has(a.point1Label) && PERSONAL.has(a.point2Label))
+    .map((a) => ({
+      a: PLANET_KO[a.point1Label] ?? a.point1Label,
+      b: PLANET_KO[a.point2Label] ?? a.point2Label,
+      type: ASPECT_KO[a.aspectKey] ?? a.aspectKey,
+      orb: Math.round(Number(a.orb ?? 0) * 10) / 10,
+    }))
+    .sort((x, y) => x.orb - y.orb)
+    .slice(0, 8);
 
   const seed = y * 372 + m * 31 + d + (b.hourBranch ?? 0) * 7;
 
@@ -326,6 +368,8 @@ function computeChartUncached(b: Birth): Chart {
     sun: sunSign(m, d),
     moon,
     asc,
+    planets,
+    aspects: rawAspects,
     seed,
     timeKnown,
     birthYear: y,
