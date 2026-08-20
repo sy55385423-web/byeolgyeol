@@ -82,6 +82,30 @@ export default function RadarCard({ stats }: { stats: RadarStats }) {
           })}
         </svg>
       </div>
+
+      {/* 축마다 무엇으로 계산했는지 밝힌다.
+          이 그림은 명리 개념을 심리 척도로 한 번 더 옮긴 것이라 본문보다 해석이
+          많이 들어간다. 근거를 감추기보다 숫자를 그대로 보여 주고 판단을 맡긴다. */}
+      {axes.some((a) => a.basis) && (
+        <div className="mt-5 border-t border-line pt-4">
+          <p className="mb-2 text-[11px] font-medium text-brass">이 수치는 이렇게 나왔어요</p>
+          <ul className="space-y-1.5">
+            {axes.map((a) => (
+              <li key={a.label} className="flex items-baseline gap-2 text-[11.5px] leading-relaxed">
+                <span className="w-[62px] shrink-0 text-ink-soft">{a.label}</span>
+                <span className="w-[26px] shrink-0 text-right font-medium tabular-nums text-ink">
+                  {a.value}
+                </span>
+                <span className="text-ink-faint">{a.basis}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2.5 text-[10.5px] leading-relaxed text-ink-faint">
+            십신의 무게와 강약(감당하는 힘)으로 계산한 뒤, 같은 항목을 가진 사람들
+            사이에서 어디쯤인지로 환산한 값이에요.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
