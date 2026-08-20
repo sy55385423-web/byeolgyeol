@@ -20,10 +20,26 @@
 
 import { computeChart, popularityPct, ELEMENTS, BRANCHES, type Chart, type Element } from "./saju";
 import { grounding, starMeaning, starInDomain } from "./grounding";
+import { analyzeTiming, timingReason } from "./timing";
+import { buildFacts } from "./knowledge/facts";
+import { compose, newLedger, type ComposeLedger } from "./knowledge/compose";
+import { scoreDecadals, spanScore, scoreYears } from "./core/luck";
+import { branchSix, branchClash, STEM_EL, BRANCH_EL } from "./core/ganji";
+import { topicOf } from "./knowledge/topicMap";
+import type { Facts, Topic } from "./knowledge/types";
 import { marriageAgeFromSeed } from "./top1";
 import { categories, type Category } from "@/data/categories";
 
-export type PersonInput = { y: number; m: number; d: number; hourBranch?: number };
+export type PersonInput = {
+  y: number; m: number; d: number;
+  hourBranch?: number;
+  /** 정확한 출생 시각 — 있으면 진태양시로 보정한다 */
+  hour?: number;
+  minute?: number;
+  /** 출생지 경도 */
+  lon?: number;
+  gender?: "male" | "female" | "none";
+};
 
 export type ReportInput = {
   categoryId: string;
@@ -46,6 +62,57 @@ export type Report = {
 };
 
 export const joinParas = (paras: Para[]) => paras.map((p) => p.text).join("\n\n");
+
+/** 한 섹션 안에서 같은 말을 두 번 하지 않게 거른다.
+ *
+ *  규칙 엔진과 템플릿이 같은 자리(용신·일지·부족한 오행 등)를 짚으면, 태그가 달라도
+ *  결론이 같은 문장이 나란히 설 수 있다. tag는 "같은 규칙"만 막지 "같은 말"은 못 막는다.
+ *  그래서 마지막에 문장 단위로 한 번 더 본다. 앞에서 이미 쓴 어구가 다시 나오면 그
+ *  문장만 빼고, 문단이 통째로 비면 그 문단을 버린다. 문단 수를 채우려고 같은 말을
+ *  반복하느니 문단이 하나 줄어드는 편이 낫다. */
+const SHINGLE = 14;
+/** 리포트 한 부 동안 이미 나간 문장. ledger(문항 간 공유되는 Set)에 매달아 둔다.
+ *
+ *  섹션 안에서만 중복을 막고 있었더니, "재물을 보는 재백궁에 무곡성이 자리합니다"
+ *  같은 문장이 아홉 문항 전부에 그대로 나갔다. 커리어·재물·건강은 리포트 글자의
+ *  4분의 1이 같은 문장의 되풀이였다. 명반의 사실은 한 번만 말하면 된다. */
+const sentLedger = new WeakMap<Set<number>, Set<string>>();
+
+export function dedupeParas(paras: Para[], ledger?: Set<number>): Para[] {
+  let across: Set<string> | undefined;
+  if (ledger) {
+    across = sentLedger.get(ledger);
+    if (!across) { across = new Set(); sentLedger.set(ledger, across); }
+  }
+  const seen = new Set<string>();
+  const out: Para[] = [];
+  for (const p of paras) {
+    if (!p?.text) continue;
+    const kept: string[] = [];
+    for (const raw of p.text.split(/(?<=[.!?])\s+/)) {
+      const t = raw.trim();
+      if (!t) continue;
+      // 조사·숫자·이름을 걷어낸 한글만 비교한다. 값만 다르고 뼈대가 같은 문장도 잡힌다.
+      const plain = t.replace(/[^가-힣]/g, "");
+      // 다른 섹션에서 이미 쓴 문장이면 뺀다. 여기서는 통째로 같은 문장만 본다 —
+      // 어구 단위로 잘라 보면 리포트 전체에서 정당한 반복까지 지워진다.
+      if (across?.has(plain)) continue;
+      const grams: string[] = [];
+      let dup = false;
+      for (let i = 0; i + SHINGLE <= plain.length; i++) {
+        const g = plain.slice(i, i + SHINGLE);
+        if (seen.has(g)) { dup = true; break; }
+        grams.push(g);
+      }
+      if (dup) continue;
+      for (const g of grams) seen.add(g);
+      across?.add(plain);
+      kept.push(t);
+    }
+    if (kept.length) out.push({ label: p.label, text: kept.join(" ") });
+  }
+  return out;
+}
 
 /* ───────────────────────── 유틸 ───────────────────────── */
 
@@ -413,8 +480,8 @@ function openerFor(g: ReturnType<typeof grounding>, seed: number): string {
     `${g.wolji}월의 기운을 타고난 만큼`, `일간 ${g.ilgan}의 성질대로`, `부처궁 ${g.buchoStar}성의 영향까지 더해져`,
     `${g.myungBranch} 자리에 명궁이 놓인 결로`, `${g.moon} 달궁의 감정 처리 방식까지 겹쳐`, `${g.ilju} 일주를 타고난 만큼`,
     `${g.domEl} 기운이 두꺼운 구조라`, `${g.lackEl} 기운이 얇은 만큼`, `${g.myungStar}성과 ${g.buchoStar}성이 함께 걸려`,
-    `${g.sun}${wa(g.sun)} ${g.moon}${ga(g.moon)} 만드는 온도차 때문에`, `일간 ${g.ilgan}에 일지 ${g.ilji}가 붙은 구조라`,
-    `${g.domEl}이 강하고 ${g.lackEl}이 약한 편차대로`, `명궁이 ${g.myungBranch}에 자리한 만큼`,
+    `${g.sun}${wa(g.sun)} ${g.moon}${ga(g.moon)} 만드는 온도차 때문에`, `일간 ${g.ilgan}에 일지 ${g.ilji}${ga(g.ilji.replace(/\(.*\)/, ""))} 붙은 구조라`,
+    `${g.domEl}${ga(g.domEl)} 강하고 ${g.lackEl}${ga(g.lackEl)} 약한 편차대로`, `명궁이 ${g.myungBranch}에 자리한 만큼`,
     `${g.myungStar}성의 기질이 앞서서`, `${g.wolji}월생 특유의 결이 남아`, `${g.ilju} 일주의 바탕 위에서`,
     `${g.moon} 달궁이 감정을 다루는 방식대로`,
   ];
@@ -443,7 +510,7 @@ const DOM_BEHAVIOR = {
   "관심이 생기면 주저 없이 다가갑니다. 재보는 시간이 짧아서 상대가 준비되기 전에 먼저 마음을 열어 두는 편입니다",
   "좋으면 바로 티가 납니다. 표현이 크고 빨라서 상대가 부담을 느낄 만큼 온도가 먼저 올라갑니다",
   "한번 마음에 들이면 좀처럼 안 놓습니다. 상대가 흔들려도 자리를 지키는 쪽이라, 기다리는 시간이 남들보다 깁니다",
-  "기준이 분명합니다. 아니라고 판단하면 정이 있어도 정리가 빠르고, 애매한 상태를 오래 못 견딥니다",
+  "선을 먼저 긋습니다. 어디까지가 편한 거리인지 상대에게 은근히 알려 두는 편이라, 그 선을 넘어오는 사람에게만 마음이 열립니다",
   "상대를 오래 봅니다. 바로 마음을 주지 않고 지켜보다가, 확신이 서면 한 번에 깊어집니다",
   ],
   life: [
@@ -889,14 +956,66 @@ function relation(a: Element, b: Element): "生나→상대" | "生상대→나"
   return "比";
 }
 
+/* ───────────────────── 규칙 엔진 연결 ─────────────────────
+ * 리포트 본문은 lib/knowledge의 규칙 엔진이 만든다. 규칙은 계산된 사실(신강약·용신·십신·
+ * 합충·신살·대운·세운)을 조건으로 걸고, 조건이 참인 것만 문단이 된다.
+ *
+ * Facts와 규칙 원장은 리포트 한 부 단위로 살아 있어야 하는데, 그걸 다섯 개 생성 함수의
+ * 시그니처에 끼워 넣는 대신 이미 리포트 단위로 도는 원장(Set<number>)에 붙여 수명을 맞춘다. */
+type RuleState = { me?: Facts; pt?: Facts; led: ComposeLedger };
+const ruleStates = new WeakMap<Set<number>, RuleState>();
+
+function ruleStateFor(ledger?: Set<number>): RuleState | undefined {
+  if (!ledger) return undefined;
+  let st = ruleStates.get(ledger);
+  if (!st) { st = { led: newLedger() }; ruleStates.set(ledger, st); }
+  return st;
+}
+
+/** 규칙 엔진이 만든 문단. 조건에 걸리는 규칙이 없으면 빈 배열이 나오고, 그때는 문단을
+ *  억지로 만들지 않는다 — 근거 없는 문장을 채우느니 짧은 편이 낫다. */
+/** 상대를 혼자 놓고 읽을 때의 주제. 궁합·재회는 두 사람이 있어야 성립하는 주제라
+ *  한 명식만으로는 걸리는 규칙이 없다. 사람 자체를 보는 쪽으로 바꿔 준다. */
+const soloTopic = (t: Topic): Topic => (t === "궁합" || t === "재회" ? "연애패턴" : t);
+
+function rulePassages(
+  chart: Chart,
+  q: string,
+  categoryId: string,
+  count: number,
+  ledger?: Set<number>,
+  name?: string,
+  side: "me" | "pt" = "me",
+  // 궁합·재회는 두 명식을 대조하는 규칙이 있어서, 상대 쪽 명식을 같이 넘긴다.
+  other?: { chart: Chart; name?: string },
+): string[] {
+  const st = ruleStateFor(ledger);
+  if (!st) return [];
+  try {
+    // 두 명식을 대조하는 규칙(궁합·재회)은 이미 양쪽을 한 문장에 담는다. 상대 쪽에서
+    // 한 번 더 돌리면 같은 말을 주어만 바꿔 되풀이하게 된다. 그래서 상대 차례에는
+    // other를 넘기지 않고 — 그러면 pair 규칙의 when이 전부 거짓이 된다 — 대신 상대를
+    // 한 사람으로 읽는다. "상대는 이런 사람이다"는 대조 문단과 겹치지 않는 정보다.
+    if (side === "me" && !st.me) st.me = buildFacts(chart, name, new Date(), other);
+    if (side === "pt" && !st.pt) st.pt = buildFacts(chart, name, new Date());
+    const f = side === "me" ? st.me! : st.pt!;
+    const topic = side === "pt" ? soloTopic(topicOf(q, categoryId)) : topicOf(q, categoryId);
+    const sib = categories.find((c) => c.id === categoryId)?.questions;
+    return compose(f, topic, count, st.led, undefined, q, sib).map((c) => c.text);
+  } catch {
+    // 규칙 엔진이 실패해도 리포트 전체가 죽으면 안 된다.
+    return [];
+  }
+}
+
 /* ───────────────────── 시기/흐름 문장 ───────────────────── */
 
 /** 시기 문단. 예전엔 템플릿이 3개뿐이라 리포트 안에서 같은 문장이 반복됐고, 넘겨받은
  *  topic(문항 주제)을 쓰지도 않아 어느 질문에 붙어도 똑같은 말이 나왔다. 이제 topic을
  *  문장에 박고, 좋은 달·주의할 달에 더해 "무엇이 달라지는지"까지 명반 값으로 갈라 쓴다. */
 function flow(c: Chart, salt: number, topic: string) {
-  const good = 1 + ((c.seed + salt * 5) % 12);
-  const risk = 1 + ((c.seed + 7 + salt * 3) % 12);
+  const tm = analyzeTiming(c);
+  const { good, risk } = tm;
   const g = grounding(c);
   // 이 사람이 좋은 시기에 실제로 뭘 하게 되는지 — 강한 오행 기준으로 갈린다.
   const move = [
@@ -914,10 +1033,16 @@ function flow(c: Chart, salt: number, topic: string) {
     "끊어야 할 걸 못 끊기",
     "혼자 곱씹다 결론을 앞당기기",
   ][Math.max(0, ELEMENTS.indexOf(g.lackEl))];
+  // 왜 이 달인지 — 근거를 한 줄 붙인다. 숫자만 던지면 해시 시절과 읽는 느낌이 같아진다.
+  const why = timingReason(tm, c.dayMaster);
+  const span =
+    tm.goodMonths.length > 1
+      ? `${tm.goodMonths.join("월·")}월이 같은 결의 달입니다.`
+      : `${tm.good}월이 그 자리입니다.`;
   const lines = [
-    `${topic}${ga(topic)} 크게 움직이는 구간은 ${good}월 전후입니다. ${move} 흐름이라, 이때 들어오는 신호는 흘려보내지 않는 편이 좋습니다. 반대로 ${risk}월 전후에는 ${slip} 쉬우니, 이 시기의 큰 결정은 2주만 미뤄도 결과가 달라집니다.`,
-    `흐름상 ${good}월 무렵에 ${topic} 쪽으로 창이 열립니다. ${move} 시기라 평소보다 진도가 빠르게 나갑니다. 다만 ${risk}월에는 같은 상황도 더 예민하게 받아들이기 쉬우니, 이때 내린 결론은 한 박자 뒤에 다시 확인하세요.`,
-    `${good}월 전후로 ${topic}에 관한 흐름이 유리하게 기웁니다. ${move} 구간이라 미뤄 두면 오히려 손해입니다. 반면 ${risk}월은 ${slip} 쉬운 시기라, 먼저 움직이기보다 상황을 한 번 더 보고 맞추는 편이 안전합니다.`,
+    `${why} ${topic}${ga(topic)} 크게 움직이는 구간은 ${good}월 전후입니다. ${move} 흐름이라, 이때 들어오는 신호는 흘려보내지 않는 편이 좋습니다. 반대로 ${risk}월 전후에는 ${slip} 쉬우니, 이 시기의 큰 결정은 2주만 미뤄도 결과가 달라집니다.`,
+    `${why} 그래서 ${good}월 무렵에 ${topic} 쪽으로 창이 열립니다. ${move} 시기라 평소보다 진도가 빠르게 나갑니다. 다만 ${risk}월에는 같은 상황도 더 예민하게 받아들이기 쉬우니, 이때 내린 결론은 한 박자 뒤에 다시 확인하세요.`,
+    `${good}월 전후로 ${topic}에 관한 흐름이 유리하게 기웁니다. ${span} ${move} 구간이라 미뤄 두면 오히려 손해입니다. 반면 ${risk}월은 ${slip} 쉬운 시기라, 먼저 움직이기보다 상황을 한 번 더 보고 맞추는 편이 안전합니다.`,
     `${topic}${eul(topic)} 기준으로 보면 ${good}월 무렵이 가장 유리합니다. ${move} 결이라 이때 시작한 건 뒤로 잘 밀리지 않습니다. 대신 ${risk}월 전후에는 ${slip} 쉬워서, 그 구간엔 새로 벌이기보다 이미 하던 걸 지키는 쪽이 낫습니다.`,
     `${good}월 전후가 ${topic}의 분기점이 될 가능성이 높습니다. ${move} 시기와 겹쳐 평소라면 망설였을 선택도 비교적 수월하게 넘어갑니다. ${risk}월에는 ${slip} 쉬우니, 그때는 판단을 서두르지 않는 것만으로 절반은 막힙니다.`,
     `${topic}${neun(topic)} ${good}월 무렵에 한 번 정리됩니다. ${move} 흐름이 받쳐 주는 구간이라 결론이 빨리 납니다. 반대로 ${risk}월 전후는 ${slip} 쉬운 자리라, 이 시기에 확정한 건 나중에 다시 손볼 확률이 있습니다.`,
@@ -1005,7 +1130,6 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
         P("한 줄로", `${pick(e.charmLead, me.seed)} 다만 이 매력을 정작 당신 스스로는 잘 못 느낀다는 게 함정입니다.`),
         P("안 통하는 자리", `이 매력이 아무 데서나 먹히지는 않습니다. 첫인상으로 줄을 세우는 자리, 한 번 보고 판단하는 자리에서는 오히려 밀립니다. ${g.lackEl} 기운이 얇아 초반에 자기를 내세우는 힘이 약한 편이라, 소개팅처럼 한 번에 승부가 나는 자리보다 몇 번 마주치는 관계에서 제값이 매겨집니다.`),
         P("더 크게 나오는 조건", `잘 보이려고 애쓰는 순간 원래 결이 가려집니다. 준비한 말을 하려 들 때보다 그냥 하던 대로 있을 때 상대가 더 오래 기억하는 쪽이라, ${MEET_PLACE}에서 만난 인연이 유독 오래갑니다.`),
-        P("스스로 오해하는 지점", `본인은 이걸 장점으로 안 칩니다. 남들이 좋아하는 부분을 "그건 별거 아닌데"로 넘기고 대신 자기한테 없는 걸 부러워하는데, 그 간극 때문에 실제보다 자신을 낮춰 소개하는 버릇이 있습니다.`),
       ];
     case "나의 타고난 인기는 상위 몇 %?":
       return [
@@ -1015,8 +1139,6 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
           : `태양궁 ${g.sun}${ga(g.sun)} 주는 첫인상과 달궁 ${g.moon}${ga(g.moon)} 주는 실제 온도가 달라서, 처음 볼 때보다 관계가 쌓일수록 호감이 오르는 흐름을 만듭니다. ${g.sunLove} 인상으로 시작해서 ${g.moonLove} 진심으로 마무리되는 셈입니다.`),
         P("실제로는", `${openerFor(g, me.seed + strHash(q) + 28)} 단톡방이나 모임에서 제일 말이 많은 쪽은 아닌데, 정작 당신이 빠진 자리에서 당신 얘기가 나오면 다들 좋게 말하는 편입니다. "어, 걔 알고 보면 진짜 괜찮아"라는 말이 본인 없는 곳에서 나오는 타입입니다.`),
         P("놓치기 쉬운 부분", `${openerFor(g, me.seed + strHash(q) + 63)} 문제는 당신이 이 사실을 잘 모른다는 겁니다. 상대의 관심 신호를 '그냥 친절한 거겠지'로 넘긴 적이 높은 확률로 있습니다. 앞으로는 애매한 호의를 한 번쯤 다시 들여다보세요. 놓친 인연의 상당수가 거기 있었습니다.`),
-        P("인기의 형태", `넓고 얕은 쪽이 아니라 좁고 깊은 쪽입니다. 한꺼번에 여러 사람이 몰리는 일은 드문 대신, 한번 좋게 본 사람은 몇 년이 지나도 마음이 잘 안 식습니다. 연락이 끊겼던 사람에게서 갑자기 안부가 오는 일이 다른 사람보다 잦을 겁니다.`),
-        P("올라가는 시기", `이 수치는 고정된 게 아니라 시기를 탑니다. 사람을 많이 만나는 구간에서는 별 변화가 없다가, 오히려 한 자리에 오래 머무를 때 조용히 올라갑니다. 새 얼굴을 늘리는 것보다 있던 관계를 유지하는 쪽이 이 사람에게는 효율이 좋습니다.`),
         P("착각하기 쉬운 것", `상위 ${v}%가 "인기가 많다"는 뜻은 아닙니다. 좋아하는 사람 수가 아니라 한번 좋아한 사람이 얼마나 오래 남느냐를 본 값이라, 지금 주변이 조용하다고 이 수치가 틀린 건 아닙니다.`),
       ];
     case "나를 몰래 좋아했던 사람 수":
@@ -1026,8 +1148,6 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
         P("실제로는", `${openerFor(g, me.seed + strHash(q) + 28)} 평소에는 눈치가 빠른 사람인데, 자기를 향한 호감 앞에서만 이상하게 둔해집니다. 나중에 친구한테서 '걔 그때 너 좋아했잖아'라는 말을 듣고 놀란 적, '설마 나를?' 하고 지레 접어버린 순간이 있었을 겁니다.`),
         P("지금 할 것", `${openerFor(g, me.seed + strHash(q) + 42)} 지난 인연을 아쉬워할 필요는 없습니다. 대신 지금 주변에서 유난히 당신 얘기에 반응이 좋은 사람, 사소한 걸 기억해주는 사람이 있다면 한 번 더 눈여겨보세요.`),
         P("어떤 사람들이었나", `대놓고 표현하는 유형은 아니었을 겁니다. 대체로 ${MEET_PLACE}에서 자주 마주치던 사람, 먼저 다가오기보다 곁에서 오래 지켜보는 쪽이었습니다. 부처궁의 ${g.buchoStar}성이 그런 유형을 끌어당기는 배치입니다.`),
-        P("왜 말을 못 했나", `이 사람이 만만해 보이지 않아서입니다. 벽을 세운 것도 아닌데 함부로 다가가면 안 될 것 같은 인상을 주는 편이라, 상대가 몇 번 재다가 타이밍을 놓칩니다. 본인은 편하게 대했다고 생각하지만 받는 쪽 체감은 다릅니다.`),
-        P("지금도 있을 가능성", `과거형만은 아닙니다. 지금 주변에도 한둘은 있을 확률이 높은데, 신호가 워낙 작아서 또 지나칠 수 있습니다. 유난히 사소한 걸 기억해 주거나 굳이 겹치는 일정을 만드는 사람이 있다면 그게 신호입니다.`),
       ];
     case "총 연애 횟수 예상":
       return [
@@ -1035,8 +1155,6 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
         P("명반 근거", `부처궁에 ${g.buchoStar}성이 들어 있습니다. ${g.buchoWhy}. 이 배치는 연애를 자주 갈아타기보다 한 번에 깊게 들어가는 흐름을 만듭니다. 일간 ${g.ilgan}의 기운도 ${me.dayMaster === 2 || me.dayMaster === 4 ? "한번 정한 사람을 오래 붙드는" : "관계에 온도를 쏟는"} 쪽이라 횟수 자체는 많지 않습니다.`),
         P("실제로는", `${rephrase(e.whenInLove, g, me.seed + 1, loveOpeners)} 그래서 연애 사이 공백이 긴 편이고, 한 번 만나면 길게 가는 대신 정리도 오래 걸립니다.`),
         P("흐름", flow(me, 1, "새로운 연애")),
-        P("연애 사이 간격", `횟수가 적은 건 인연이 없어서가 아니라 사이 공백이 길어서입니다. 한 사람이 정리되기 전에는 다음 사람이 눈에 잘 안 들어오는 쪽이라, 남들이 두세 번 만날 시간에 한 번을 깊게 만납니다.`),
-        P("한 번이 길어지는 이유", `시작할 때 이미 끝까지 갈 각오로 들어갑니다. 그래서 아니다 싶은 순간이 와도 바로 접지 못하고, ${SLOW_SIGN}. 관계가 실제로 끝나기 훨씬 전부터 마음은 정리에 들어가 있는 셈입니다.`),
         P("횟수보다 중요한 것", `${v}회라는 숫자 자체는 크게 의미가 없습니다. 이 사람에게는 몇 번 만났느냐보다 그중 몇 번이 스스로를 깎지 않는 관계였느냐가 훨씬 크게 남습니다.`),
       ];
     case "결혼 예상 나이":
@@ -1044,21 +1162,17 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
         P("결론", `혼인 흐름이 가장 선명해지는 시기는 ${v}세 전후입니다. 이르게 만나 오래 끄는 것보다, 이 시기 즈음의 만남이 결혼으로 직행할 확률이 높습니다.`),
         P("명반 근거", `부처궁의 ${g.buchoStar}성이 대운의 흐름과 맞물리는 시점이 그 무렵입니다. ${g.buchoWhy}. 그때 당신의 삶의 축이 한 번 바뀌면서 판단 기준이 또렷해지고, 이때 만난 사람과는 연애 기간이 짧아도 결론이 빨리 납니다.`),
         P("주의", `단, 그보다 ${3 + (me.seed % 2)}년쯤 앞선 시기에 들어오는 인연은 조건은 좋아 보여도 타이밍이 어긋나기 쉽습니다. 일지 ${g.ilji}${ga(g.ilji)} 관여하는 그 구간엔 서두르지 마세요.`),
-        P("그 시기의 만남은 다릅니다", `이 시기에 달라지는 건 상대가 아니라 이 사람 쪽입니다. 그때쯤 자기가 뭘 못 견디는지가 분명해져서, 예전 같으면 넘겼을 부분에서 선을 긋고 대신 중요하지 않은 조건은 놓아 버립니다. 판단이 빨라지는 게 아니라 기준이 줄어드는 겁니다.`),
-        P("그 전 시기", `그 전에 만난 사람이 아까웠다면, 사람이 아까운 게 아니라 시점이 아쉬웠던 겁니다. 같은 사람을 이 시기에 만났다면 결론이 달랐을 수 있는데, 그래서 과거의 인연을 오래 붙들고 있는 경우가 이 명반에 유독 많습니다.`),
         P("앞당기거나 늦추는 것", `혼자 지내는 기간이 길어지면 이 시기가 뒤로 밀립니다. 반대로 ${MEET_PLACE}처럼 자연스럽게 사람이 겹치는 자리에 있으면 앞당겨집니다. 조급하게 상대를 찾는 것보다 그런 자리에 머무는 게 실질적으로 시기를 당깁니다.`),
         P("흐름", flow(me, 12, "혼인으로 기우는 구간")),
       ];
     case "운명의 상대의 특징과 외모":
       return [
         P("이런 사람입니다", `${e.bestMatch}`),
-        P("외모 인상", APPEARANCE_BY_EL[me.lacking]),
-        P("명반 근거", `부처궁의 ${g.buchoStar}성으로 보면, ${g.buchoWhy}. 명리로는 당신에게 부족한 ${g.lackEl} 기운을 채워주는 사람일 확률이 높습니다. 당신의 일간 ${g.ilgan}${ga(g.ilgan)} 강한 만큼, 그 강함을 눌러 이기려 들지 않고 자연스럽게 받아주는 쪽과 오래 갑니다.`),
+        P("외모 인상", APPEARANCE_BY_EL[me.useEl]),
+        P("명반 근거", `부처궁의 ${g.buchoStar}성으로 보면, ${g.buchoWhy}. 명리로는 당신에게 필요한 ${g.useEl} 기운을 채워주는 사람일 확률이 높습니다. 당신의 일간 ${g.ilgan}${ga(g.ilgan)} 강한 만큼, 그 강함을 눌러 이기려 들지 않고 자연스럽게 받아주는 쪽과 오래 갑니다.`),
         P("알아보는 법", `${openerFor(g, me.seed + strHash(q) + 42)} 첫눈에 강하게 끌리는 타입은 아닐 가능성이 높습니다. 오히려 처음엔 '이성으로는 아닌데' 했던 사람, 일이나 지인을 통해 자연스럽게 반복해서 보게 되는 사람일 확률이 큽니다. 편안함을 설렘 없음으로 오해해 놓치지 않는 게 관건입니다.`),
         P("흐름", flow(me, 2, "운명의 상대")),
         P("어디서 만나나", `번개처럼 나타나는 인연은 아닙니다. ${MEET_PLACE}에서 이미 몇 번 스친 사람일 확률이 높고, 처음엔 이성으로 안 봤다가 어느 순간 다르게 보이는 방식으로 시작됩니다.`),
-        P("첫 만남의 분위기", `설레는 쪽보다 편한 쪽입니다. 말이 잘 통해서라기보다 침묵이 어색하지 않아서 기억에 남고, 헤어지고 나서야 "생각보다 괜찮았네" 싶어집니다. 이 감각을 설렘 없음으로 오해해 흘려보내는 게 이 사람의 가장 흔한 실수입니다.`),
-        P("알아보는 신호", `이 사람 앞에서는 애써 꾸미지 않게 됩니다. 다른 자리에서는 신경 쓰던 것들을 안 하게 되고, 만나고 온 날 유독 덜 지칩니다. 조건이 아니라 이 피로도 차이가 가장 정확한 신호입니다.`),
       ];
     case "연애하면 안 되는 사람의 특징":
       return [
@@ -1066,8 +1180,7 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
         P("명반 근거", `오행상 ${g.domEl} 기운이 강한 사람입니다. 이 기운과 정면으로 부딪히는 상대를 만나면, 좋아할수록 당신이 자신을 깎아 맞추게 됩니다. 명궁의 ${g.myungStar}성 기질(${g.myungWhy})을 계속 눌러야 하는 상대는 특히 위험합니다.`),
         P("당신이 반복한 패턴", `${e.shadow} 그래서 오히려 당신을 힘들게 하는 유형에게 더 끌렸던 적이 있을 겁니다. 편한 사람은 시시하게 느끼고, 애태우는 사람에게 마음이 갔던 패턴이 반복됐다면 그게 이 신호입니다.`),
         P("지금 할 것", `${openerFor(g, me.seed + strHash(q) + 42)} 상대의 조건이 아니라, 그 사람과 있을 때의 '당신'을 보세요. 자꾸 눈치 보고 연락을 재게 만드는 사람이라면 아무리 좋아도 그 관계는 당신을 소진시킵니다.`),
-        P("왜 하필 그런 사람에게 끌리나", `안 맞는 걸 몰라서가 아닙니다. ${g.lackEl} 기운이 얇은 자리를 상대가 대신 채워 주는 것처럼 보여서 끌리는 건데, 실제로 겪어 보면 채워 주는 게 아니라 그 자리를 계속 건드립니다.`),
-        P("구별하는 법", `그 사람과 있을 때 연락을 재고 있는지 보면 됩니다. 답장 시간을 계산하거나 할 말을 몇 번 고쳐 쓰고 있다면, 좋아서가 아니라 불안해서입니다. 편한 사람 앞에서는 이 계산 자체가 안 일어납니다.`),
+        P("왜 하필 그런 사람에게 끌리나", `안 맞는 걸 몰라서가 아닙니다. ${g.useEl} 기운이 필요한 자리를 상대가 대신 채워 주는 것처럼 보여서 끌리는 건데, 실제로 겪어 보면 채워 주는 게 아니라 그 자리를 계속 건드립니다.`),
         P("이미 그런 관계라면", `당장 끊으라는 얘기는 아닙니다. 다만 ${COOL_POINT} 그냥 넘기지 말고 한 번은 말로 꺼내 보세요. 그때 상대가 어떻게 반응하는지가 이 관계를 계속할지 말지의 답이 됩니다.`),
       ];
     case "나의 연애에서 주의할 점":
@@ -1077,8 +1190,6 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
         P("실제로는", `${rephrase(e.whenInLove, g, me.seed + 3, loveOpeners)} 이 성향은 특히 관계가 애매하게 길어질 때 가장 강하게 나타납니다. 확실히 하지 못한 채 시간만 끌다 지치는 그림, 읽씹은 못 하면서 답장은 늦추는 식의 밀당을 조심하세요.`),
         P("흐름", flow(me, 3, "관계의 고비")),
         P("관계가 깨지는 전형적인 순간", `크게 싸워서 끝나는 경우는 드뭅니다. 대신 ${COOL_POINT} 아무 말 없이 넘어가고, 그런 게 몇 번 쌓이면 ${SLOW_SIGN}. 상대는 언제부터 어긋났는지도 모르는 채 멀어집니다.`),
-        P("그때 해야 할 것", `참는 대신 그날 안에 한 문장만 꺼내면 됩니다. 길게 설명할 필요도 없고 "아까 그건 좀 서운했어" 정도면 충분한데, 이 한 문장을 미루는 습관이 이 사람의 연애에서 가장 큰 손실을 만듭니다.`),
-        P("반대로 걱정 안 해도 되는 것", `바람이나 갑작스러운 변심 쪽은 이 명반의 약점이 아닙니다. 한번 정한 사람에게는 오히려 지나칠 만큼 성실한 편이라, 위험은 밖이 아니라 안에서 조용히 쌓이는 쪽에 있습니다.`),
       ];
     case "나는 어떤 사람에게 끌릴까":
       return [
@@ -1088,8 +1199,7 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
         P("실제로는", `${e.loseFear} 그래서 정작 편하게 잘해주는 사람보다, 약간의 긴장감이나 거리감을 주는 사람에게 먼저 끌리는 패턴이 반복됩니다. 끌림과 좋은 인연은 다른 문제라는 걸 알아두면 도움이 됩니다.`),
         P("지금 할 것", `${openerFor(g, me.seed + strHash(q) + 42)} 누군가에게 끌리는 순간, 그 감정이 진짜 그 사람 때문인지 아니면 익숙한 자극 패턴 때문인지 한 번 더 물어보세요. 처음 끌림이 약했던 사람이 의외로 오래 가는 경우가 많습니다.`),
         P("끌림이 식는 지점", `시작은 강한데 유지가 안 되는 이유가 있습니다. ${COOL_POINT} 마음이 급격히 내려가는 편이라, 상대는 잘 지내다 갑자기 식었다고 느낍니다. 사실은 그 전부터 조금씩 내려가고 있었습니다.`),
-        P("끌림과 잘 맞음의 차이", `끌리는 유형과 오래 갈 수 있는 유형이 이 명반에서는 갈립니다. 끌림은 감정을 흔드는 쪽에서 오고, 실제로 편한 관계는 ${g.lackEl} 기운이 얇은 자리를 조용히 메워 주는 쪽에서 옵니다. 이 둘이 겹치는 사람을 만나는 게 가장 좋은데, 흔치 않아서 대개 한쪽을 포기하게 됩니다.`),
-        P("확인해 볼 것", `지금까지 마음이 갔던 사람들을 늘어놓고 공통점을 찾아보세요. 성격이나 외모가 아니라 "그 사람 앞에서 내가 어땠는지"로 묶어 보면 패턴이 훨씬 선명하게 보입니다.`),
+        P("끌림과 잘 맞음의 차이", `끌리는 유형과 오래 갈 수 있는 유형이 이 명반에서는 갈립니다. 끌림은 감정을 흔드는 쪽에서 오고, 실제로 편한 관계는 ${g.useEl} 기운을 채워 주는 쪽에서 옵니다. 이 둘이 겹치는 사람을 만나는 게 가장 좋은데, 흔치 않아서 대개 한쪽을 포기하게 됩니다.`),
       ];
     case "나의 연애운이 가장 좋은 시기":
       return [
@@ -1098,29 +1208,26 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
         P("점성술로 보면", `${astro(strHash(q) + 2)} 이 시기엔 본질과 첫인상의 간극이 줄어들어서, 상대가 당신을 오해 없이 알아볼 확률이 높아집니다.`),
         P("실제로는", `${openerFor(g, me.seed + strHash(q) + 28)} 이 시기를 마냥 기다리기보다, 그 전부터 사람을 만나는 자리에 조금 더 나가보세요. 씨앗은 미리 뿌려둬야 이 시기에 꽃이 핍니다.`),
         P("흐름", flow(me, 7, "연애운이 오르는 구간")),
-        P("그 시기에 할 것", `이때는 새로 시작하는 쪽이 유리합니다. 평소라면 부담스러웠을 자리도 이 시기엔 덜 지치고, 먼저 연락하는 것에 대한 저항도 낮아집니다. 미뤄 뒀던 약속을 이 구간에 몰아 잡아 두는 것만으로 결과가 달라집니다.`),
         P("그 전까지", `그때까지 아무것도 안 하고 기다리면 시기가 와도 만날 사람이 없습니다. ${MEET_PLACE}처럼 사람이 자연스럽게 겹치는 자리에 미리 들어가 있어야, 이 구간에 그중 하나가 관계로 바뀝니다.`),
-        P("이 시기에도 조심할 것", `흐름이 좋다고 판단까지 좋아지는 건 아닙니다. 평소보다 마음이 빨리 열리는 만큼 상대를 덜 보게 되는데, 이 시기에 시작한 관계일수록 초반 두세 달은 한 박자 늦춰 확인하는 편이 안전합니다.`),
       ];
     default:
       return [P("해석", e.charm)];
   }
   })();
   {
-    const qt = qTopic(q, "연애");
-    // 본문의 대부분을 질문과 무관한 성격 문단으로 채우던 구조를 바꾼다. 명반 지표를 짚는
-    // 해석을 먼저 넣고(질문 + 명반 양쪽에 묶임), 범용 문단은 결을 채우는 정도로만 남긴다.
-    chartReading(g, q, qt, "love", 1, ledger, joinParas(paras), v).forEach((t, i) =>
-      paras.push(P(i === 0 ? "명반으로 보면" : "짚고 갈 자리", t)),
+    // 명식에서 실제로 걸리는 근거를 덧붙인다. 조건에 걸리는 규칙이 없으면 아무것도 안 붙는다.
+    rulePassages(me, q, "love-life", qi === 0 ? 6 : 5, ledger, name, "me").forEach((t, i) =>
+      paras.push(P(i === 0 ? "명식에서 보면" : "덧붙이면", t)),
     );
-
   }
-  return paras;
+  return dedupeParas(paras, ledger);
 }
 
 /* ───────────────────── 연애 궁합 총론 ───────────────────── */
 
 function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: string, v: string, ledger?: Set<number>, qi: number = 0, ledgerP?: Set<number>): Para[] {
+  // 호감이 어느 쪽으로 기우는지 — values()와 같은 함수를 써서 숫자와 방향이 어긋나지 않게 한다.
+  const favorLean = favorGapOf(me, pt) >= 0 ? "me" : "pt";
   const em = EL[me.dayMaster], ep = EL[pt.dayMaster];
   const gm = grounding(me), gp = grounding(pt);
   const rel = relation(me.dayMaster, pt.dayMaster);
@@ -1135,10 +1242,10 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
   const P = (label: string, text: string): Para => ({ label, text });
 
   const relText: Record<string, string> = {
-    "生나→상대": `${meWord}이 ${pWord}에게 에너지를 주는 상생 구조입니다. 함께 있으면 ${pWord}이 편해지고 잘 풀리는데, ${meWord}은 은근히 더 많이 내주고 있다고 느낄 수 있습니다.`,
-    "生상대→나": `${pWord}이 ${meWord}을 살려주는 상생 구조입니다. ${pWord} 옆에서 ${meWord}이 더 나은 사람이 되는 게 느껴질 겁니다. 다만 받는 데 익숙해지면 ${pWord}이 지칩니다.`,
-    "剋나→상대": `${meWord}이 ${pWord}을 누르는 상극 구조입니다. ${meWord} 기준이 관계를 이끌지만, ${pWord}이 계속 맞추는 만큼 속으로 눌린 게 쌓입니다.`,
-    "剋상대→나": `${pWord}이 ${meWord}을 누르는 상극 구조입니다. ${pWord} 앞에서 ${meWord}이 평소보다 작아지거나 눈치를 본다면 그 때문입니다.`,
+    "生나→상대": `${meWord}${ga(meWord)} ${pWord}에게 에너지를 주는 상생 구조입니다. 함께 있으면 ${pWord}${ga(pWord)} 편해지고 잘 풀리는데, ${meWord}${neun(meWord)} 은근히 더 많이 내주고 있다고 느낄 수 있습니다.`,
+    "生상대→나": `${pWord}${ga(pWord)} ${meWord}${eul(meWord)} 살려주는 상생 구조입니다. ${pWord} 옆에서 ${meWord}${ga(meWord)} 더 나은 사람이 되는 게 느껴질 겁니다. 다만 받는 데 익숙해지면 ${pWord}${ga(pWord)} 지칩니다.`,
+    "剋나→상대": `${meWord}${ga(meWord)} ${pWord}${eul(pWord)} 누르는 상극 구조입니다. ${meWord} 기준이 관계를 이끌지만, ${pWord}${ga(pWord)} 계속 맞추는 만큼 속으로 눌린 게 쌓입니다.`,
+    "剋상대→나": `${pWord}${ga(pWord)} ${meWord}${eul(meWord)} 누르는 상극 구조입니다. ${pWord} 앞에서 ${meWord}${ga(meWord)} 평소보다 작아지거나 눈치를 본다면 그 때문입니다.`,
     "比": "같은 오행이 나란히 서는 비화 구조입니다. 서로를 금방 알아보고 편한데, 대신 자극이 적어 익숙해지면 설렘이 빨리 가라앉습니다.",
   };
   // 예전엔 "명리로 보면 A와 B는 상생 관계입니다" 한 문장을 여섯 문항의 '명반 근거'에 그대로
@@ -1150,7 +1257,7 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
     `두 사람의 오행 분포를 나란히 놓으면 ${meWord}${neun(meWord)} ${gm.domEl}${ga(gm.domEl)} ${gm.domCount}자로 가장 두껍고 ${pWord}${neun(pWord)} ${gp.domEl}${ga(gp.domEl)} ${gp.domCount}자로 가장 두껍습니다. 이 둘이 일간에서 만나 ${relName} 구조를 만듭니다.`,
     `${meWord}의 명궁엔 ${gm.myungStar}성, ${pWord}의 명궁엔 ${gp.myungStar}성이 앉아 있고, 두 일간은 ${relName} 관계로 맞물립니다. 기질과 오행이 같은 방향을 가리키는 자리입니다.`,
     `${meWord}${neun(meWord)} 태양궁 ${gm.sun}, ${pWord}${neun(pWord)} 태양궁 ${gp.sun}입니다. 여기에 일간끼리의 ${relName} 관계가 겹치면서, 동양과 서양 두 체계가 같은 지점을 짚습니다.`,
-    `${meWord}에게 부족한 건 ${gm.lackEl} 기운(${gm.lackCount}자), ${pWord}에게 부족한 건 ${gp.lackEl} 기운(${gp.lackCount}자)입니다. 서로의 빈자리를 놓고 보면 이 관계가 왜 ${relName}으로 읽히는지가 분명해집니다.`,
+    `${meWord}에게 필요한 건 ${gm.useEl} 기운, ${pWord}에게 필요한 건 ${gp.useEl} 기운입니다. 서로의 빈자리를 놓고 보면 이 관계가 왜 ${relName}으로 읽히는지가 분명해집니다.`,
     `${meWord}의 일지는 ${gm.ilji}, ${pWord}의 일지는 ${gp.ilji}입니다. 명리에서 일지는 배우자 자리라 궁합에서 비중이 큰데, 두 일간이 만드는 ${relName} 관계가 이 자리에서 가장 실감 나게 드러납니다.`,
   ];
   const relGround = (seed: number) => pick(relGrounds, seed);
@@ -1159,21 +1266,31 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
   switch (q) {
     case "나와 상대방의 타고난 특징":
       return [
-        P("두 사람", `${meWord}은 ${em.fromLabel}${ro(em.fromLabel)} 끌어당기는 사람이고, ${pWord}은 ${ep.fromLabel}${eul(ep.fromLabel)} 가진 사람입니다. 결이 ${rel === "比" ? "비슷해서 부딪힐 일이 적은 대신 새로움도 적습니다" : "달라서 서로에게 없는 걸 채워주지만, 그 차이가 갈등의 씨앗이기도 합니다"}.`),
+        // 두 사람의 매력이 같은 유형으로 나오는 경우가 있다. 그때 각자 따로 적으면
+        // 한 문장 안에서 같은 말을 두 번 하게 되므로 하나로 묶어 말한다.
+        P("두 사람", em.fromLabel === ep.fromLabel
+          ? `${meWord}${wa(meWord)} ${pWord}${neun(pWord)} 둘 다 ${em.fromLabel}${ro(em.fromLabel)} 끌어당기는 쪽입니다. 매력의 종류가 같아서 서로를 빨리 알아보는 대신, 같은 자리에서 같은 방식으로 인정받고 싶어할 때 부딪힙니다. 결이 ${rel === "比" ? "비슷해서 편한 만큼 새로움은 적습니다" : "달라서 서로에게 없는 걸 채워주지만, 그 차이가 갈등의 씨앗이기도 합니다"}.`
+          : `${meWord}${neun(meWord)} ${em.fromLabel}${ro(em.fromLabel)} 끌어당기는 사람이고, ${pWord}${neun(pWord)} ${ep.fromLabel}${eul(ep.fromLabel)} 가진 사람입니다. 결이 ${rel === "比" ? "비슷해서 부딪힐 일이 적은 대신 새로움도 적습니다" : "달라서 서로에게 없는 걸 채워주지만, 그 차이가 갈등의 씨앗이기도 합니다"}.`),
         P("명반 근거", `${relGround(strHash(q))} ${relText[rel]}`),
-        P("자미두수로 보면", `${meWord} 명궁의 ${gm.myungStar}성은 ${gm.myungWhy}. ${pWord} 명궁의 ${gp.myungStar}성은 ${gp.myungWhy}. 이 두 기질이 만나면 ${rel.startsWith("剋") ? "끌리면서도 주도권에서 자주 부딪힙니다" : rel === "比" ? "너무 비슷해 편한 대신 서로를 자극하진 못합니다" : `${leadWord}이 이끌고 ${followWord}이 받아주는 균형이 자연스럽게 잡힙니다`}.`),
+        P("자미두수로 보면", `${meWord} 명궁의 ${gm.myungStar}성은 ${gm.myungWhy}. ${pWord} 명궁의 ${gp.myungStar}성은 ${gp.myungWhy}. 이 두 기질이 만나면 ${rel.startsWith("剋") ? "끌리면서도 주도권에서 자주 부딪힙니다" : rel === "比" ? "너무 비슷해 편한 대신 서로를 자극하진 못합니다" : `${leadWord}${ga(leadWord)} 이끌고 ${followWord}${ga(followWord)} 받아주는 균형이 자연스럽게 잡힙니다`}.`),
       ];
     case "서로에 대한 호감도 비교":
       return [
-        P("결론", `지금 이 관계에서 마음의 무게는 완전히 반반은 아닙니다. 흐름상 ${rel === "生나→상대" || rel === "剋나→상대" ? `${meWord} 쪽이 조금 더 기울어 있습니다` : `${pWord} 쪽이 조금 더 기울어 있습니다`}. 차이는 ${v.replace(/[^0-9]/g, "") || "10"}%p 안팎입니다.`),
+                P("결론", v === "0"
+          ? `지금 이 관계에서 마음의 무게는 거의 반반입니다. 한쪽이 더 좋아하고 덜 좋아하는 구조가 아니라, 서로에게서 얻는 것이 비슷한 배치입니다. 이런 관계는 균형이 좋은 대신, 둘 다 먼저 움직이지 않아 관계가 그대로 멈춰 있기도 합니다.`
+          : `지금 이 관계에서 마음의 무게는 완전히 반반은 아닙니다. 흐름상 ${favorLean === "me" ? meWord : pWord} 쪽이 조금 더 기울어 있습니다. 차이는 ${v}%p 안팎입니다. 크지 않은 차이라 뒤집히기도 하는데, 기운 쪽이 먼저 연락하고 먼저 맞추는 패턴이 굳으면 그때부터는 잘 안 뒤집힙니다.`),
         P("명반 근거", `${pWord} 부처궁의 ${gp.buchoStar}성(${gp.buchoWhy})과 ${meWord} 부처궁의 ${gm.buchoStar}성을 대조하면, 애정을 표현하는 방식 자체가 다릅니다. 그래서 크기보다 방향이 어긋납니다.`),
-        P("행동으로 보면", `${leadWord}은 확인하고 싶어 연락을 늘리고, ${followWord}은 편해서 연락이 뜸해집니다. 둘 다 좋아하는데 표현법이 반대라, 읽씹도 아닌데 답장 간격만으로 서로 서운해지는 일이 반복됩니다.`),
-        P("지금 할 것", `${followWord}이 ${leadWord}을 시험하지 마세요. '먼저 연락 안 하나 보자'며 재는 순간 관계가 꼬입니다.`),
+        P("행동으로 보면", `${leadWord}${neun(leadWord)} 확인하고 싶어 연락을 늘리고, ${followWord}${neun(followWord)} 편해서 연락이 뜸해집니다. 둘 다 좋아하는데 표현법이 반대라, 읽씹도 아닌데 답장 간격만으로 서로 서운해지는 일이 반복됩니다.`),
+        P("지금 할 것", `${followWord}${ga(followWord)} ${leadWord}${eul(leadWord)} 시험하지 마세요. '먼저 연락 안 하나 보자'며 재는 순간 관계가 꼬입니다.`),
       ];
     case "지금 연인이 최선의 선택인지":
       return [
-        P("결론", `${v.includes("최선") ? "지금 인연은 최선에 가깝습니다. 더 나은 사람을 찾기보다 이 관계를 다듬는 게 이득입니다." : "지금은 한 번 냉정히 볼 시점입니다. 익숙해서 못 놓는 건지, 정말 맞아서 함께인 건지 구분이 필요합니다."}`),
-        P("명반 근거", `${relGround(strHash(q))} 상생이면 ${pWord}이 ${meWord}을 실제로 키워주는 인연이고, 상극이면 끌리지만 계속 맞춰야 하는 인연입니다. 부처궁 ${gm.buchoStar}성으로 볼 때 ${rel.startsWith("生") ? `이 관계는 ${meWord}에게 이로운 쪽입니다` : rel.startsWith("剋") ? `${meWord}이 감당하는 몫이 큰 관계입니다` : "편하지만 자극이 부족한 관계입니다"}.`),
+        P("결론", v.includes("최선")
+          ? `지금 인연은 최선에 가깝습니다. 두 명식이 서로 어긋나는 자리보다 맞물리는 자리가 많아, 더 나은 사람을 찾기보다 이 관계를 다듬는 게 이득입니다.`
+          : v.includes("노력")
+            ? `나쁜 궁합은 아닌데 저절로 굴러가는 조합도 아닙니다. 맞는 자리와 어긋나는 자리가 반반이라, 이 관계의 결과는 명식보다 두 사람이 무엇을 조정하느냐에 더 크게 달려 있습니다.`
+            : `지금은 한 번 냉정히 볼 시점입니다. 익숙해서 못 놓는 건지, 정말 맞아서 함께인 건지 구분이 필요합니다.`),
+        P("명반 근거", `${relGround(strHash(q))} 상생이면 ${pWord}${ga(pWord)} ${meWord}${eul(meWord)} 실제로 키워주는 인연이고, 상극이면 끌리지만 계속 맞춰야 하는 인연입니다. 부처궁 ${gm.buchoStar}성으로 볼 때 ${rel.startsWith("生") ? `이 관계는 ${meWord}에게 이로운 쪽입니다` : rel.startsWith("剋") ? `${meWord}${ga(meWord)} 감당하는 몫이 큰 관계입니다` : "편하지만 자극이 부족한 관계입니다"}.`),
         P("판단 기준", `${openerFor(gm, me.seed + strHash(q) + 35)} 조건을 비교하지 말고, 싸운 다음 날을 떠올려 보세요. 화해가 자연스럽게 되는 사이인지, 매번 한쪽이 굽혀야 끝나는지가 이 질문의 진짜 답입니다.`),
       ];
     case "나의 바람기 지수":
@@ -1186,18 +1303,18 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
       return [
         P("결론", `${pWord}의 바람기 지수는 '${v}' 수준입니다. ${v === "낮음" ? "쉽게 흔들릴 사람은 아닙니다." : v === "주의" ? "혼자 두는 시간이 길어지면 흔들릴 여지가 있습니다." : "상황에 따라 갈리는 편입니다."}`),
         P("명반 근거", `${pWord} 명궁의 ${gp.myungStar}성은 ${gp.myungWhy}. ${["탐랑", "염정", "파군"].includes(gp.myungStar) ? "이 별들은 매력과 유혹이 많은 자리라, 관계가 소홀해지면 흔들릴 여지가 상대적으로 큽니다." : "이 별은 한눈팔기보다 관계를 지키는 쪽에 가깝습니다."} 바람은 기질보다 관계의 공백에서 옵니다.`),
-        P("진짜 봐야 할 것", `지수를 걱정하기보다 요즘 두 사람 사이 대화가 줄지 않았는지를 먼저 보세요. ${pWord}이 외로움을 크게 타는 유형이라면 그 공백이 실제 위험 지점입니다.`),
+        P("진짜 봐야 할 것", `지수를 걱정하기보다 요즘 두 사람 사이 대화가 줄지 않았는지를 먼저 보세요. ${pWord}${ga(pWord)} 외로움을 크게 타는 유형이라면 그 공백이 실제 위험 지점입니다.`),
       ];
     case "서로에게 주는 영향":
       return [
-        P("결론", `${rel.startsWith("生") ? "서로를 회복시키는 관계입니다. 지쳐서 만나도 헤어질 땐 충전돼 있는 편입니다." : rel.startsWith("剋") ? `긴장을 주고받는 관계입니다. 성장하지만 오래 쌓이면 ${followWord}이 소진됩니다.` : "안정을 주는 관계입니다. 편한 대신 서로를 밀어 올리는 힘은 약합니다."}`),
-        P("명반 근거", `${relGround(strHash(q))} ${rel.startsWith("生") ? "상생은 만날수록 서로의 부족한 기운을 메워줍니다." : rel.startsWith("剋") ? `상극은 서로를 다듬지만, ${followWord}이 계속 눌리면 탈이 납니다.` : "비화는 편안한 대신 서로를 자극하는 힘이 약합니다."}`),
-        P("이렇게 나타나요", `${rel.startsWith("剋") ? `${pWord}을 만나고 온 날 유독 예민해지거나 자기 검열이 늘었다면 그 신호입니다.` : `${pWord}을 만나고 온 날 마음이 놓이고 컨디션이 올라갔다면 좋은 신호입니다.`}`),
+        P("결론", `${rel.startsWith("生") ? "서로를 회복시키는 관계입니다. 지쳐서 만나도 헤어질 땐 충전돼 있는 편입니다." : rel.startsWith("剋") ? `긴장을 주고받는 관계입니다. 성장하지만 오래 쌓이면 ${followWord}${ga(followWord)} 소진됩니다.` : "안정을 주는 관계입니다. 편한 대신 서로를 밀어 올리는 힘은 약합니다."}`),
+        P("명반 근거", `${relGround(strHash(q))} ${rel.startsWith("生") ? "상생은 만날수록 서로의 부족한 기운을 메워줍니다." : rel.startsWith("剋") ? `상극은 서로를 다듬지만, ${followWord}${ga(followWord)} 계속 눌리면 탈이 납니다.` : "비화는 편안한 대신 서로를 자극하는 힘이 약합니다."}`),
+        P("이렇게 나타나요", `${rel.startsWith("剋") ? `${pWord}${eul(pWord)} 만나고 온 날 유독 예민해지거나 자기 검열이 늘었다면 그 신호입니다.` : `${pWord}${eul(pWord)} 만나고 온 날 마음이 놓이고 컨디션이 올라갔다면 좋은 신호입니다.`}`),
       ];
     case "얼마나 오래 만날지":
       return [
         P("결론", `지속력은 ${v} 정도로 읽힙니다. 다만 기간보다 중요한 건 고비를 넘기는 방식입니다.`),
-        P("명반 근거", `${meWord} 부처궁 ${gm.buchoStar}성과 ${pWord} 부처궁 ${gp.buchoStar}성의 조합은 ${rel === "比" ? "비슷해서 오래 편한 대신 권태가 최대 고비입니다" : rel.startsWith("剋") ? "끌림은 강하지만 부딪힘이 잦아 회복 방식이 관건입니다" : `${followWord}이 받아주는 흐름이라 균형만 지키면 길게 갑니다`}.`),
+        P("명반 근거", `${meWord} 부처궁 ${gm.buchoStar}성과 ${pWord} 부처궁 ${gp.buchoStar}성의 조합은 ${rel === "比" ? "비슷해서 오래 편한 대신 권태가 최대 고비입니다" : rel.startsWith("剋") ? "끌림은 강하지만 부딪힘이 잦아 회복 방식이 관건입니다" : `${followWord}${ga(followWord)} 받아주는 흐름이라 균형만 지키면 길게 갑니다`}.`),
         P("고비의 지점", `${rel === "比" ? "편함이 지루함으로 바뀌는 순간을 조심하세요." : "한쪽은 확인하려 다가가고 한쪽은 거리를 두려 해서, 좋아할수록 서로를 더 불안하게 만들 수 있습니다."}`),
         P("흐름", flow(me, 4, "관계의 전환점")),
       ];
@@ -1221,22 +1338,22 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
     case "나의 가치관":
       return [
         P("결론", `${meWord}에게 관계에서 가장 중요한 건 '${v}'입니다. 이 기준이 흔들리면 아무리 좋아도 오래가지 못합니다.`),
-        P("명반 근거", `일간 ${gm.ilgan}${wa(gm.ilgan)} 명궁 ${gm.myungStar}성(${gm.myungWhy})이 함께 가리키는 지점입니다. ${meWord}은 이 기준 하나만 지켜지면 웬만한 다름은 다 맞춰줄 수 있는 쪽입니다.`),
+        P("명반 근거", `일간 ${gm.ilgan}${wa(gm.ilgan)} 명궁 ${gm.myungStar}성(${gm.myungWhy})이 함께 가리키는 지점입니다. ${meWord}${neun(meWord)} 이 기준 하나만 지켜지면 웬만한 다름은 다 맞춰줄 수 있는 쪽입니다.`),
         P("실제로는", `${openerFor(gm, me.seed + strHash(q) + 28)} 연애에서 정작 크게 싸운 지점을 돌아보면, 사소한 습관보다 이 가치관이 무시당했다고 느낀 순간이었을 확률이 높습니다.`),
-        P(`${pWord}에게`, `${pWord}이 이 가치관을 이해하고 존중하는지가 관계의 실제 수명을 정합니다. 조건이 아무리 좋아도 이 지점에서 어긋나면 오래가지 못하고, 반대로 다른 게 좀 부족해도 이것만 맞으면 의외로 오래 갑니다.`),
+        P(`${pWord}에게`, `${pWord}${ga(pWord)} 이 가치관을 이해하고 존중하는지가 관계의 실제 수명을 정합니다. 조건이 아무리 좋아도 이 지점에서 어긋나면 오래가지 못하고, 반대로 다른 게 좀 부족해도 이것만 맞으면 의외로 오래 갑니다.`),
       ];
     case "상대방의 가치관":
       return [
-        P("결론", `${pWord}에게 관계에서 가장 중요한 건 '${v}'입니다. ${meWord}과는 다른 기준일 수 있습니다.`),
+        P("결론", `${pWord}에게 관계에서 가장 중요한 건 '${v}'입니다. ${meWord}${wa(meWord)}는 다른 기준일 수 있습니다.`),
         P("명반 근거", `${pWord}의 일간 ${gp.ilgan}${wa(gp.ilgan)} 명궁 ${gp.myungStar}성(${gp.myungWhy})이 함께 가리키는 지점입니다.`),
-        P("맞춰보면", `${rel === "比" ? `${meWord}과 가치관의 결이 비슷해서 크게 부딪힐 일은 적습니다.` : `${meWord}의 가치관과는 결이 달라서, 서로 이해하는 데 시간이 좀 필요합니다.`}`),
-        P("지금 할 것", `${pWord}이 이 가치관을 말이 아니라 행동으로 이미 여러 번 보여줬을 확률이 높습니다. 놓쳤다면 지난 상황들을 한 번 다시 떠올려보세요.`),
+        P("맞춰보면", `${rel === "比" ? `${meWord}${wa(meWord)} 가치관의 결이 비슷해서 크게 부딪힐 일은 적습니다.` : `${meWord}의 가치관과는 결이 달라서, 서로 이해하는 데 시간이 좀 필요합니다.`}`),
+        P("지금 할 것", `${pWord}${ga(pWord)} 이 가치관을 말이 아니라 행동으로 이미 여러 번 보여줬을 확률이 높습니다. 놓쳤다면 지난 상황들을 한 번 다시 떠올려보세요.`),
       ];
     case "스킨십·애정표현 궁합":
       return [
         P("결론", `애정 표현 방식의 궁합은 ${v} 수준입니다. 마음의 크기가 아니라 '표현하는 방식'의 문제입니다.`),
         P("명반 근거", `${meWord} 부처궁 ${gm.buchoStar}성(${gm.buchoWhy})과 ${pWord} 부처궁 ${gp.buchoStar}성을 대조하면, 애정을 표현하는 온도와 방식 자체가 다릅니다.`),
-        P("실제로는", `${meWord}이 표현하는 방식을 ${pWord}이 다르게 해석하거나, 반대로 ${pWord}의 표현을 ${meWord}이 못 알아채는 순간이 반복될 수 있습니다. 둘 다 사랑하는데 표현법이 어긋나는 흔한 패턴입니다.`),
+        P("실제로는", `${meWord}${ga(meWord)} 표현하는 방식을 ${pWord}${ga(pWord)} 다르게 해석하거나, 반대로 ${pWord}의 표현을 ${meWord}${ga(meWord)} 못 알아채는 순간이 반복될 수 있습니다. 둘 다 사랑하는데 표현법이 어긋나는 흔한 패턴입니다.`),
         P("지금 할 것", `${openerFor(gm, me.seed + strHash(q) + 42)} 말로 직접 물어보는 게 가장 빠릅니다. "나는 이럴 때 사랑받는다고 느껴"를 서로 한 번씩 이야기해두면, 애매한 신호로 서운해지는 일이 확 줄어듭니다.`),
       ];
     default:
@@ -1253,18 +1370,23 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
     // 문단을 섞어 분량을 채웠는데, "몰래 좋아한 사람 수"를 물었는데 업무 마감 얘기가
     // 나오는 식으로 어긋나서 전부 걷어냈다.
     if (!onlyP) {
-      chartReading(gm, q, qt, "compat", 2, ledger, joinParas(paras), v).forEach((t, i) =>
+      // 규칙 엔진이 먼저다. 조건에 걸리는 게 있으면 그걸 쓰고, 없을 때만 명반 축 해석으로 채운다.
+      const rp = rulePassages(me, q, "love-compatibility", 3, ledger, name, "me", { chart: pt, name: partnerName });
+      (rp.length ? rp : chartReading(gm, q, qt, "compat", 2, ledger, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${meWord} 명반으로 보면` : "짚고 갈 자리", t)),
       );
     }
     if (!onlyMe) {
       // 상대 쪽으로 넘어가는 첫 문단은 화자가 바뀌는 지점이라 라벨을 고정해 둔다.
-      chartReading(gp, q, qt, "compat", 2, ledgerP, joinParas(paras), v).forEach((t, i) =>
+      // 상대 쪽도 같은 규칙 원장을 쓴다. 따로 두면 두 사람이 같은 판정일 때(둘 다 신약 등)
+      // 설명 문장이 글자 그대로 두 번 나온다.
+      const rpP = rulePassages(pt, q, "love-compatibility", 3, ledger, partnerName, "pt", { chart: me, name });
+      (rpP.length ? rpP : chartReading(gp, q, qt, "compat", 2, ledgerP, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${pWord} 명반으로 보면` : "상대 쪽에서 짚을 자리", t)),
       );
     }
   }
-  return paras;
+  return dedupeParas(paras, ledger);
 }
 
 /* ───────────────────── 재회운 총론 ───────────────────── */
@@ -1286,7 +1408,7 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
     case "둘의 연애가 어땠는지":
       return [
         P("결론", `이 관계는 ${v} 정도로 한쪽이 더 기울어 있던 사이입니다. 좋았던 기억이 강렬한 만큼, 끝이 아쉽게 남았을 겁니다.`),
-        P("명반 근거", `${meWord}의 일간 ${gm.ilgan}${wa(gm.ilgan)} ${pWord}의 일간 ${gp.ilgan}${neun(gp.ilgan)} ${relName} 관계였습니다. ${rel.startsWith("剋") ? `끌림은 강했지만 ${followWord}이 계속 맞춰야 하는 구조라, 좋을 땐 뜨겁고 틀어질 땐 급격했습니다.` : rel === "比" ? "너무 비슷해 편했던 만큼, 설렘이 빨리 익숙함으로 바뀌었습니다." : `한쪽이 더 내어주는 관계라, ${leadWord}이 지칠 때 균형이 흔들렸습니다.`}`),
+        P("명반 근거", `${meWord}의 일간 ${gm.ilgan}${wa(gm.ilgan)} ${pWord}의 일간 ${gp.ilgan}${neun(gp.ilgan)} ${relName} 관계였습니다. ${rel.startsWith("剋") ? `끌림은 강했지만 ${followWord}${ga(followWord)} 계속 맞춰야 하는 구조라, 좋을 땐 뜨겁고 틀어질 땐 급격했습니다.` : rel === "比" ? "너무 비슷해 편했던 만큼, 설렘이 빨리 익숙함으로 바뀌었습니다." : `한쪽이 더 내어주는 관계라, ${leadWord}${ga(leadWord)} 지칠 때 균형이 흔들렸습니다.`}`),
         P("실제로는", `${openerFor(gm, me.seed + strHash(q) + 28)} 평소에는 잘 맞다가도 결정적인 순간에 어긋나는 패턴이 반복됐을 겁니다. 서로를 안 좋아한 게 아니라, 좋아하는 방식이 달라서 자꾸 엇갈린 관계였습니다.`),
       ];
     case "궁합과 인연":
@@ -1304,14 +1426,14 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
       ];
     case "상대방이 나를 기억하는 방식":
       return [
-        P("결론", `${pWord}은 ${meWord}을 '${v}'${ro(v)} 기억합니다. 나쁜 사람으로 남은 게 아니라, 오히려 미화된 쪽입니다.`),
-        P("명반 근거", `${pWord} 부처궁의 ${gp.buchoStar}성으로 보면 ${gp.buchoWhy}. 그래서 헤어진 뒤에도 ${meWord}과의 시간을 '좋았던 한때'로 채색해 기억하는 편입니다.`),
+        P("결론", `${pWord}${neun(pWord)} ${meWord}${eul(meWord)} '${v}'${ro(v)} 기억합니다. 나쁜 사람으로 남은 게 아니라, 오히려 미화된 쪽입니다.`),
+        P("명반 근거", `${pWord} 부처궁의 ${gp.buchoStar}성으로 보면 ${gp.buchoWhy}. 그래서 헤어진 뒤에도 ${meWord}${wa(meWord)}의 시간을 '좋았던 한때'로 채색해 기억하는 편입니다.`),
         P("이게 왜 중요하냐면", `${openerFor(gm, me.seed + strHash(q) + 70)} 기억이 좋게 남았다는 건 연락의 문이 닫히지 않았다는 뜻입니다. 다만 미화된 기억은 실제로 만나면 깨지기 쉬워서, 재회 초반이 오히려 가장 조심스러운 구간입니다.`),
       ];
     case "헤어진 진짜 이유":
       return [
         P("결론", `표면적 이유가 무엇이었든, 명반이 가리키는 진짜 원인은 '${v}'입니다.`),
-        P("명반 근거", `${meWord}과 ${pWord}의 일간이 ${relName} 관계라는 점이 핵심입니다. ${rel.startsWith("剋") ? `서로 좋아하면서도 ${followWord}이 계속 맞춰야 했고, 그 눌린 감정이 어느 순간 사소한 일에 터진 겁니다.` : rel === "比" ? "너무 비슷해서 편했던 만큼, 설렘이 사라진 자리를 권태가 채우면서 멀어진 겁니다." : `${leadWord}이 더 내어주다 지쳤고, 그 온도차가 결국 벌어진 겁니다.`}`),
+        P("명반 근거", `${meWord}${wa(meWord)} ${pWord}의 일간이 ${relName} 관계라는 점이 핵심입니다. ${rel.startsWith("剋") ? `서로 좋아하면서도 ${followWord}${ga(followWord)} 계속 맞춰야 했고, 그 눌린 감정이 어느 순간 사소한 일에 터진 겁니다.` : rel === "比" ? "너무 비슷해서 편했던 만큼, 설렘이 사라진 자리를 권태가 채우면서 멀어진 겁니다." : `${leadWord}${ga(leadWord)} 더 내어주다 지쳤고, 그 온도차가 결국 벌어진 겁니다.`}`),
         P("그래서 중요한 것", `${openerFor(gm, me.seed + strHash(q) + 63)} 이 문제가 그대로면 다시 만나도 같은 지점에서 멀어질 확률이 높습니다. 재회를 원한다면 '누가 잘못했나'가 아니라 이 구조를 어떻게 바꿀지가 관건입니다.`),
       ];
     case "재회 가능성":
@@ -1325,7 +1447,7 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
       return [
         P("결론", `연락의 창은 ${v}에 열립니다. 지금 당장은 아닙니다.`),
         P("명반 근거", `${pWord} 명궁의 ${gp.myungStar}성 기질(${gp.myungWhy})상, 감정이 정리되기 전의 연락은 부담으로 받아들여지기 쉽습니다. 흐름이 바뀌는 그 시점 전에 먼저 움직이면 아쉬운 쪽으로 읽혀 균형이 무너집니다.`),
-        P("지금 할 것", `그 시기까지는 ${pWord}의 근황을 확인하는 걸 줄이세요. 평소의 ${meWord}이라면 참기 어렵겠지만, SNS를 자꾸 들여다보는 것부터 멈추는 게 첫걸음입니다.`),
+        P("지금 할 것", `그 시기까지는 ${pWord}의 근황을 확인하는 걸 줄이세요. 평소의 ${meWord}${ga(meWord)}라면 참기 어렵겠지만, SNS를 자꾸 들여다보는 것부터 멈추는 게 첫걸음입니다.`),
       ];
     case "재회 시기":
       return [
@@ -1337,7 +1459,7 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
       return [
         P("결론", `${pWord} 주변의 새로운 사람은 지금 '${v}' 상태로 읽힙니다. ${v.includes("없") ? "확실한 대상은 아직 없습니다." : "가벼운 흐름은 있지만 깊지 않습니다."}`),
         P("명반 근거", `${pWord} 부처궁의 ${gp.buchoStar}성 흐름상, ${v.includes("없") ? "지금은 새 인연보다 이전 관계의 여운이 더 크게 남아 있습니다." : "새로 스치는 인연이 있어도 부처궁을 채울 만큼 깊지는 않습니다."}`),
-        P("의미", `${v.includes("없") ? `${meWord}에게 시간이 아직 있다는 뜻이지만, 그게 곧 기다리라는 뜻은 아닙니다.` : `조급해할 필요는 없습니다. 깊지 않은 인연은 ${meWord}과의 관계를 대체하지 못합니다.`} ${pWord}의 새 인연 여부에 ${meWord}의 페이스를 맞추지 마세요.`),
+        P("의미", `${v.includes("없") ? `${meWord}에게 시간이 아직 있다는 뜻이지만, 그게 곧 기다리라는 뜻은 아닙니다.` : `조급해할 필요는 없습니다. 깊지 않은 인연은 ${meWord}${wa(meWord)}의 관계를 대체하지 못합니다.`} ${pWord}의 새 인연 여부에 ${meWord}의 페이스를 맞추지 마세요.`),
       ];
     case "재회 후 관계":
       return [
@@ -1357,7 +1479,7 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
         P("결론", `${pWord}의 마음이 정리되는 시점은 ${v}${ro(v)} 보입니다.`),
         P("명반 근거", `${pWord} 명궁의 ${gp.myungStar}성(${gp.myungWhy})이 이 시기를 기점으로 다른 국면에 들어갑니다. 그 전까지는 ${pWord}도 완전히 정리된 상태는 아닐 확률이 높습니다.`),
         P("실제로는", `${openerFor(gm, me.seed + strHash(q) + 28)} 이 시기 전에 오는 연락은 정리되지 않은 상태에서 오는 신호일 가능성이 큽니다. 반갑다고 바로 무너지면, 정리도 안 된 상태로 다시 시작하게 됩니다.`),
-        P("지금 할 것", `${pWord}의 타이밍을 재촉하지 마세요. 먼저 다가가서 확인하려 들수록, ${pWord}은 오히려 정리할 시간을 더 필요로 하게 됩니다.`),
+        P("지금 할 것", `${pWord}의 타이밍을 재촉하지 마세요. 먼저 다가가서 확인하려 들수록, ${pWord}${neun(pWord)} 오히려 정리할 시간을 더 필요로 하게 됩니다.`),
       ];
     case "나에게 새로운 인연이 들어오는 시기":
       return [
@@ -1380,18 +1502,22 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
     // 문단을 섞어 분량을 채웠는데, "몰래 좋아한 사람 수"를 물었는데 업무 마감 얘기가
     // 나오는 식으로 어긋나서 전부 걷어냈다.
     if (!onlyP) {
-      chartReading(gm, q, qt, "reunion", 2, ledger, joinParas(paras), v).forEach((t, i) =>
+      const rp = rulePassages(me, q, "love-reunion", 3, ledger, name, "me", { chart: pt, name: partnerName });
+      (rp.length ? rp : chartReading(gm, q, qt, "reunion", 2, ledger, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${meWord} 명반으로 보면` : "짚고 갈 자리", t)),
       );
     }
     if (!onlyMe) {
       // 상대 쪽으로 넘어가는 첫 문단은 화자가 바뀌는 지점이라 라벨을 고정해 둔다.
-      chartReading(gp, q, qt, "reunion", 2, ledgerP, joinParas(paras), v).forEach((t, i) =>
+      // 상대 쪽도 같은 규칙 원장을 쓴다. 따로 두면 두 사람이 같은 판정일 때(둘 다 신약 등)
+      // 설명 문장이 글자 그대로 두 번 나온다.
+      const rpP = rulePassages(pt, q, "love-reunion", 3, ledger, partnerName, "pt", { chart: me, name });
+      (rpP.length ? rpP : chartReading(gp, q, qt, "reunion", 2, ledgerP, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${pWord} 명반으로 보면` : "상대 쪽에서 짚을 자리", t)),
       );
     }
   }
-  return paras;
+  return dedupeParas(paras, ledger);
 }
 
 /* ───────────────────── 평생 총론 ───────────────────── */
@@ -1399,12 +1525,28 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
 function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Set<number>, qi: number = 0): Para[] {
   const le = LIFE_EL[me.dayMaster];
   const whoBase = name ? `${name}님` : "당신";
-  const who = `${whoBase}은`;
+  const who = `${whoBase}${neun(whoBase)}`;
   const P = (label: string, text: string): Para => ({ label, text });
   const g = grounding(me);
-  const astro = (seed: number) => g.ascLove
+  // 태양궁·달궁·상승궁이 겹치는 사람이 있다. 겹치는데도 "간극이 있습니다"라고 쓰면
+  // 명반과 어긋나는 말이 되고, 같은 기질 설명이 한 문장 안에서 두 번 나온다.
+  // 겹치는 경우를 먼저 갈라 낸다.
+  const astro = (seed: number): string => {
+    const sameAsc = !!g.asc && g.asc === g.sun;
+    const sameMoon = g.moon === g.sun;
+    if (g.ascLove && sameAsc && sameMoon)
+      return `태양궁·달궁·상승궁이 모두 ${g.sun}입니다. 본질과 감정과 첫인상이 한 방향으로 몰린 배치라, ${whoBase}${neun(whoBase)} 보이는 대로의 사람입니다. ${g.sunLove} 결이 겉과 속에 똑같이 걸려 있어 이해받기는 쉬운데, 그 결이 안 맞는 자리에서는 물러설 여지도 없습니다.`;
+    if (g.ascLove && sameAsc)
+      return `태양궁과 상승궁이 둘 다 ${g.sun}입니다. 첫인상과 실제 본질이 같은 방향이라, 처음 본 사람이 ${whoBase}${eul(whoBase)} 오해할 일이 적습니다. 다만 달궁은 ${g.moon}${ira(g.moon)}, 속으로 감정을 다루는 방식은 ${g.moonLove} 쪽으로 따로 움직입니다. 겉과 속이 아니라 표현과 감정 사이에서 시차가 생기는 구조입니다.`;
+    if (g.ascLove && sameMoon)
+      return `태양궁과 달궁이 둘 다 ${g.sun}이고, 상승궁만 ${g.asc}입니다. 본질과 감정은 같은 온도인데 남에게 비치는 인상만 ${g.ascLove} 쪽으로 한 겹 덧씌워집니다. 속은 흔들림이 적은데 첫인상 때문에 다르게 읽히는 일이 반복됩니다.`;
+    if (g.ascLove && g.asc === g.moon)
+      return `달궁과 상승궁이 둘 다 ${g.moon}입니다. 감정이 움직이는 방식이 그대로 인상에 드러나는 배치라, 기분이 겉으로 잘 숨겨지지 않습니다. 본질인 태양궁 ${g.sun}의 ${g.sunLove} 결은 그보다 안쪽에 있어서, 오래 겪은 사람만 그쪽을 봅니다.`;
+    if (!g.ascLove && sameMoon)
+      return `태양궁과 달궁이 둘 다 ${g.sun}입니다. 본질과 감정선이 같은 자리에 놓여, 마음먹은 것과 실제로 느끼는 것이 잘 어긋나지 않습니다. 대신 한번 방향이 정해지면 스스로 뒤집기가 어려워, ${g.sunLove} 결이 불리하게 작동하는 자리에서도 그대로 밀고 갑니다.`;
+    return g.ascLove
     ? pick([
-        `태양궁은 ${g.sun}, 상승궁은 ${g.asc}${ira(g.asc!)}. 본질은 ${g.sunLove} 쪽인데 첫인상은 ${g.ascLove} 쪽이라, 사람들이 처음 본 ${whoBase}와 오래 겪은 ${whoBase}를 서로 다르게 기억합니다. 첫 만남에서 오해를 사고 시간이 지나서야 진가를 인정받는 흐름이 반복될 확률이 높습니다.`,
+        `태양궁은 ${g.sun}, 상승궁은 ${g.asc}입니다. 본질은 ${g.sunLove} 쪽인데 첫인상은 ${g.ascLove} 쪽이라, 사람들이 처음 본 ${whoBase}${wa(whoBase)} 오래 겪은 ${whoBase}${eul(whoBase)} 서로 다르게 기억합니다. 첫 만남에서 오해를 사고 시간이 지나서야 진가를 인정받는 흐름이 반복될 확률이 높습니다.`,
         `상승궁 ${g.asc}${ga(g.asc!)} 씌우는 ${g.ascLove} 인상과 태양궁 ${g.sun}의 ${g.sunLove} 본질 사이에 간극이 있습니다. 스스로 생각하는 나와 남이 말하는 내가 어긋난다면 이 구조 때문입니다.`,
         `점성술 3대 지표가 태양궁 ${g.sun}, 달궁 ${g.moon}, 상승궁 ${g.asc}로 각각 다른 층을 맡습니다. 본질 ${g.sunLove} 결, 감정 ${g.moonLove} 결, 첫인상 ${g.ascLove} 결이 따로 작동합니다.`,
       ], seed)
@@ -1413,6 +1555,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
         `점성술로는 태양궁 ${g.sun}${wa(g.sun)} 달궁 ${g.moon}${ga(g.moon)} 두 축을 이룹니다. ${g.sunLove} 본질 위에 ${g.moonLove} 감정 처리 방식이 얹혀서, 판단은 빠른데 정리는 느린 식의 시차가 생깁니다.`,
         `달궁 ${g.moon}${ga(g.moon)} 감정을 ${g.moonLove} 방식으로 다루고, 태양궁 ${g.sun}${ga(g.sun)} 겉으로 드러나는 ${g.sunLove} 결을 만듭니다. 이 둘의 온도차가 ${whoBase}만의 결을 만드는 지점입니다.`,
       ], seed);
+  };
   // 명궁 주성 한 문장을 일곱 문항에 그대로 돌려 쓰던 자리 — 사실은 같아도 어느 각도에서
   // 인용하는지는 문항마다 달라야 한다.
   const starGround = (seed: number) => pick([
@@ -1447,14 +1590,14 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
       ];
     case "타고난 내 모습과 타인이 보는 내 모습":
       return [
-        P("결론", `속에서 느끼는 ${whoBase}와 남들이 기억하는 모습 사이에는 ${g.sunMoonAligned ? "생각보다 큰 차이가 없습니다" : "은근한 간극이 있습니다"}.`),
+        P("결론", `속에서 느끼는 ${whoBase}${wa(whoBase)} 남들이 기억하는 모습 사이에는 ${g.sunMoonAligned ? "생각보다 큰 차이가 없습니다" : "은근한 간극이 있습니다"}.`),
         P("명반 근거", g.sunMoonAligned
-          ? `태양궁과 달궁이 같은 계열이라 겉으로 드러나는 태도와 속마음이 비슷하게 흘러갑니다. 그래서 ${whoBase}를 오래 겪지 않은 사람도 비교적 정확하게 파악하는 편입니다. 첫인상이 곧 본질에 가까운 드문 경우입니다.`
+          ? `태양궁과 달궁이 같은 계열이라 겉으로 드러나는 태도와 속마음이 비슷하게 흘러갑니다. 그래서 ${whoBase}${eul(whoBase)} 오래 겪지 않은 사람도 비교적 정확하게 파악하는 편입니다. 첫인상이 곧 본질에 가까운 드문 경우입니다.`
           : `태양궁 ${g.sun}${wa(g.sun)} 달궁 ${g.moon}${ga(g.moon)} 서로 다른 계열이라, 겉으로 보이는 태도와 실제 속마음이 다르게 움직입니다. 짧게 본 사람과 오래 본 사람의 평가가 갈리는 이유가 여기 있습니다.`),
         P("점성술로 보면", `${astro(strHash(q))} 이 간극이 가장 선명하게 드러나는 지점이 바로 이 질문입니다.`),
         P("실제로는", `${rephrase(le.outerImage, g, me.seed + 5)} 하지만 스스로는 ${essenceCore(le)} 쪽에 가깝다고 느낍니다. 이 둘 사이의 거리를 본인이 가장 모르고 지내는 경우가 많고, 오히려 오래된 친구나 가족이 먼저 짚어주곤 합니다.`),
         P("자미두수로 보면", `${starGround(strHash(q))} 명궁이 곧 겉으로 드러나는 인상의 뿌리이고, 이 별의 기운이 강할수록 시간이 지나야 진짜 모습이 드러나는 경향이 큽니다.`),
-        P("지금 할 것", `누군가 ${whoBase}를 오해한다면, 그건 대개 첫인상만 보고 판단했기 때문입니다. 조급하게 해명하기보다 시간을 두고 겪게 하는 편이 유리하고, 반대로 ${whoBase} 자신도 남을 첫인상만으로 판단하지 않는 편이 결과적으로 이득입니다.`),
+        P("지금 할 것", `누군가 ${whoBase}${eul(whoBase)} 오해한다면, 그건 대개 첫인상만 보고 판단했기 때문입니다. 조급하게 해명하기보다 시간을 두고 겪게 하는 편이 유리하고, 반대로 ${whoBase} 자신도 남을 첫인상만으로 판단하지 않는 편이 결과적으로 이득입니다.`),
       ];
     case "나의 초년운":
       return [
@@ -1537,14 +1680,15 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
   {
     const qt = qTopic(q, "이 흐름");
     // 명반 지표 해석을 본문의 축으로 쓰고, 범용 문단은 결을 채우는 정도로만 남긴다.
-    chartReading(g, q, qt, "life", qi === 0 ? 3 : 2, ledger, joinParas(paras), v).forEach((t, i) =>
+    const rp = rulePassages(me, q, "life-overview", qi === 0 ? 5 : 4, ledger, name, "me");
+    (rp.length ? rp : chartReading(g, q, qt, "life", qi === 0 ? 3 : 2, ledger, joinParas(paras), v)).forEach((t, i) =>
       paras.push(P(i === 0 ? "명반으로 보면" : "짚고 갈 자리", t)),
     );
     // 예전엔 최대 8개를 뽑아 놓고 앞 4개만 꺼내 썼다. 버려진 4개도 ledger에는 "사용됨"으로
     // 남아서, 문단 풀만 축내고 뒤 문항들이 쓸 후보를 줄이는 손해가 있었다.
 
   }
-  return paras;
+  return dedupeParas(paras, ledger);
 }
 
 /* ───────────────────── 커리어/재물/건강 (컴팩트) ───────────────────── */
@@ -1663,7 +1807,7 @@ function light(cat: Category, q: string, me: Chart, v: string, ledger?: Set<numb
       "약한 토 기운을 채우려면 규칙적인 식사가 좋습니다. 끼니를 거르거나 불규칙하게 먹는 습관이 컨디션 저하로 가장 먼저 이어집니다.",
       "약한 금 기운을 채우려면 충분한 휴식이 좋습니다. 기준을 다 채우려다 스스로를 몰아붙이지 말고, 쉬는 것도 관리의 일부로 받아들이세요.",
       "약한 수 기운을 채우려면 수분 섭취와 숙면이 좋습니다. 몸의 순환과 회복력이 이 두 가지에서 크게 갈립니다.",
-    ][me.lacking],
+    ][me.useEl],
   };
   const g = grounding(me);
   const le = LIFE_EL[me.dominant];
@@ -1708,96 +1852,265 @@ function light(cat: Category, q: string, me: Chart, v: string, ledger?: Set<numb
   {
     // 명반 지표 해석을 본문의 축으로 쓴다. 커리어·재물·건강은 명궁/관록·재백·질액궁을
     // 그 영역 기준으로 읽어야 해서 domainOf로 카테고리에 맞는 렌즈를 고른다.
-    chartReading(g, q, qt, domainOf(cat.id), qi === 0 ? 3 : 2, ledger, joinParas(paras), v).forEach((t, i) =>
+    const rp = rulePassages(me, q, cat.id, qi === 0 ? 5 : 4, ledger, undefined, "me");
+    (rp.length ? rp : chartReading(g, q, qt, domainOf(cat.id), qi === 0 ? 3 : 2, ledger, joinParas(paras), v)).forEach((t, i) =>
       paras.push(P(i === 0 ? "명반으로 보면" : "짚고 갈 자리", t)),
     );
     // lifeOverview와 같은 문제 — 6개를 뽑아 2개만 쓰고 나머지는 ledger만 소모했다.
 
   }
-  return paras;
+  return dedupeParas(paras, ledger);
 }
 
 /* ───────────────────── 값 계산 (기존 유지) ───────────────────── */
 
 export type Ctx = { me: Chart; pt?: Chart; c: Category; input: ReportInput };
 
+/** 접미사 맨 앞의 조사를 앞 값의 받침에 맞춘다. 조사로 시작하지 않으면 그대로 둔다. */
+// 긴 것부터 본다. "이에요"를 ["이","가"]가 먼저 집어가면 "가에요"가 된다.
+const JOSA_PAIRS: [string, string][] = [
+  ["이었어요", "였어요"], ["이에요", "예요"], ["이라", "라"], ["으로", "로"],
+  ["은", "는"], ["이", "가"], ["을", "를"], ["과", "와"],
+];
+export function fixJosa(suffix: string, value: string): string {
+  if (!suffix) return suffix;
+  const j = lastJong(value);
+  if (j < 0) return suffix;            // 값에 한글이 없으면(숫자만) 손대지 않는다
+  for (const [withJong, without] of JOSA_PAIRS) {
+    for (const form of [withJong, without]) {
+      if (!suffix.startsWith(form)) continue;
+      // 로/으로만 ㄹ 받침을 받침 없는 것처럼 다룬다
+      const useJong = withJong === "으로" ? j > 0 && j !== 8 : j > 0;
+      return (useJong ? withJong : without) + suffix.slice(form.length);
+    }
+  }
+  return suffix;
+}
+
+/** 두 사람 중 어느 쪽이 더 기우는가. 상대가 내 용신을 갖고 있으면 내가 더 끌린다.
+ *  양수면 나(me), 음수면 상대(pt)가 더 기운 것으로 읽는다.
+ *  values()와 본문이 같은 함수를 써야 "차이 7%p"라고 해 놓고 반대쪽이 기울었다고
+ *  말하는 일이 생기지 않는다. */
+export function favorGapOf(me: Chart, pt?: Chart): number {
+  if (!pt) return 0;
+  const A = analyzeTiming(me).analysis, B = analyzeTiming(pt).analysis;
+  let g = 0;
+  if (B.dominant === A.useEl) g += 7;
+  if (A.dominant === B.useEl) g -= 7;
+  if (B.dominant === A.avoidEl) g -= 3;
+  if (A.dominant === B.avoidEl) g += 3;
+  if (!A.strong && B.strong) g += 4;   // 약한 쪽이 더 기댄다
+  if (A.strong && !B.strong) g -= 4;
+  // 같은 조건이 상쇄돼 0이 되는 경우가 있다. 강약 점수 차는 실제로 갈리는 값이라
+  // 여기서 미세한 기울기를 마저 읽는다. 받쳐 주는 힘이 얇은 쪽이 조금 더 기댄다.
+  g += Math.round((B.strengthScore - A.strengthScore) / 10);
+  return g;
+}
+
+/** 십신 다섯 갈래 중 가장 무거운 것. 그 사람이 무엇을 중심으로 사는지가 여기서 갈린다. */
+type God5 = "비겁" | "식상" | "재성" | "관성" | "인성";
+function topGroup(a: { groupWeight: Record<God5, number> }): God5 {
+  const e = Object.entries(a.groupWeight) as [God5, number][];
+  return e.sort((x, y) => y[1] - x[1])[0][0];
+}
+/** 가장 무거운 갈래가 중히 여기는 것 — 가치관 문항의 답. */
+const VALUE_BY_GROUP: Record<God5, string> = {
+  비겁: "대등함",
+  식상: "솔직함",
+  재성: "현실적인 결과",
+  관성: "신뢰와 약속",
+  인성: "이해받는 느낌",
+};
+/** 같은 갈래가 지나치면 나오는 실수 — 평생 피해야 할 행동. */
+const AVOID_BY_GROUP: Record<God5, string> = {
+  비겁: "몫을 따지지 않고 같이 벌이기",
+  식상: "감정적인 즉흥 결정",
+  재성: "확인 없이 밀어붙이기",
+  관성: "손해를 감수하며 참기",
+  인성: "새 시도를 미루기",
+};
+
 export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> {
   const { me, pt } = ctx;
   const s = me.seed;
+  // 시기 답은 해시가 아니라 용신·기신에서 나온다(lib/timing.ts).
+  const tm = analyzeTiming(me);
   const p = pt?.seed ?? 0;
   const pct = popularityPct(ctx.input.me.y, ctx.input.me.m, ctx.input.me.d);
+  // 나이로 답해야 하는 문항은 실제 대운에서 뽑는다. 예전에는 seed에서 만든 숫자였는데,
+  // 그러면 "48세 전후"라고 써 놓고 본문에서는 22·32·42세에 대운이 바뀐다고 말하게 된다.
+  const dec = scoreDecadals(tm.analysis, me.luck?.list ?? []);
+  const nowAge = new Date().getFullYear() - me.birthYear + 1;
+  const nextTurn = (me.luck?.list ?? []).find((d) => d.age > nowAge)?.age;
+  const bestSpan = dec.length ? [...dec].sort((a, b) => b.score - a.score)[0] : undefined;
+  const bandLabel = (from: number, to: number, good: string[], bad: string[]) => {
+    const sc = spanScore(dec, from, to);
+    return sc >= 1.5 ? good[0] : sc > -1 ? good[1] : bad[0];
+  };
+  // 앞으로 10년 세운. "몇 년에 오른다"는 답은 여기서 나온다.
+  const A = tm.analysis;
+  const thisYear = new Date().getFullYear();
+  const yrs = scoreYears(A, me.birthYear, thisYear, 10, me.luck?.list ?? []);
+  const bestYear = [...yrs].sort((x, y2) => y2.score - x.score)[0];
+  const gw = A.groupWeight;
+  // 십신 개수 — 여덟 글자에서 특정 십신이 몇 번 나오는지
+  const godCount = (names: string[]) =>
+    A.tenGods.flatMap((t) => [t.stem, t.branch]).filter((g) => names.includes(g as string)).length;
+  const hasSinsal = (name: string) => A.sinsal.some((x) => x.name === name);
+  /** 헤어진 이유도 두 명식에서 갈린다. 일지 충·합만 보면 여덟에 하나꼴이라
+   *  나머지가 전부 한 답으로 몰린다. 일간 관계·용신 교환·강약까지 순서대로 본다. */
+  const breakupReason = (): string => {
+    if (!pt) return "엇갈린 방향";
+    const B = analyzeTiming(pt).analysis;
+    const mb = A.pillars.일!.branch, ob = B.pillars.일!.branch;
+    if (branchClash(mb, ob)) return "정면으로 부딪힌 자리";
+    const gek = (A.dayEl + 2) % 5 === B.dayEl || (B.dayEl + 2) % 5 === A.dayEl;
+    if (gek) return "주도권 다툼";
+    if (A.strong && B.strong) return "서로 굽히지 않은 것";
+    if (!A.strong && !B.strong) return "둘 다 지쳐 있던 시기";
+    if (B.dominant === A.avoidEl) return "같이 있을수록 무거워진 것";
+    if (branchSix(mb, ob)) return "말하지 않은 서운함";
+    if (A.dayEl === B.dayEl) return "익숙해져 식은 것";
+    if (B.dominant !== A.useEl && A.dominant !== B.useEl) return "서로를 채우지 못한 것";
+    return "엇갈린 타이밍";
+  };
+  /** 지금부터 다음 용신 달까지 몇 달 남았는지. "N개월 후"류 답의 근거가 된다.
+   *  기다리라는 말이 아니라, 흐름이 바뀌는 지점까지의 거리다. */
+  const monthsToGood = (months: number[], offset = 0): number => {
+    if (!months.length) return 3;
+    const now = new Date().getMonth() + 1;
+    const gaps = months.map((m) => ((m - now + 12) % 12) || 12).sort((a, b) => a - b);
+    return gaps[offset % gaps.length];
+  };
+  /** 두 사람 중 어느 쪽이 더 기우는가. */
+  const favorGap = () => favorGapOf(me, pt);
+  /** 결혼 나이 — 배우자성(남명 재성·여명 관성)이 대운으로 들어오는 첫 구간에서 잡는다.
+   *  성별을 모르면 용신 대운으로 대신한다. seed에서 뽑던 숫자와 달리 근거가 있다. */
+  const marriageAge = (): number => {
+    const list = me.luck?.list ?? [];
+    if (!list.length) return marriageAgeFromSeed(s);
+    const target = me.genderKnown
+      ? ((me.isMale ? A.dayEl + 2 : A.dayEl + 3) % 5)
+      : A.useEl;
+    const hit = list.find(
+      (d) => d.age >= 22 && d.age <= 48 && (STEM_EL[d.stem] === target || BRANCH_EL[d.branch] === target),
+    );
+    const pick = hit ?? list.find((d) => d.age >= 25 && d.age <= 45);
+    // 대운 10년의 한가운데를 대표값으로 쓴다.
+    return pick ? pick.age + 4 : marriageAgeFromSeed(s);
+  };
+  // 두 명식 대조 점수 — 궁합·재회 숫자를 seed 대신 여기서 낸다.
+  const pairScore = (() => {
+    if (!pt) return undefined;
+    const B = analyzeTiming(pt).analysis;
+    let sc = 50;
+    const rel = (a: number, b: number) => (a === b ? 0 : (a + 1) % 5 === b || (b + 1) % 5 === a ? 1 : -1);
+    sc += rel(A.dayEl, B.dayEl) * 10;                          // 일간 상생 +10 / 상극 −10
+    if (B.dominant === A.useEl) sc += 14;                      // 상대가 내 용신을 가졌다
+    if (A.dominant === B.useEl) sc += 10;                      // 내가 상대 용신을 가졌다
+    if (B.dominant === A.avoidEl) sc -= 10;
+    const mb = A.pillars.일!.branch, ob = B.pillars.일!.branch;
+    if (branchSix(mb, ob)) sc += 12;                           // 일지 육합
+    if (branchClash(mb, ob)) sc -= 8;                          // 일지 충
+    if (A.strong !== B.strong) sc += 5;                        // 강약이 갈리면 역할이 잡힌다
+    return { score: Math.max(12, Math.min(96, Math.round(sc))), clash: branchClash(mb, ob), six: branchSix(mb, ob) };
+  })();
   return {
     "나의 타고난 매력은?": { v: EL[me.dayMaster].fromLabel },
     "나의 타고난 인기는 상위 몇 %?": { v: `${pct}`, gauge: 100 - pct },
-    "나를 몰래 좋아했던 사람 수": { v: `${2 + (s % 7)}` },
-    "총 연애 횟수 예상": { v: `${2 + ((s >> 2) % 5)}` },
-    "결혼 예상 나이": { v: `${marriageAgeFromSeed(s)}` },
-    "운명의 상대의 특징과 외모": { v: EL[me.lacking].fromLabel },
+    "나를 몰래 좋아했던 사람 수": { v: `${Math.round(2 + gw.식상 * 1.2 + gw.재성 * 0.8 + (hasSinsal("도화") ? 2 : 0))}` },
+    "총 연애 횟수 예상": { v: `${(() => {
+      // 배우자성(남명 재성·여명 관성)이 인연의 수를 쥔다. 다만 원국에 한두 개뿐인
+      // 사람이 절반이 넘어서 그것만 보면 대부분 같은 숫자가 된다. 시작이 잦아지는
+      // 자리(도화·식상)와 관계가 한 번 끊기고 다시 시작되는 자리(일지 충·비겁)를 같이 본다.
+      const names = me.isMale ? ["편재", "정재"] : ["편관", "정관"];
+      let n = 2 + godCount(names);
+      if (hasSinsal("도화")) n += 1;
+      if (A.relations.some((r) => r.kind === "충" && r.between.includes("일"))) n += 1;
+      if (gw.비겁 >= 2) n += 1;
+      if (gw.식상 >= 2) n += 1;
+      return Math.max(2, Math.min(9, n));
+    })()}` },
+    "결혼 예상 나이": { v: `${marriageAge()}` },
+    "운명의 상대의 특징과 외모": { v: EL[me.useEl].fromLabel },
     "연애하면 안 되는 사람의 특징": { v: "확인을 강요하는 유형" },
-    "나의 연애에서 주의할 점": { v: `${1 + ((s + 3) % 12)}월` },
-    "나는 어떤 사람에게 끌릴까": { v: ["차분한 리더형", "웃음 많은 활력형", "말수 적은 신뢰형", "센스 있는 다정형", "고요한 몰입형"][s % 5] },
-    "나의 연애운이 가장 좋은 시기": { v: `${1 + ((s + 10) % 12)}월` },
-    "나와 상대방의 타고난 특징": { v: pt ? `${ELEMENTS[me.dayMaster]}과 ${ELEMENTS[pt.dayMaster]}` : "" },
-    "서로에 대한 호감도 비교": { v: `${3 + ((s + p) % 15)}`, gauge: 50 + ((s + p) % 15) },
-    "지금 연인이 최선의 선택인지": { v: (s + p) % 3 === 0 ? "다시 볼 필요가 있는" : "최선에 가까운" },
-    "나의 바람기 지수": { v: ["낮음", "중간", "주의"][s % 3] },
-    "상대방의 바람기 지수": { v: ["낮음", "중간", "주의"][(p || s + 1) % 3] },
+    "나의 연애에서 주의할 점": { v: `${tm.risk}월` },
+    "나는 어떤 사람에게 끌릴까": { v: ["새 일을 벌이는 추진형", "표현이 밝은 활력형", "끝까지 자리를 지키는 신뢰형", "선이 분명한 리더형", "속이 깊은 몰입형"][me.useEl] },
+    "나의 연애운이 가장 좋은 시기": { v: `${tm.good}월` },
+    "나와 상대방의 타고난 특징": { v: pt ? `${ELEMENTS[me.dayMaster]}${wa(ELEMENTS[me.dayMaster])} ${ELEMENTS[pt.dayMaster]}` : "" },
+    "서로에 대한 호감도 비교": { v: `${Math.abs(favorGap())}`, gauge: 50 + favorGap() },
+    "지금 연인이 최선의 선택인지": { v: (pairScore?.score ?? 60) >= 62 ? "최선에 가까운" : (pairScore?.score ?? 60) >= 45 ? "노력하면 오래갈" : "다시 볼 필요가 있는" },
+    "나의 바람기 지수": { v: (() => { const k = godCount(["편재", "상관"]) + (hasSinsal("도화") ? 2 : 0); return k >= 4 ? "주의" : k >= 2 ? "중간" : "낮음"; })() },
+    "상대방의 바람기 지수": { v: (() => { if (!pt) return "중간"; const B = analyzeTiming(pt).analysis; const k = B.tenGods.flatMap((t) => [t.stem, t.branch]).filter((g) => g === "편재" || g === "상관").length + (B.sinsal.some((x) => x.name === "도화") ? 2 : 0); return k >= 4 ? "주의" : k >= 2 ? "중간" : "낮음"; })() },
     "서로에게 주는 영향": { v: pt ? (relation(me.dayMaster, pt.dayMaster).startsWith("生") ? "회복" : "긴장") : "" },
-    "얼마나 오래 만날지": { v: `${2 + ((s + p) % 7)}년` },
-    "결혼 가능성": { v: `${48 + ((s + p) % 45)}`, gauge: 48 + ((s + p) % 45) },
-    "결혼 시 주의점": { v: `${2026 + ((s + p) % 3)}년 ${["봄", "여름", "가을", "겨울"][(s + p) % 4]}` },
-    "궁합 총점수": { v: `${58 + ((s * 3 + p) % 38)}`, gauge: 58 + ((s * 3 + p) % 38) },
-    "나의 가치관": { v: ["솔직함", "신뢰", "존중받는 느낌", "안정감", "함께하는 시간"][s % 5] },
-    "상대방의 가치관": { v: ["솔직함", "신뢰", "존중받는 느낌", "안정감", "함께하는 시간"][(p || s + 1) % 5] },
-    "스킨십·애정표현 궁합": { v: ["잘 맞음", "보통", "노력 필요"][(s + p) % 3] },
-    "둘의 연애가 어땠는지": { v: `${5 + ((s + p) % 4)}:${5 - ((s + p) % 4)}` },
-    "궁합과 인연": { v: `상위 ${8 + ((s + p) % 30)}%` },
-    "상대방의 현재 마음": { v: ["미련 남음", "정리 중", "그리움 잠복"][(s + p) % 3] },
-    "상대방이 나를 기억하는 방식": { v: ["좋았던 계절", "미안한 사이", "그리운 한때"][(p || s + 1) % 3] },
-    "헤어진 진짜 이유": { v: ["타이밍", "엇갈린 방향", "말하지 않은 서운함"][(s + p + 1) % 3] },
-    "재회 가능성": { v: `${32 + ((s + p) % 55)}`, gauge: 32 + ((s + p) % 55) },
-    "연락 타이밍": { v: `${1 + ((s + p) % 6)}주 뒤` },
-    "재회 시기": { v: `${1 + ((s + p + 4) % 12)}월` },
-    "새로운 사람의 존재": { v: (s + p) % 2 === 0 ? "아직 없음" : "가벼운 만남 있음" },
+    "얼마나 오래 만날지": { v: pairScore ? (pairScore.six ? "오래" : pairScore.clash ? "짧고 굵게" : pairScore.score >= 62 ? "길게" : "중간") : "중간" },
+    "결혼 가능성": { v: `${pairScore ? Math.max(20, pairScore.score - 6) : 60}`, gauge: pairScore ? Math.max(20, pairScore.score - 6) : 60 },
+    "결혼 시 주의점": { v: (() => { const w = [...yrs].sort((x, y2) => x.score - y2.score)[0]; return `${w.year}년 전후`; })() },
+    "궁합 총점수": { v: `${pairScore?.score ?? 70}`, gauge: pairScore?.score ?? 70 },
+    "나의 가치관": { v: VALUE_BY_GROUP[topGroup(A)] },
+    "상대방의 가치관": { v: pt ? VALUE_BY_GROUP[topGroup(analyzeTiming(pt).analysis)] : "신뢰" },
+    "스킨십·애정표현 궁합": { v: (() => { if (!pt) return "보통"; const B = analyzeTiming(pt).analysis; const t = gw.식상 + B.groupWeight.식상; return t >= 4 ? "잘 맞음" : t >= 2.2 ? "보통" : "노력 필요"; })() },
+    "둘의 연애가 어땠는지": { v: (() => { const g = favorGap(); const a2 = Math.max(3, Math.min(8, 5 + Math.round(g / 4))); return `${a2}:${10 - a2}`; })() },
+    "궁합과 인연": { v: `상위 ${pairScore ? Math.max(3, Math.round(100 - pairScore.score)) : 25}%` },
+    "상대방의 현재 마음": { v: pairScore?.six ? "미련 남음" : pairScore?.clash ? "정리 중" : (pairScore?.score ?? 50) >= 60 ? "그리움 잠복" : "정리 중" },
+    "상대방이 나를 기억하는 방식": { v: (() => {
+      // 상대 입장에서 이 관계가 무엇이었는지는 상대의 명식 기준으로 봐야 한다.
+      // 내가 상대의 용신이었다면 실제로 덕을 본 관계고, 일지가 충이면 상처로 남는다.
+      if (!pt) return "그리운 한때";
+      const B = analyzeTiming(pt).analysis;
+      const mb = A.pillars.일!.branch, ob = B.pillars.일!.branch;
+      if (A.dominant === B.useEl) return "고마웠던 사람";
+      if (branchClash(mb, ob)) return "미안한 사이";
+      if (branchSix(mb, ob)) return "좋았던 계절";
+      if (A.dominant === B.avoidEl) return "버거웠던 시기";
+      return "그리운 한때";
+    })() },
+    "헤어진 진짜 이유": { v: breakupReason() },
+    "재회 가능성": { v: `${pairScore ? (pairScore.six ? Math.min(88, pairScore.score + 10) : pairScore.clash ? Math.max(15, pairScore.score - 18) : pairScore.score - 6) : 45}`, gauge: pairScore ? (pairScore.six ? Math.min(88, pairScore.score + 10) : pairScore.clash ? Math.max(15, pairScore.score - 18) : pairScore.score - 6) : 45 },
+    "연락 타이밍": { v: `${Math.max(1, Math.min(8, monthsToGood(tm.goodMonths) * 2))}주 뒤` },
+    // 재회도 내 용신이 들어오는 달로 본다. 용신 달이 여럿이면(토는 넷) 상대 명반으로 갈라
+    // 같은 사람이라도 상대에 따라 다른 달이 나오게 한다.
+    "재회 시기": { v: `${tm.goodMonths[p % tm.goodMonths.length]}월` },
+    "새로운 사람의 존재": { v: yrs[0] && [0, 3, 6, 9].includes(yrs[0].branch) ? "가벼운 만남 있음" : "아직 없음" },
     "재회 후 관계": { v: "이전보다 단단" },
-    "나의 마음이 정리되는 시기": { v: `${1 + ((s + 2) % 6)}개월 후` },
-    "상대방의 마음이 정리되는 시기": { v: `${2 + ((p || s + 3) % 7)}개월 후` },
-    "나에게 새로운 인연이 들어오는 시기": { v: `${1 + ((s + 6) % 12)}월` },
+    "나의 마음이 정리되는 시기": { v: `${monthsToGood(tm.goodMonths)}개월 후` },
+    "상대방의 마음이 정리되는 시기": { v: `${pt ? monthsToGood(analyzeTiming(pt).goodMonths) : monthsToGood(tm.goodMonths, 1)}개월 후` },
+    "나에게 새로운 인연이 들어오는 시기": { v: `${tm.goodMonths[tm.goodMonths.length - 1]}월` },
     "타고난 직업 적성과 일의 그릇": { v: EL[me.dayMaster].fromLabel.replace(/[은는]$/, "") },
     "나에게 맞는 일의 방식": { v: me.dominant % 2 === 0 ? "주도형" : "조율형" },
-    "커리어 전환에 유리한 시기": { v: `${1 + (s % 12)}월` },
-    "성취·승진 운의 흐름": { v: `${2026 + (s % 3)}년 상승`, gauge: 55 + (s % 40) },
-    "함께 일할 때 시너지가 나는 사람": { v: `${ELEMENTS[me.lacking]} 기운의 동료` },
-    "커리어에서 주의할 시기와 선택": { v: `${1 + ((s + 6) % 12)}월` },
+    "커리어 전환에 유리한 시기": { v: `${tm.good}월` },
+    "성취·승진 운의 흐름": { v: `${bestYear.year}년 상승`, gauge: Math.round(Math.max(40, Math.min(95, bestYear.score))) },
+    "함께 일할 때 시너지가 나는 사람": { v: `${ELEMENTS[me.useEl]} 기운의 동료` },
+    "커리어에서 주의할 시기와 선택": { v: `${tm.risk}월` },
     "내가 성공하기 쉬운 분야": { v: ["새로 여는 분야", "사람 앞에 서는 분야", "신뢰를 쌓는 분야", "전문성 있는 분야", "전략을 짜는 분야"][me.dominant] },
     "내가 피해야 할 직업/업무 스타일": { v: ["반복 매뉴얼 업무", "존재감 없는 자리", "관계가 자주 바뀌는 환경", "기준 없는 조직", "판단 여지 없는 단순 업무"][me.dominant] },
-    "해외·이동 운": { v: ["강한 편", "보통", "국내가 더 유리한 편"][s % 3] },
-    "타고난 재물의 그릇": { v: ["중형", "대형", "성장형"][s % 3], gauge: 50 + (s % 45) },
-    "돈이 들어오는 방식과 통로": { v: s % 2 === 0 ? "축적형" : "유통형" },
-    "재물운의 큰 흐름": { v: `${2026 + (s % 4)}년 상승` },
+    "해외·이동 운": { v: hasSinsal("역마") ? "강한 편" : A.relations.some((r) => r.kind === "충") ? "보통" : "국내가 더 유리한 편" },
+    "타고난 재물의 그릇": { v: gw.재성 >= 2.5 && me.useEl !== me.dominant ? "대형" : gw.재성 >= 1.5 ? "중형" : "성장형", gauge: Math.round(Math.max(35, Math.min(95, 45 + gw.재성 * 12 + (A.strong ? 8 : 0)))) },
+    "돈이 들어오는 방식과 통로": { v: godCount(["편재"]) > godCount(["정재"]) ? "유통형" : "축적형" },
+    "재물운의 큰 흐름": { v: `${bestYear.year}년 상승` },
     "나에게 맞는 돈 관리 방식": { v: me.dominant === 1 ? "자동 저축" : "분리 계좌" },
     "주의해야 할 소비·투자 습관": { v: "충동 단발 지출" },
-    "재물이 모이는 시기": { v: `${1 + ((s + 9) % 12)}월` },
-    "재물을 잃기 쉬운 시기": { v: `${1 + ((s + 7) % 12)}월` },
-    "투자운": { v: ["신중형이 유리", "적극형이 유리", "분산형이 유리"][s % 3] },
-    "부동산운": { v: ["일찍 유리", "천천히 유리", "무리하지 않는 게 유리"][(s + 1) % 3] },
+    "재물이 모이는 시기": { v: `${tm.good}월` },
+    "재물을 잃기 쉬운 시기": { v: `${tm.risk}월` },
+    "투자운": { v: gw.비겁 >= 2.2 ? "분산형이 유리" : gw.재성 >= 2 && A.strong ? "적극형이 유리" : gw.식상 >= 2 ? "직접 굴리는 쪽이 유리" : gw.관성 >= 2.2 ? "원칙을 정해두는 쪽이 유리" : "신중형이 유리" },
+    "부동산운": { v: A.elementWeight[2] >= 2.5 ? "일찍 유리" : gw.재성 >= 1.5 ? "천천히 유리" : "무리하지 않는 게 유리" },
     "타고난 체질과 기운의 강약": { v: `${ELEMENTS[me.dominant]} 강 · ${ELEMENTS[me.lacking]} 약` },
     "특히 아껴야 할 몸의 부분": { v: ["간·눈", "심장·혈관", "위장", "폐·호흡기", "신장·순환"][me.lacking] },
-    "컨디션이 흔들리기 쉬운 시기": { v: `환절기 ${[3, 6, 9, 11][s % 4]}월` },
-    "나에게 맞는 생활 리듬": { v: s % 2 === 0 ? "아침형" : "밤 정리형" },
+    "컨디션이 흔들리기 쉬운 시기": { v: `${tm.risk}월` },
+    "나에게 맞는 생활 리듬": { v: me.useEl === 1 || me.useEl === 0 ? "아침형" : "밤 정리형" },
     "시기별 관리 포인트": { v: "수면 리듬" },
-    "나에게 맞는 스트레스 관리법": { v: ["몸을 움직이는 활동", "혼자만의 시간", "대화로 풀기", "몰입할 취미", "충분한 수면"][me.dominant] },
-    "나에게 필요한 건강 관리법": { v: ["가벼운 유산소", "명상·호흡", "규칙적인 식사", "충분한 휴식", "수분 섭취"][me.lacking] },
+    "나에게 맞는 스트레스 관리법": { v: ["몸을 움직이는 활동", "혼자만의 시간", "대화로 풀기", "몰입할 취미", "충분한 수면"][me.useEl] },
+    "나에게 필요한 건강 관리법": { v: ["가벼운 유산소", "명상·호흡", "규칙적인 식사", "충분한 휴식", "수분 섭취"][me.useEl] },
     "나의 본성과 성격": { v: EL[me.dayMaster].fromLabel },
-    "타고난 내 모습과 타인이 보는 내 모습": { v: `${ELEMENTS[me.dayMaster]}과 ${ELEMENTS[me.dominant]}의 결` },
-    "나의 초년운": { v: ["완만한 성장", "일찍 트인 길", "더디지만 단단"][s % 3] },
-    "나의 청년운": { v: ["빠른 확장", "굴곡 많은 도약", "늦게 붙는 힘"][(s + 1) % 3] },
-    "나의 중년운": { v: ["안정과 결실", "전환의 구간", "꾸준한 상승"][(s + 2) % 3] },
-    "나의 말년운": { v: ["여유로운 결실", "존경받는 자리", "홀가분한 자유"][(s + 3) % 3] },
-    "대운이 바뀌는 시기": { v: `${28 + ((s + 5) % 25)}세 전후` },
-    "나의 전성기, 주의가 필요한 시기": { v: `${1 + ((s + 8) % 12)}월` },
-    "나에게 맞는 지역과 환경": { v: ["사람 많고 활기찬 도심", "조용하고 차분한 동네", "자연과 가까운 곳", "변화가 잦은 새로운 곳", "익숙하고 안정된 곳"][s % 5] },
-    "평생 피해야 할 선택이나 행동": { v: ["감정적인 즉흥 결정", "혼자 다 떠안기", "확인 없이 밀어붙이기", "손해를 감수하며 참기", "새 시도를 미루기"][(s + 4) % 5] },
+    "타고난 내 모습과 타인이 보는 내 모습": { v: `${ELEMENTS[me.dayMaster]}${wa(ELEMENTS[me.dayMaster])} ${ELEMENTS[me.dominant]}의 결` },
+    "나의 초년운": { v: bandLabel(1, 20, ["일찍 트인 길", "완만한 성장"], ["더디지만 단단"]) },
+    "나의 청년운": { v: bandLabel(21, 40, ["빠른 확장", "차근한 축적"], ["굴곡 많은 도약"]) },
+    "나의 중년운": { v: bandLabel(41, 60, ["안정과 결실", "꾸준한 상승"], ["전환의 구간"]) },
+    "나의 말년운": { v: bandLabel(61, 90, ["여유로운 결실", "존경받는 자리"], ["홀가분한 자유"]) },
+    "대운이 바뀌는 시기": { v: nextTurn ? `${nextTurn}세 전후` : `${(me.luck?.startAge ?? 3) + 30}세 전후` },
+    "나의 전성기, 주의가 필요한 시기": { v: bestSpan ? `${bestSpan.age}~${bestSpan.age + 9}세` : `${tm.good}월` },
+    "나에게 맞는 지역과 환경": { v: ["자연과 가까운 곳", "사람 많고 활기찬 도심", "익숙하고 안정된 곳", "정돈된 계획도시", "물과 가까운 조용한 곳"][me.useEl] },
+    "평생 피해야 할 선택이나 행동": { v: AVOID_BY_GROUP[topGroup(A)] },
   };
 }
 
@@ -1953,7 +2266,7 @@ export function deterministicAdvice(ctx: Ctx): string {
       `${who}의 삶 전체를 관통하는 조언은 하나입니다. ${le.caution.replace(/^(다만 |)/, "")} 이 패턴이 반복되는 순간을 알아채는 것부터가 시작입니다.`,
       `일간 ${g.ilgan}${wa(g.ilgan)} 명궁 ${g.myungStar}성(${starTrait(g.myungStar)})을 함께 보면, ${who.replace("님","")}님의 삶은 ${le.growth} 지금 느리게 가는 것 같다고 조급해할 필요도, 빠르게 가는 것 같다고 자만할 필요도 없습니다.`,
       `구체적으로는, ${le.peak} 이 흐름을 앞당기려 무리하기보다, 지금 단계에서 해야 할 것에 집중하는 편이 결과적으로 더 빠른 길입니다. ${flow(me, 24, "삶 전체의 흐름")}`,
-      `오행으로 약한 ${g.lackEl} 기운은 스스로 채우려 애쓰기보다, 그 기운을 가진 사람이나 환경을 곁에 두는 쪽이 훨씬 효율적입니다. 모든 걸 혼자 갖추려 하지 마세요. 그게 이 명반이 말하는 삶의 요령입니다.`,
+      `이 명식에 필요한 ${g.useEl} 기운은 스스로 채우려 애쓰기보다, 그 기운을 가진 사람이나 환경을 곁에 두는 쪽이 훨씬 효율적입니다. 모든 걸 혼자 갖추려 하지 마세요. 그게 이 명반이 말하는 삶의 요령입니다.`,
       `${le.essence} 이 결을 부끄러워하거나 고치려 든 시간이 있었다면, 이제 그만해도 됩니다. 태양궁 ${g.sun}${wa(g.sun)} 달궁 ${g.moon}까지 같은 방향을 가리키는 걸 보면, 이건 우연히 만들어진 성격이 아니라 여러 체계가 겹쳐 확인한 결입니다.`,
       `${le.outerImage} 이 인상을 스스로도 받아들이는 순간부터, 애써 다른 사람처럼 보이려는 데 쓰던 에너지를 온전히 자기 몫으로 쓸 수 있게 됩니다. 결국 가장 오래가는 전략은 타고난 결을 거스르지 않는 것입니다.`,
     ].join("\n\n");
@@ -1996,8 +2309,10 @@ export function generateReport(input: ReportInput): Report | null {
   const pt = input.partner ? computeChart(input.partner) : undefined;
   const ctx: Ctx = { me, pt, c: category, input };
   const vals = values(ctx);
-  const who = input.name ? `${input.name} 님` : "당신";
-  const pWho = input.partnerName ? `${input.partnerName} 님` : "상대방";
+  // 본문은 전부 "수연님"으로 붙여 쓴다. 헤드라인만 "수연 님"이면 같은 화면에서
+  // 표기가 갈린다. 미리보기 카드(StatGrid)도 붙여 쓰므로 여기에 맞춘다.
+  const who = input.name ? `${input.name}님` : "당신";
+  const pWho = input.partnerName ? `${input.partnerName}님` : "상대방";
 
   // 리포트 한 부 전체에서 "다른 각도" 앵글이 겹치지 않도록 쓰인 인덱스를 누적한다.
   // 문항별로만 중복을 막던 시절엔 궁합 14문항에서 같은 문단이 대여섯 번씩 반복됐다.
@@ -2007,11 +2322,15 @@ export function generateReport(input: ReportInput): Report | null {
   const sections: Section[] = category.questions.map((q, qi) => {
     const val = vals[q] ?? { v: "" };
     const stat = category.previewStats?.find((s) => s.label === q);
+    // 접미사가 조사로 시작하면 값의 받침에 맞춘다. 값은 명식에서 나오므로 사람마다
+    // 형태가 다르다("2026년 전후" / "35" / "오래"). 조사를 데이터에 박아 두면
+    // "전후이 고비예요" 같은 문장이 그대로 나간다.
+    const tail = fixJosa(stat?.suffix ?? "", val.v);
     const headline = !stat
       ? `${q} — ${val.v}`
       : stat.subject === "shared"
-        ? `${stat.prefix}${val.v}${stat.suffix ?? ""}`
-        : `${stat.subject === "partner" ? pWho : who}의 ${stat.prefix}${val.v}${stat.suffix ?? ""}`;
+        ? `${stat.prefix}${val.v}${tail}`
+        : `${stat.subject === "partner" ? pWho : who}의 ${stat.prefix}${val.v}${tail}`;
 
     let paragraphs: Para[];
     if (category.id === "love-life") paragraphs = loveLife(q, me, input.name ?? "", val.v, ledger, qi);

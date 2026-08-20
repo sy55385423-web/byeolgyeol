@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { decodeOrder, type Order } from "@/lib/order";
+import { decodeOrder, type Order, personOf } from "@/lib/order";
 import { radarStats, type Ctx, type Report, type ReportInput } from "@/lib/report";
 import { computeChart, BRANCHES } from "@/lib/saju";
 import { categories } from "@/data/categories";
@@ -51,8 +51,9 @@ function Body({ order, id }: { order: Order; id: string }) {
     const input: ReportInput = {
       categoryId: order.c,
       name: order.n,
-      me: { y: order.me.y, m: order.me.m, d: order.me.d, hourBranch: order.me.h },
-      partner: order.pt ? { y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h } : undefined,
+      me: personOf(order.me),
+      partner: order.pt
+        ? personOf(order.pt) : undefined,
       partnerName: order.pn,
       extraQuestion: order.q,
       tier: order.t,
@@ -79,20 +80,21 @@ function Body({ order, id }: { order: Order; id: string }) {
   }, [report, category]);
 
   const myChart = useMemo(
-    () => computeChart({ y: order.me.y, m: order.me.m, d: order.me.d, hourBranch: order.me.h }),
+    () => computeChart(personOf(order.me)),
     [order]
   );
 
   const chartCtx: Ctx | null = useMemo(() => {
     if (!category) return null;
     const ptChart = order.pt
-      ? computeChart({ y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h })
+      ? computeChart(personOf(order.pt))
       : undefined;
     const input: ReportInput = {
       categoryId: order.c,
       name: order.n,
-      me: { y: order.me.y, m: order.me.m, d: order.me.d, hourBranch: order.me.h },
-      partner: order.pt ? { y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h } : undefined,
+      me: personOf(order.me),
+      partner: order.pt
+        ? personOf(order.pt) : undefined,
       partnerName: order.pn,
       tier: order.t,
     };
@@ -216,6 +218,10 @@ function Body({ order, id }: { order: Order; id: string }) {
               d: order.me.d,
               knowsTime: order.me.h !== undefined,
               timeLabel: order.me.h !== undefined ? `${BRANCHES[order.me.h]}시` : undefined,
+              hour: order.me.hh,
+              minute: order.me.mi,
+              lon: order.me.lo,
+              gender: order.me.g,
             }}
             name={order.n}
           />
@@ -228,6 +234,10 @@ function Body({ order, id }: { order: Order; id: string }) {
                   d: order.pt.d,
                   knowsTime: order.pt.h !== undefined,
                   timeLabel: order.pt.h !== undefined ? `${BRANCHES[order.pt.h]}시` : undefined,
+                  hour: order.pt.hh,
+                  minute: order.pt.mi,
+                  lon: order.pt.lo,
+                  gender: order.pt.g,
                 }}
                 name={order.pn || "그 사람"}
               />

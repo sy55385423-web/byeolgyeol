@@ -3,7 +3,16 @@
  *  → 링크만 있으면 어느 기기에서든 같은 리포트가 열린다 (공유·저장의 근거).
  *  ⚠️ 결제 검증이 없는 모의 단계 — PG 연동 시 서버 발급 주문 ID + 서명으로 교체할 것. */
 
-export type OrderPerson = { y: number; m: number; d: number; h?: number }; // h: 시지 index
+// g: 성별 — 대운의 순역(양남·음녀 순행 / 음남·양녀 역행)이 성별에 달려 있어 계산에 꼭 필요하다.
+//    "none"(밝히지 않음)이면 남성 기준으로 계산하고, 리포트에서 그 사실을 밝힌다.
+export type OrderPerson = {
+  y: number; m: number; d: number;
+  h?: number;                                  // 시진 index
+  /** 정확한 시각과 출생지 경도 — 진태양시 보정에 쓴다.
+   *  링크로 리포트를 다시 열었을 때 같은 명식이 나와야 하므로 여기 실어 둔다. */
+  hh?: number; mi?: number; lo?: number;
+  g?: "male" | "female" | "none";
+};
 
 export type Order = {
   c: string;              // categoryId
@@ -14,6 +23,14 @@ export type Order = {
   q?: string;             // 추가 질문 (deep, 1개 무료)
   t: "basic" | "unlimited";
 };
+
+/** OrderPerson → 명반 계산 입력. 시각·경도가 있으면 진태양시로 보정된다. */
+export const personOf = (p: OrderPerson) => ({
+  y: p.y, m: p.m, d: p.d,
+  hourBranch: p.h,
+  hour: p.hh, minute: p.mi, lon: p.lo,
+  gender: p.g,
+});
 
 export function encodeOrder(o: Order): string {
   const json = JSON.stringify(o);

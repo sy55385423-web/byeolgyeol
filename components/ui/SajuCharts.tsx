@@ -8,14 +8,31 @@ export type BirthInput = {
   d: number;
   knowsTime: boolean;
   timeLabel?: string; // "자시 (23:30~01:29)" 형식
+  /** 정확한 시각과 출생지 경도 — 있으면 진태양시로 보정한다 */
+  hour?: number;
+  minute?: number;
+  lon?: number;
+  gender?: "male" | "female" | "none";
 };
 
 export default function SajuCharts({ me, name }: { me: BirthInput; name?: string }) {
+  // 시각을 정확히 받았으면 그 값으로 계산한다. timeLabel(시진)만 있으면 그쪽을 쓴다.
+  // 여기서 다시 계산하는 이유는 이 컴포넌트가 랜딩 예시에도 쓰이기 때문이다.
+  // 다만 입력은 호출부와 같은 것을 받아야 명반이 어긋나지 않는다.
   const chart = computeChart({
     y: me.y,
     m: me.m,
     d: me.d,
-    hourBranch: me.knowsTime ? hourBranchFromLabel(me.timeLabel) : undefined,
+    hourBranch:
+      me.hour !== undefined
+        ? Math.floor(((me.hour + 1) % 24) / 2)
+        : me.knowsTime
+          ? hourBranchFromLabel(me.timeLabel)
+          : undefined,
+    hour: me.hour,
+    minute: me.minute,
+    lon: me.lon,
+    gender: me.gender,
   });
   const { pillars } = chart;
   const cols = [

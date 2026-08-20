@@ -6,7 +6,10 @@
  *    이 사실은 Chart 자체가 아니라 리포트 생성 프롬프트 쪽에서 "시간 미상"으로 별도 처리한다. */
 
 import { astro } from "iztro";
+import { getVoidBranches, getLuckPillars, calculateFourPillars } from "manseryeok";
 import { Origin, Horoscope } from "circular-natal-horoscope-js";
+import { analyze } from "./core/analyze";
+import { yearFortunes, type YearFortune } from "./core/ziwei";
 
 export const STEMS = ["갑", "을", "병", "정", "무", "기", "경", "신", "임", "계"];
 export const STEMS_HANJA = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
@@ -36,6 +39,14 @@ export type Birth = {
   m: number;
   d: number;
   hourBranch?: number; // 0(자)~11(해), 모르면 undefined
+  /** 정확한 출생 시각(24시간제). 알면 진태양시 보정에 쓴다. 모르면 hourBranch만 쓴다. */
+  hour?: number;
+  minute?: number;
+  /** 출생지 경도(동경). 서울 126.978, 부산 129.075. 모르면 한반도 평균 127.5 */
+  lon?: number;
+  // 대운의 순역과 자미두수 대한이 성별에 따라 달라진다. 밝히지 않으면 남성 기준으로 계산하고,
+  // Chart.genderKnown이 false가 되어 리포트가 그 한계를 밝힐 수 있게 한다.
+  gender?: "male" | "female" | "none";
 };
 
 export type Chart = {
@@ -43,14 +54,49 @@ export type Chart = {
   dayMaster: Element;          // 일간 오행 — 성격·해석의 축
   elementCount: number[];      // 오행 분포 (8글자 기준)
   dominant: Element;
+  /** 원국에서 글자 수가 가장 적은 오행. "이 기운이 얇다"는 사실 서술에만 쓴다. */
   lacking: Element;
+  /** 용신 — 이 사람에게 실제로 필요한 기운. lacking과 다르다.
+   *  글자 수가 적다고 그게 필요한 기운은 아니다. 신강이면 힘을 빼 주는 쪽이,
+   *  신약이면 받쳐 주는 쪽이 용신이다. "나를 채워 주는 사람"은 여기서 나온다. */
+  useEl: Element;
+  avoidEl: Element;
   mingStar: string;            // 자미두수 명궁 주성
   gongs: { name: string; star: string; isMing: boolean; branch: string }[];
   sun: string;
   moon: string;
   asc: string | null;          // 시간 있을 때만
+  /** 개인 행성의 별자리 — 금성은 사랑하는 방식, 화성은 욕망과 추진, 수성은 소통 */
+  planets: { mercury: string | null; venus: string | null; mars: string | null; jupiter: string | null; saturn: string | null };
+  /** 개인 행성 사이의 주요 각도. orb가 작을수록 강하게 작동한다. */
+  aspects: { a: string; b: string; type: string; orb: number }[];
   seed: number;                // 결정적 파생값 생성용 (프리뷰 훅 등 비핵심 콘텐츠에만 사용)
   timeKnown: boolean;
+  birthYear: number;           // 대한(大限) 구간을 나이로 찾을 때 쓴다
+  // 자미두수 대한 — iztro가 궁마다 계산해 주는 10년 단위 구간. lib/timing.ts가
+  // 현재 나이로 해당 구간을 찾아 "지금 어떤 흐름에 있는지"를 판단한다.
+  decadals: { from: number; to: number; stem: string; branch: string; branchIdx: number }[];
+  voidBranches: string[]; // 공망 지지 두 개 — manseryeok 계산값
+  isMale: boolean;        // 대운 순역 계산에 쓰는 값 (미입력 시 남성으로 가정)
+  genderKnown: boolean;   // 사용자가 실제로 성별을 밝혔는지
+  // 사주 대운 — 절입 시각까지 계산해 시작 나이를 정한다(manseryeok).
+  // 자미두수 대한(decadals)과는 다른 체계라 따로 싣는다.
+  luck: { startAge: number; forward: boolean; list: { age: number; stem: number; branch: number; ko: string }[] };
+  /** 자미두수 유년(流年) — 올해부터 10년. 그해 명궁이 어느 궁 자리에 앉고
+   *  화록·화기가 어느 궁에 드는지. 대한(10년)만으로는 "올해"를 못 말한다. */
+  yearly: YearFortune[];
+};
+
+type RawAspect = { point1Label: string; point2Label: string; aspectKey: string; orb?: number | string };
+
+/** 행성 이름 — 리포트에서 쓰는 한국어 표기 */
+const PLANET_KO: Record<string, string> = {
+  Sun: "태양", Moon: "달", Mercury: "수성", Venus: "금성",
+  Mars: "화성", Jupiter: "목성", Saturn: "토성",
+};
+/** 각도 이름. 조화각(삼각·육각)과 긴장각(합·대립·사각)으로 나뉜다. */
+const ASPECT_KO: Record<string, string> = {
+  conjunction: "합", opposition: "대립", trine: "삼각", square: "사각", sextile: "육각",
 };
 
 const ZODIAC_KO_FROM_EN: Record<string, string> = {
@@ -79,6 +125,7 @@ const ZODIAC = [
 
 // 서울 — 앱이 출생지를 받지 않으므로 기본 좌표로 사용. 상승궁·행성 정밀도에만 영향.
 const DEFAULT_LATITUDE = 37.5665;
+/** 기본 출생 경도 — 서울. 사주의 진태양시 보정과 점성술 계산이 같은 기준을 쓴다. */
 const DEFAULT_LONGITUDE = 126.978;
 
 export function sunSign(m: number, d: number) {
@@ -94,6 +141,10 @@ function mkPillarFromKo(ko: string): Pillar {
   const b = BRANCHES.indexOf(ko[1]);
   return { stem: s, branch: b, ko, hanja: STEMS_HANJA[s] + BRANCHES_HANJA[b] };
 }
+
+/** 시진 한가운데 시각 — 정확한 시각을 모를 때 그 시진의 대표값으로 쓴다.
+ *  자시는 23~01시라 한가운데가 자정이므로 0시를 쓴다. */
+const MID_HOUR = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22];
 
 /** 이 앱의 hourBranch(0~11)를 iztro의 시진 index(0~12, 자시가 조/야로 분리됨)로 변환.
  * 두 인덱스는 인(2)~해(11) 구간에서 그대로 대응하고, 자시(0)는 iztro idx 0을 쓰면 된다
@@ -118,7 +169,7 @@ const chartCache = new Map<string, Chart>();
 const CHART_CACHE_MAX = 500;
 
 export function computeChart(b: Birth): Chart {
-  const key = `${b.y}-${b.m}-${b.d}-${b.hourBranch ?? "x"}`;
+  const key = `${b.y}-${b.m}-${b.d}-${b.hourBranch ?? "x"}-${b.hour ?? "x"}:${b.minute ?? "x"}-${b.lon ?? "x"}-${b.gender ?? "x"}`;
   const hit = chartCache.get(key);
   if (hit) return hit;
   const chart = computeChartUncached(b);
@@ -134,17 +185,36 @@ export function computeChart(b: Birth): Chart {
 function computeChartUncached(b: Birth): Chart {
   const { y, m, d } = b;
   const timeKnown = b.hourBranch !== undefined;
-  const gender = "男"; // 자미두수 대한 순역만 성별에 의존 — 이 리포트가 쓰는 명궁/12궁/사화엔 영향 없음
+  const isMale = b.gender !== "female";
+  const genderKnown = b.gender === "male" || b.gender === "female";
+  const gender = isMale ? "男" : "女"; // 자미두수 대한의 순역이 성별에 달려 있다
   const dateStr = `${y}-${m}-${d}`;
   const timeIndex = toIztroTimeIndex(b.hourBranch);
 
+  let yearlyCache: YearFortune[] | undefined;
   const astrolabe = astro.bySolar(dateStr, timeIndex, gender, true, "ko-KR");
-  const [yearKo, monthKo, dayKo, hourKo] = astrolabe.chineseDate.split(" ");
 
-  const year = mkPillarFromKo(yearKo);
-  const month = mkPillarFromKo(monthKo);
-  const day = mkPillarFromKo(dayKo);
-  const hour = timeKnown ? mkPillarFromKo(hourKo) : null;
+  // 사주 네 기둥은 만세력(manseryeok)에서 받는다.
+  //
+  //  예전에는 iztro의 chineseDate를 그대로 썼는데, 절기 경계 판정이 며칠씩 어긋났다.
+  //  300건을 대조하니 19%에서 월주가 달랐고, 절입 시각으로 확인해 보면 전부 iztro가
+  //  틀렸다(1982-07-11은 소서(7/7 19:55 KST) 이후라 미월인데 오월로 나왔다).
+  //  월주는 사주에서 가장 무거운 자리라 격국·용신·강약이 전부 여기서 나온다.
+  //
+  //  manseryeok은 KASI 절기 데이터를 쓰고, 진태양시·과거 표준시·서머타임까지 다룬다.
+  //  자미두수는 음력과 시진으로 따로 계산되므로 iztro를 그대로 쓴다.
+  const ms = calculateFourPillars({
+    year: y, month: m, day: d,
+    hour: b.hour ?? MID_HOUR[b.hourBranch ?? 6],
+    minute: b.minute ?? 0,
+    trueSolarTime: { longitude: b.lon ?? DEFAULT_LONGITUDE },
+  });
+  const mkP = (x: { heavenlyStem: string; earthlyBranch: string }) => mkPillarFromKo(x.heavenlyStem + x.earthlyBranch);
+
+  const year = mkP(ms.year);
+  const month = mkP(ms.month);
+  const day = mkP(ms.day);
+  const hour = timeKnown ? mkP(ms.hour) : null;
 
   const chars = [year, month, day, ...(hour ? [hour] : [])];
   const elementCount = [0, 0, 0, 0, 0];
@@ -178,9 +248,12 @@ function computeChartUncached(b: Birth): Chart {
     origin,
     houseSystem: "whole-sign",
     zodiac: "tropical",
-    aspectPoints: [],
-    aspectWithPoints: [],
-    aspectTypes: [],
+    // 어스펙트(행성 사이 각도)를 켠다. 태양·달·상승궁 셋만으로는 점성술 쪽 근거가
+    // 늘 같은 세 문장으로 끝났다. 금성·화성·수성·목성·토성과 그 사이 각도까지 봐야
+    // "이 사람은 이렇게 사랑한다"를 실제 좌표로 말할 수 있다.
+    aspectPoints: ["bodies"],
+    aspectWithPoints: ["bodies"],
+    aspectTypes: ["conjunction", "opposition", "trine", "square", "sextile"],
     language: "en",
   });
   const bodies = horoscope.CelestialBodies as Record<string, { Sign: { label: string } }>;
@@ -190,7 +263,97 @@ function computeChartUncached(b: Birth): Chart {
     ? toKo((horoscope.Ascendant as { Sign: { label: string } }).Sign.label)
     : null;
 
+  // 개인 행성 — 연애·소통·욕망을 읽는 자리
+  const sign = (k: string) => (bodies[k]?.Sign?.label ? toKo(bodies[k].Sign.label) : null);
+  const planets = {
+    mercury: sign("mercury"),
+    venus: sign("venus"),
+    mars: sign("mars"),
+    jupiter: sign("jupiter"),
+    saturn: sign("saturn"),
+  };
+  // 주요 각도 — 개인 행성끼리만 추린다. 느린 행성(천왕성~명왕성)은 세대 전체가
+  // 같은 각도를 가져서 개인 해석에 쓸 수 없다.
+  const PERSONAL = new Set(["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"]);
+  const rawAspects = ((horoscope.Aspects as { all?: RawAspect[] }).all ?? [])
+    .filter((a) => PERSONAL.has(a.point1Label) && PERSONAL.has(a.point2Label))
+    .map((a) => ({
+      a: PLANET_KO[a.point1Label] ?? a.point1Label,
+      b: PLANET_KO[a.point2Label] ?? a.point2Label,
+      type: ASPECT_KO[a.aspectKey] ?? a.aspectKey,
+      orb: Math.round(Number(a.orb ?? 0) * 10) / 10,
+    }))
+    .sort((x, y) => x.orb - y.orb)
+    .slice(0, 8);
+
   const seed = y * 372 + m * 31 + d + (b.hourBranch ?? 0) * 7;
+
+  // 사주 대운 — 출생에서 다음(순행)/이전(역행) 절(節)까지의 일수로 시작 나이를 정한다.
+  // 순역은 성별에 달려 있다(양남·음녀 순행 / 음남·양녀 역행).
+  let luck = { startAge: 0, forward: true, list: [] as { age: number; stem: number; branch: number; ko: string }[] };
+  try {
+    const instantUTCms = Date.UTC(y, m - 1, d, toClockHour(b.hourBranch) - 9, 0); // KST = UTC+9
+    const lp = getLuckPillars({
+      instantUTCms,
+      birthYear: y,
+      monthPillar: { heavenlyStem: STEMS[month.stem], earthlyBranch: BRANCHES[month.branch] } as Parameters<typeof getLuckPillars>[0]["monthPillar"],
+      sajuYearStemIndex: year.stem,
+      gender: (isMale ? "male" : "female") as Parameters<typeof getLuckPillars>[0]["gender"],
+      count: 9,
+    });
+    luck = {
+      startAge: lp.startAge,
+      forward: lp.forward,
+      list: lp.pillars.map((pp) => ({
+        age: pp.age,
+        stem: STEMS.indexOf(pp.pillar.heavenlyStem),
+        branch: BRANCHES.indexOf(pp.pillar.earthlyBranch),
+        ko: pp.korean,
+      })),
+    };
+  } catch {
+    // 절기 데이터 범위 밖의 연도 등 — 대운이 없어도 나머지 분석은 그대로 유효하다.
+  }
+
+  // 공망 — 일주가 속한 순(旬)에서 빠지는 지지 두 개. manseryeok이 계산해 준다.
+  let voidBranches: string[] = [];
+  try {
+    voidBranches = getVoidBranches(
+      STEMS[day.stem] as Parameters<typeof getVoidBranches>[0],
+      BRANCHES[day.branch] as Parameters<typeof getVoidBranches>[1],
+    ) as string[];
+  } catch {
+    voidBranches = [];
+  }
+
+  // 대한 — 궁마다 [시작나이, 끝나이]와 간지가 붙어 있다. 나이로 찾을 수 있게 펼쳐 둔다.
+  const decadals = astrolabe.palaces
+    .map((p) => {
+      const dc = (p as { decadal?: { range?: number[]; heavenlyStem?: string; earthlyBranch?: string } }).decadal;
+      if (!dc?.range || dc.range.length < 2) return null;
+      const branch = dc.earthlyBranch ?? "";
+      return {
+        from: dc.range[0],
+        to: dc.range[1],
+        stem: dc.heavenlyStem ?? "",
+        branch,
+        branchIdx: Math.max(0, BRANCHES.indexOf(branch)),
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => !!x)
+    .sort((a2, b2) => a2.from - b2.from);
+
+  // 용신은 글자 수가 아니라 강약에서 나온다. 지장간을 일수 비중으로 펼치고 득령·득지·득세를
+  // 함께 보는 core/analyze가 판정한다. 리포트 전체가 이 하나를 기준으로 말해야 어긋나지 않는다.
+  const analysis = analyze(
+    {
+      year: { stem: year.stem, branch: year.branch },
+      month: { stem: month.stem, branch: month.branch },
+      day: { stem: day.stem, branch: day.branch },
+      hour: hour ? { stem: hour.stem, branch: hour.branch } : null,
+    },
+    voidBranches,
+  );
 
   return {
     pillars: { year, month, day, hour },
@@ -198,13 +361,29 @@ function computeChartUncached(b: Birth): Chart {
     elementCount,
     dominant,
     lacking,
+    useEl: analysis.useEl as Element,
+    avoidEl: analysis.avoidEl as Element,
     mingStar,
     gongs,
     sun: sunSign(m, d),
     moon,
     asc,
+    planets,
+    aspects: rawAspects,
     seed,
     timeKnown,
+    birthYear: y,
+    decadals,
+    voidBranches,
+    isMale,
+    genderKnown,
+    luck,
+    // 유년은 열 해를 iztro로 각각 세워야 해서 명식 하나에 100ms 넘게 든다.
+    // 쓰는 규칙이 걸릴 때만 계산하고, 한 번 계산하면 그 값을 붙들어 둔다.
+    get yearly() {
+      if (!yearlyCache) yearlyCache = yearFortunes(dateStr, timeIndex, gender, new Date().getFullYear(), 10);
+      return yearlyCache;
+    },
   };
 }
 
