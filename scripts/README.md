@@ -10,6 +10,7 @@
 | `check-repeats.mjs` | 한 섹션 안에서 같은 어구가 두 번 나오는 자리를 빈도순으로 |
 | `check-coverage.mjs` | 200명 × 17주제 — 주제별로 걸리는 규칙이 몇 개인지 (최소 3 미만이면 구멍) |
 | `check-consistency.mjs` | 한 리포트가 "필요한 기운"을 용신 하나로만 말하는지 (lacking과 섞이면 모순) |
+| `check-values.mjs` | 제목에 쓰는 답이 명식에서 갈리는지 · 한 값으로 쏠리지 않는지 |
 
 ```
 npx tsx scripts/check-reports.mjs

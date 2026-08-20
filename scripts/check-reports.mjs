@@ -7,7 +7,7 @@ const BAN=[/무조건\s*(?!적)[^.]{0,12}(됩니다|할 것입니다)/,/100\s*%/
 for(const c of categories) for(const [i,p] of people.entries()){
   let r; try{ r=generateReport({categoryId:c.id,name:"테",me:p,partner:c.needsPartner?people[(i+37)%people.length]:undefined,partnerName:"상",tier:"basic"}); }catch(e){err++;if(err<3)console.log("ERR:",e.message);continue;}
   if(!r)continue; N++; CH+=r.sections.reduce((a,s)=>a+s.content.length,0);
-  const all=r.sections.map(s=>s.content).join("\n");
+  const all=r.sections.map(s=>s.content+"\n"+s.headline).join("\n");
   for(const re of BAN) if(re.test(all+"\n"+r.closingAdvice)) bad++;
   for(const s of r.sections){
     const t=s.content;

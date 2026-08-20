@@ -10,7 +10,9 @@ const NOUNS=[...new Set([ "님","당신","상대","사람","기운","일간","�
   // 12운성 중 한 글자짜리(쇠·병·사·묘·절·태·양)는 뺀다. "사이", "양쪽"처럼
   // 흔한 낱말에 걸려 오탐만 만든다. 두 글자 이상만 신뢰할 수 있다.
   "장생","목욕","관대","건록","제왕",
-  "도화","역마","화개","공망","천을귀인","문창귀인","양인","대운","세운","월운" ])];
+  "도화","역마","화개","공망","천을귀인","문창귀인","양인","대운","세운","월운",
+  // 헤드라인 값으로 자주 끝나는 말들
+  "전후","무렵","이상","이하","안팎","정도","수준","쪽","형","년","세","월","주" ])];
 const jong=c=>{const k=c.charCodeAt(0); return k>=0xac00&&k<=0xd7a3 ? (k-0xac00)%28!==0 : null;};
 const RIEUL=c=>{const k=c.charCodeAt(0); return (k-0xac00)%28===8;};
 const N=NOUNS.map(n=>n.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|");
@@ -24,7 +26,7 @@ const hits={}; const ALLTEXT=[];
 for(const c of categories) for(const [i,p] of people.entries()){
   let r; try{ r=generateReport({categoryId:c.id,name:"수연",me:p,partner:c.needsPartner?people[(i+37)%people.length]:undefined,partnerName:"준호",tier:"basic"});}catch{continue;}
   if(!r)continue;
-  const txt=[...r.sections.map(s=>s.content),r.closingAdvice||"",r.freeSummary||""].join("\n");
+  const txt=[...r.sections.map(s=>s.content),...r.sections.map(s=>s.headline),r.closingAdvice||"",r.freeSummary||""].join("\n");
   ALLTEXT.push(txt);
   for(const RE of [BOUND,SUFFIX]){
   let m; RE.lastIndex=0;

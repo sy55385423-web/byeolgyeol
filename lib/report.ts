@@ -23,7 +23,8 @@ import { grounding, starMeaning, starInDomain } from "./grounding";
 import { analyzeTiming, timingReason } from "./timing";
 import { buildFacts } from "./knowledge/facts";
 import { compose, newLedger, type ComposeLedger } from "./knowledge/compose";
-import { scoreDecadals, spanScore } from "./core/luck";
+import { scoreDecadals, spanScore, scoreYears } from "./core/luck";
+import { branchSix, branchClash, STEM_EL, BRANCH_EL } from "./core/ganji";
 import { topicOf } from "./knowledge/topicMap";
 import type { Facts, Topic } from "./knowledge/types";
 import { marriageAgeFromSeed } from "./top1";
@@ -1216,6 +1217,8 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
 /* ───────────────────── 연애 궁합 총론 ───────────────────── */
 
 function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: string, v: string, ledger?: Set<number>, qi: number = 0, ledgerP?: Set<number>): Para[] {
+  // 호감이 어느 쪽으로 기우는지 — values()와 같은 함수를 써서 숫자와 방향이 어긋나지 않게 한다.
+  const favorLean = favorGapOf(me, pt) >= 0 ? "me" : "pt";
   const em = EL[me.dayMaster], ep = EL[pt.dayMaster];
   const gm = grounding(me), gp = grounding(pt);
   const rel = relation(me.dayMaster, pt.dayMaster);
@@ -1264,14 +1267,20 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
       ];
     case "서로에 대한 호감도 비교":
       return [
-        P("결론", `지금 이 관계에서 마음의 무게는 완전히 반반은 아닙니다. 흐름상 ${rel === "生나→상대" || rel === "剋나→상대" ? `${meWord} 쪽이 조금 더 기울어 있습니다` : `${pWord} 쪽이 조금 더 기울어 있습니다`}. 차이는 ${v.replace(/[^0-9]/g, "") || "10"}%p 안팎입니다.`),
+                P("결론", v === "0"
+          ? `지금 이 관계에서 마음의 무게는 거의 반반입니다. 한쪽이 더 좋아하고 덜 좋아하는 구조가 아니라, 서로에게서 얻는 것이 비슷한 배치입니다. 이런 관계는 균형이 좋은 대신, 둘 다 먼저 움직이지 않아 관계가 그대로 멈춰 있기도 합니다.`
+          : `지금 이 관계에서 마음의 무게는 완전히 반반은 아닙니다. 흐름상 ${favorLean === "me" ? meWord : pWord} 쪽이 조금 더 기울어 있습니다. 차이는 ${v}%p 안팎입니다. 크지 않은 차이라 뒤집히기도 하는데, 기운 쪽이 먼저 연락하고 먼저 맞추는 패턴이 굳으면 그때부터는 잘 안 뒤집힙니다.`),
         P("명반 근거", `${pWord} 부처궁의 ${gp.buchoStar}성(${gp.buchoWhy})과 ${meWord} 부처궁의 ${gm.buchoStar}성을 대조하면, 애정을 표현하는 방식 자체가 다릅니다. 그래서 크기보다 방향이 어긋납니다.`),
         P("행동으로 보면", `${leadWord}${neun(leadWord)} 확인하고 싶어 연락을 늘리고, ${followWord}${neun(followWord)} 편해서 연락이 뜸해집니다. 둘 다 좋아하는데 표현법이 반대라, 읽씹도 아닌데 답장 간격만으로 서로 서운해지는 일이 반복됩니다.`),
         P("지금 할 것", `${followWord}${ga(followWord)} ${leadWord}${eul(leadWord)} 시험하지 마세요. '먼저 연락 안 하나 보자'며 재는 순간 관계가 꼬입니다.`),
       ];
     case "지금 연인이 최선의 선택인지":
       return [
-        P("결론", `${v.includes("최선") ? "지금 인연은 최선에 가깝습니다. 더 나은 사람을 찾기보다 이 관계를 다듬는 게 이득입니다." : "지금은 한 번 냉정히 볼 시점입니다. 익숙해서 못 놓는 건지, 정말 맞아서 함께인 건지 구분이 필요합니다."}`),
+        P("결론", v.includes("최선")
+          ? `지금 인연은 최선에 가깝습니다. 두 명식이 서로 어긋나는 자리보다 맞물리는 자리가 많아, 더 나은 사람을 찾기보다 이 관계를 다듬는 게 이득입니다.`
+          : v.includes("노력")
+            ? `나쁜 궁합은 아닌데 저절로 굴러가는 조합도 아닙니다. 맞는 자리와 어긋나는 자리가 반반이라, 이 관계의 결과는 명식보다 두 사람이 무엇을 조정하느냐에 더 크게 달려 있습니다.`
+            : `지금은 한 번 냉정히 볼 시점입니다. 익숙해서 못 놓는 건지, 정말 맞아서 함께인 건지 구분이 필요합니다.`),
         P("명반 근거", `${relGround(strHash(q))} 상생이면 ${pWord}${ga(pWord)} ${meWord}${eul(meWord)} 실제로 키워주는 인연이고, 상극이면 끌리지만 계속 맞춰야 하는 인연입니다. 부처궁 ${gm.buchoStar}성으로 볼 때 ${rel.startsWith("生") ? `이 관계는 ${meWord}에게 이로운 쪽입니다` : rel.startsWith("剋") ? `${meWord}${ga(meWord)} 감당하는 몫이 큰 관계입니다` : "편하지만 자극이 부족한 관계입니다"}.`),
         P("판단 기준", `${openerFor(gm, me.seed + strHash(q) + 35)} 조건을 비교하지 말고, 싸운 다음 날을 떠올려 보세요. 화해가 자연스럽게 되는 사이인지, 매번 한쪽이 굽혀야 끝나는지가 이 질문의 진짜 답입니다.`),
       ];
@@ -1848,6 +1857,66 @@ function light(cat: Category, q: string, me: Chart, v: string, ledger?: Set<numb
 
 export type Ctx = { me: Chart; pt?: Chart; c: Category; input: ReportInput };
 
+/** 접미사 맨 앞의 조사를 앞 값의 받침에 맞춘다. 조사로 시작하지 않으면 그대로 둔다. */
+const JOSA_PAIRS: [string, string][] = [["은", "는"], ["이", "가"], ["을", "를"], ["과", "와"], ["으로", "로"], ["이라", "라"]];
+export function fixJosa(suffix: string, value: string): string {
+  if (!suffix) return suffix;
+  const j = lastJong(value);
+  if (j < 0) return suffix;            // 값에 한글이 없으면(숫자만) 손대지 않는다
+  for (const [withJong, without] of JOSA_PAIRS) {
+    for (const form of [withJong, without]) {
+      if (!suffix.startsWith(form)) continue;
+      // 로/으로만 ㄹ 받침을 받침 없는 것처럼 다룬다
+      const useJong = withJong === "으로" ? j > 0 && j !== 8 : j > 0;
+      return (useJong ? withJong : without) + suffix.slice(form.length);
+    }
+  }
+  return suffix;
+}
+
+/** 두 사람 중 어느 쪽이 더 기우는가. 상대가 내 용신을 갖고 있으면 내가 더 끌린다.
+ *  양수면 나(me), 음수면 상대(pt)가 더 기운 것으로 읽는다.
+ *  values()와 본문이 같은 함수를 써야 "차이 7%p"라고 해 놓고 반대쪽이 기울었다고
+ *  말하는 일이 생기지 않는다. */
+export function favorGapOf(me: Chart, pt?: Chart): number {
+  if (!pt) return 0;
+  const A = analyzeTiming(me).analysis, B = analyzeTiming(pt).analysis;
+  let g = 0;
+  if (B.dominant === A.useEl) g += 7;
+  if (A.dominant === B.useEl) g -= 7;
+  if (B.dominant === A.avoidEl) g -= 3;
+  if (A.dominant === B.avoidEl) g += 3;
+  if (!A.strong && B.strong) g += 4;   // 약한 쪽이 더 기댄다
+  if (A.strong && !B.strong) g -= 4;
+  // 같은 조건이 상쇄돼 0이 되는 경우가 있다. 강약 점수 차는 실제로 갈리는 값이라
+  // 여기서 미세한 기울기를 마저 읽는다. 받쳐 주는 힘이 얇은 쪽이 조금 더 기댄다.
+  g += Math.round((B.strengthScore - A.strengthScore) / 10);
+  return g;
+}
+
+/** 십신 다섯 갈래 중 가장 무거운 것. 그 사람이 무엇을 중심으로 사는지가 여기서 갈린다. */
+type God5 = "비겁" | "식상" | "재성" | "관성" | "인성";
+function topGroup(a: { groupWeight: Record<God5, number> }): God5 {
+  const e = Object.entries(a.groupWeight) as [God5, number][];
+  return e.sort((x, y) => y[1] - x[1])[0][0];
+}
+/** 가장 무거운 갈래가 중히 여기는 것 — 가치관 문항의 답. */
+const VALUE_BY_GROUP: Record<God5, string> = {
+  비겁: "대등함",
+  식상: "솔직함",
+  재성: "현실적인 결과",
+  관성: "신뢰와 약속",
+  인성: "이해받는 느낌",
+};
+/** 같은 갈래가 지나치면 나오는 실수 — 평생 피해야 할 행동. */
+const AVOID_BY_GROUP: Record<God5, string> = {
+  비겁: "몫을 따지지 않고 같이 벌이기",
+  식상: "감정적인 즉흥 결정",
+  재성: "확인 없이 밀어붙이기",
+  관성: "손해를 감수하며 참기",
+  인성: "새 시도를 미루기",
+};
+
 export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> {
   const { me, pt } = ctx;
   const s = me.seed;
@@ -1865,41 +1934,100 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     const sc = spanScore(dec, from, to);
     return sc >= 1.5 ? good[0] : sc > -1 ? good[1] : bad[0];
   };
+  // 앞으로 10년 세운. "몇 년에 오른다"는 답은 여기서 나온다.
+  const A = tm.analysis;
+  const thisYear = new Date().getFullYear();
+  const yrs = scoreYears(A, me.birthYear, thisYear, 10, me.luck?.list ?? []);
+  const bestYear = [...yrs].sort((x, y2) => y2.score - x.score)[0];
+  const gw = A.groupWeight;
+  // 십신 개수 — 여덟 글자에서 특정 십신이 몇 번 나오는지
+  const godCount = (names: string[]) =>
+    A.tenGods.flatMap((t) => [t.stem, t.branch]).filter((g) => names.includes(g as string)).length;
+  const hasSinsal = (name: string) => A.sinsal.some((x) => x.name === name);
+  /** 헤어진 이유도 두 명식에서 갈린다. 일지 충·합만 보면 여덟에 하나꼴이라
+   *  나머지가 전부 한 답으로 몰린다. 일간 관계·용신 교환·강약까지 순서대로 본다. */
+  const breakupReason = (): string => {
+    if (!pt) return "엇갈린 방향";
+    const B = analyzeTiming(pt).analysis;
+    const mb = A.pillars.일!.branch, ob = B.pillars.일!.branch;
+    if (branchClash(mb, ob)) return "정면으로 부딪힌 자리";
+    const gek = (A.dayEl + 2) % 5 === B.dayEl || (B.dayEl + 2) % 5 === A.dayEl;
+    if (gek) return "주도권 다툼";
+    if (A.strong && B.strong) return "서로 굽히지 않은 것";
+    if (!A.strong && !B.strong) return "둘 다 지쳐 있던 시기";
+    if (B.dominant === A.avoidEl) return "같이 있을수록 무거워진 것";
+    if (branchSix(mb, ob)) return "말하지 않은 서운함";
+    if (A.dayEl === B.dayEl) return "익숙해져 식은 것";
+    if (B.dominant !== A.useEl && A.dominant !== B.useEl) return "서로를 채우지 못한 것";
+    return "엇갈린 타이밍";
+  };
+  const favorGap = () => favorGapOf(me, pt);
+  /** 결혼 나이 — 배우자성(남명 재성·여명 관성)이 대운으로 들어오는 첫 구간에서 잡는다.
+   *  성별을 모르면 용신 대운으로 대신한다. seed에서 뽑던 숫자와 달리 근거가 있다. */
+  const marriageAge = (): number => {
+    const list = me.luck?.list ?? [];
+    if (!list.length) return marriageAgeFromSeed(s);
+    const target = me.genderKnown
+      ? ((me.isMale ? A.dayEl + 2 : A.dayEl + 3) % 5)
+      : A.useEl;
+    const hit = list.find(
+      (d) => d.age >= 22 && d.age <= 48 && (STEM_EL[d.stem] === target || BRANCH_EL[d.branch] === target),
+    );
+    const pick = hit ?? list.find((d) => d.age >= 25 && d.age <= 45);
+    // 대운 10년의 한가운데를 대표값으로 쓴다.
+    return pick ? pick.age + 4 : marriageAgeFromSeed(s);
+  };
+  // 두 명식 대조 점수 — 궁합·재회 숫자를 seed 대신 여기서 낸다.
+  const pairScore = (() => {
+    if (!pt) return undefined;
+    const B = analyzeTiming(pt).analysis;
+    let sc = 50;
+    const rel = (a: number, b: number) => (a === b ? 0 : (a + 1) % 5 === b || (b + 1) % 5 === a ? 1 : -1);
+    sc += rel(A.dayEl, B.dayEl) * 10;                          // 일간 상생 +10 / 상극 −10
+    if (B.dominant === A.useEl) sc += 14;                      // 상대가 내 용신을 가졌다
+    if (A.dominant === B.useEl) sc += 10;                      // 내가 상대 용신을 가졌다
+    if (B.dominant === A.avoidEl) sc -= 10;
+    const mb = A.pillars.일!.branch, ob = B.pillars.일!.branch;
+    if (branchSix(mb, ob)) sc += 12;                           // 일지 육합
+    if (branchClash(mb, ob)) sc -= 8;                          // 일지 충
+    if (A.strong !== B.strong) sc += 5;                        // 강약이 갈리면 역할이 잡힌다
+    return { score: Math.max(12, Math.min(96, Math.round(sc))), clash: branchClash(mb, ob), six: branchSix(mb, ob) };
+  })();
   return {
     "나의 타고난 매력은?": { v: EL[me.dayMaster].fromLabel },
     "나의 타고난 인기는 상위 몇 %?": { v: `${pct}`, gauge: 100 - pct },
     "나를 몰래 좋아했던 사람 수": { v: `${2 + (s % 7)}` },
     "총 연애 횟수 예상": { v: `${2 + ((s >> 2) % 5)}` },
-    "결혼 예상 나이": { v: `${marriageAgeFromSeed(s)}` },
+    "결혼 예상 나이": { v: `${marriageAge()}` },
     "운명의 상대의 특징과 외모": { v: EL[me.useEl].fromLabel },
     "연애하면 안 되는 사람의 특징": { v: "확인을 강요하는 유형" },
     "나의 연애에서 주의할 점": { v: `${tm.risk}월` },
-    "나는 어떤 사람에게 끌릴까": { v: ["차분한 리더형", "웃음 많은 활력형", "말수 적은 신뢰형", "센스 있는 다정형", "고요한 몰입형"][s % 5] },
+    "나는 어떤 사람에게 끌릴까": { v: ["새 일을 벌이는 추진형", "표현이 밝은 활력형", "끝까지 자리를 지키는 신뢰형", "선이 분명한 리더형", "속이 깊은 몰입형"][me.useEl] },
     "나의 연애운이 가장 좋은 시기": { v: `${tm.good}월` },
-    "나와 상대방의 타고난 특징": { v: pt ? `${ELEMENTS[me.dayMaster]}과 ${ELEMENTS[pt.dayMaster]}` : "" },
-    "서로에 대한 호감도 비교": { v: `${3 + ((s + p) % 15)}`, gauge: 50 + ((s + p) % 15) },
-    "지금 연인이 최선의 선택인지": { v: (s + p) % 3 === 0 ? "다시 볼 필요가 있는" : "최선에 가까운" },
-    "나의 바람기 지수": { v: ["낮음", "중간", "주의"][s % 3] },
-    "상대방의 바람기 지수": { v: ["낮음", "중간", "주의"][(p || s + 1) % 3] },
+    "나와 상대방의 타고난 특징": { v: pt ? `${ELEMENTS[me.dayMaster]}${wa(ELEMENTS[me.dayMaster])} ${ELEMENTS[pt.dayMaster]}` : "" },
+    "서로에 대한 호감도 비교": { v: `${Math.abs(favorGap())}`, gauge: 50 + favorGap() },
+    "지금 연인이 최선의 선택인지": { v: (pairScore?.score ?? 60) >= 62 ? "최선에 가까운" : (pairScore?.score ?? 60) >= 45 ? "노력하면 오래갈" : "다시 볼 필요가 있는" },
+    "나의 바람기 지수": { v: (() => { const k = godCount(["편재", "상관"]) + (hasSinsal("도화") ? 2 : 0); return k >= 4 ? "주의" : k >= 2 ? "중간" : "낮음"; })() },
+    "상대방의 바람기 지수": { v: (() => { if (!pt) return "중간"; const B = analyzeTiming(pt).analysis; const k = B.tenGods.flatMap((t) => [t.stem, t.branch]).filter((g) => g === "편재" || g === "상관").length + (B.sinsal.some((x) => x.name === "도화") ? 2 : 0); return k >= 4 ? "주의" : k >= 2 ? "중간" : "낮음"; })() },
     "서로에게 주는 영향": { v: pt ? (relation(me.dayMaster, pt.dayMaster).startsWith("生") ? "회복" : "긴장") : "" },
-    "얼마나 오래 만날지": { v: `${2 + ((s + p) % 7)}년` },
-    "결혼 가능성": { v: `${48 + ((s + p) % 45)}`, gauge: 48 + ((s + p) % 45) },
-    "결혼 시 주의점": { v: `${2026 + ((s + p) % 3)}년 ${["봄", "여름", "가을", "겨울"][(s + p) % 4]}` },
-    "궁합 총점수": { v: `${58 + ((s * 3 + p) % 38)}`, gauge: 58 + ((s * 3 + p) % 38) },
-    "나의 가치관": { v: ["솔직함", "신뢰", "존중받는 느낌", "안정감", "함께하는 시간"][s % 5] },
-    "상대방의 가치관": { v: ["솔직함", "신뢰", "존중받는 느낌", "안정감", "함께하는 시간"][(p || s + 1) % 5] },
-    "스킨십·애정표현 궁합": { v: ["잘 맞음", "보통", "노력 필요"][(s + p) % 3] },
-    "둘의 연애가 어땠는지": { v: `${5 + ((s + p) % 4)}:${5 - ((s + p) % 4)}` },
-    "궁합과 인연": { v: `상위 ${8 + ((s + p) % 30)}%` },
-    "상대방의 현재 마음": { v: ["미련 남음", "정리 중", "그리움 잠복"][(s + p) % 3] },
+    "얼마나 오래 만날지": { v: pairScore ? (pairScore.six ? "오래" : pairScore.clash ? "짧고 굵게" : pairScore.score >= 62 ? "길게" : "중간") : "중간" },
+    "결혼 가능성": { v: `${pairScore ? Math.max(20, pairScore.score - 6) : 60}`, gauge: pairScore ? Math.max(20, pairScore.score - 6) : 60 },
+    "결혼 시 주의점": { v: (() => { const w = [...yrs].sort((x, y2) => x.score - y2.score)[0]; return `${w.year}년 전후`; })() },
+    "궁합 총점수": { v: `${pairScore?.score ?? 70}`, gauge: pairScore?.score ?? 70 },
+    "나의 가치관": { v: VALUE_BY_GROUP[topGroup(A)] },
+    "상대방의 가치관": { v: pt ? VALUE_BY_GROUP[topGroup(analyzeTiming(pt).analysis)] : "신뢰" },
+    "스킨십·애정표현 궁합": { v: (() => { if (!pt) return "보통"; const B = analyzeTiming(pt).analysis; const t = gw.식상 + B.groupWeight.식상; return t >= 4 ? "잘 맞음" : t >= 2.2 ? "보통" : "노력 필요"; })() },
+    "둘의 연애가 어땠는지": { v: (() => { const g = favorGap(); const a2 = Math.max(3, Math.min(8, 5 + Math.round(g / 4))); return `${a2}:${10 - a2}`; })() },
+    "궁합과 인연": { v: `상위 ${pairScore ? Math.max(3, Math.round(100 - pairScore.score)) : 25}%` },
+    "상대방의 현재 마음": { v: pairScore?.six ? "미련 남음" : pairScore?.clash ? "정리 중" : (pairScore?.score ?? 50) >= 60 ? "그리움 잠복" : "정리 중" },
     "상대방이 나를 기억하는 방식": { v: ["좋았던 계절", "미안한 사이", "그리운 한때"][(p || s + 1) % 3] },
-    "헤어진 진짜 이유": { v: ["타이밍", "엇갈린 방향", "말하지 않은 서운함"][(s + p + 1) % 3] },
-    "재회 가능성": { v: `${32 + ((s + p) % 55)}`, gauge: 32 + ((s + p) % 55) },
+    "헤어진 진짜 이유": { v: breakupReason() },
+    "재회 가능성": { v: `${pairScore ? (pairScore.six ? Math.min(88, pairScore.score + 10) : pairScore.clash ? Math.max(15, pairScore.score - 18) : pairScore.score - 6) : 45}`, gauge: pairScore ? (pairScore.six ? Math.min(88, pairScore.score + 10) : pairScore.clash ? Math.max(15, pairScore.score - 18) : pairScore.score - 6) : 45 },
     "연락 타이밍": { v: `${1 + ((s + p) % 6)}주 뒤` },
     // 재회도 내 용신이 들어오는 달로 본다. 용신 달이 여럿이면(토는 넷) 상대 명반으로 갈라
     // 같은 사람이라도 상대에 따라 다른 달이 나오게 한다.
     "재회 시기": { v: `${tm.goodMonths[p % tm.goodMonths.length]}월` },
-    "새로운 사람의 존재": { v: (s + p) % 2 === 0 ? "아직 없음" : "가벼운 만남 있음" },
+    "새로운 사람의 존재": { v: yrs[0] && [0, 3, 6, 9].includes(yrs[0].branch) ? "가벼운 만남 있음" : "아직 없음" },
     "재회 후 관계": { v: "이전보다 단단" },
     "나의 마음이 정리되는 시기": { v: `${1 + ((s + 2) % 6)}개월 후` },
     "상대방의 마음이 정리되는 시기": { v: `${2 + ((p || s + 3) % 7)}개월 후` },
@@ -1907,38 +2035,38 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     "타고난 직업 적성과 일의 그릇": { v: EL[me.dayMaster].fromLabel.replace(/[은는]$/, "") },
     "나에게 맞는 일의 방식": { v: me.dominant % 2 === 0 ? "주도형" : "조율형" },
     "커리어 전환에 유리한 시기": { v: `${tm.good}월` },
-    "성취·승진 운의 흐름": { v: `${2026 + (s % 3)}년 상승`, gauge: 55 + (s % 40) },
+    "성취·승진 운의 흐름": { v: `${bestYear.year}년 상승`, gauge: Math.round(Math.max(40, Math.min(95, bestYear.score))) },
     "함께 일할 때 시너지가 나는 사람": { v: `${ELEMENTS[me.useEl]} 기운의 동료` },
     "커리어에서 주의할 시기와 선택": { v: `${tm.risk}월` },
     "내가 성공하기 쉬운 분야": { v: ["새로 여는 분야", "사람 앞에 서는 분야", "신뢰를 쌓는 분야", "전문성 있는 분야", "전략을 짜는 분야"][me.dominant] },
     "내가 피해야 할 직업/업무 스타일": { v: ["반복 매뉴얼 업무", "존재감 없는 자리", "관계가 자주 바뀌는 환경", "기준 없는 조직", "판단 여지 없는 단순 업무"][me.dominant] },
-    "해외·이동 운": { v: ["강한 편", "보통", "국내가 더 유리한 편"][s % 3] },
-    "타고난 재물의 그릇": { v: ["중형", "대형", "성장형"][s % 3], gauge: 50 + (s % 45) },
-    "돈이 들어오는 방식과 통로": { v: s % 2 === 0 ? "축적형" : "유통형" },
-    "재물운의 큰 흐름": { v: `${2026 + (s % 4)}년 상승` },
+    "해외·이동 운": { v: hasSinsal("역마") ? "강한 편" : A.relations.some((r) => r.kind === "충") ? "보통" : "국내가 더 유리한 편" },
+    "타고난 재물의 그릇": { v: gw.재성 >= 2.5 && me.useEl !== me.dominant ? "대형" : gw.재성 >= 1.5 ? "중형" : "성장형", gauge: Math.round(Math.max(35, Math.min(95, 45 + gw.재성 * 12 + (A.strong ? 8 : 0)))) },
+    "돈이 들어오는 방식과 통로": { v: godCount(["편재"]) > godCount(["정재"]) ? "유통형" : "축적형" },
+    "재물운의 큰 흐름": { v: `${bestYear.year}년 상승` },
     "나에게 맞는 돈 관리 방식": { v: me.dominant === 1 ? "자동 저축" : "분리 계좌" },
     "주의해야 할 소비·투자 습관": { v: "충동 단발 지출" },
     "재물이 모이는 시기": { v: `${tm.good}월` },
     "재물을 잃기 쉬운 시기": { v: `${tm.risk}월` },
-    "투자운": { v: ["신중형이 유리", "적극형이 유리", "분산형이 유리"][s % 3] },
-    "부동산운": { v: ["일찍 유리", "천천히 유리", "무리하지 않는 게 유리"][(s + 1) % 3] },
+    "투자운": { v: gw.비겁 >= 2.2 ? "분산형이 유리" : gw.재성 >= 2 && A.strong ? "적극형이 유리" : gw.식상 >= 2 ? "직접 굴리는 쪽이 유리" : gw.관성 >= 2.2 ? "원칙을 정해두는 쪽이 유리" : "신중형이 유리" },
+    "부동산운": { v: A.elementWeight[2] >= 2.5 ? "일찍 유리" : gw.재성 >= 1.5 ? "천천히 유리" : "무리하지 않는 게 유리" },
     "타고난 체질과 기운의 강약": { v: `${ELEMENTS[me.dominant]} 강 · ${ELEMENTS[me.lacking]} 약` },
     "특히 아껴야 할 몸의 부분": { v: ["간·눈", "심장·혈관", "위장", "폐·호흡기", "신장·순환"][me.lacking] },
     "컨디션이 흔들리기 쉬운 시기": { v: `${tm.risk}월` },
-    "나에게 맞는 생활 리듬": { v: s % 2 === 0 ? "아침형" : "밤 정리형" },
+    "나에게 맞는 생활 리듬": { v: me.useEl === 1 || me.useEl === 0 ? "아침형" : "밤 정리형" },
     "시기별 관리 포인트": { v: "수면 리듬" },
     "나에게 맞는 스트레스 관리법": { v: ["몸을 움직이는 활동", "혼자만의 시간", "대화로 풀기", "몰입할 취미", "충분한 수면"][me.useEl] },
     "나에게 필요한 건강 관리법": { v: ["가벼운 유산소", "명상·호흡", "규칙적인 식사", "충분한 휴식", "수분 섭취"][me.useEl] },
     "나의 본성과 성격": { v: EL[me.dayMaster].fromLabel },
-    "타고난 내 모습과 타인이 보는 내 모습": { v: `${ELEMENTS[me.dayMaster]}과 ${ELEMENTS[me.dominant]}의 결` },
+    "타고난 내 모습과 타인이 보는 내 모습": { v: `${ELEMENTS[me.dayMaster]}${wa(ELEMENTS[me.dayMaster])} ${ELEMENTS[me.dominant]}의 결` },
     "나의 초년운": { v: bandLabel(1, 20, ["일찍 트인 길", "완만한 성장"], ["더디지만 단단"]) },
     "나의 청년운": { v: bandLabel(21, 40, ["빠른 확장", "차근한 축적"], ["굴곡 많은 도약"]) },
     "나의 중년운": { v: bandLabel(41, 60, ["안정과 결실", "꾸준한 상승"], ["전환의 구간"]) },
     "나의 말년운": { v: bandLabel(61, 90, ["여유로운 결실", "존경받는 자리"], ["홀가분한 자유"]) },
     "대운이 바뀌는 시기": { v: nextTurn ? `${nextTurn}세 전후` : `${(me.luck?.startAge ?? 3) + 30}세 전후` },
     "나의 전성기, 주의가 필요한 시기": { v: bestSpan ? `${bestSpan.age}~${bestSpan.age + 9}세` : `${tm.good}월` },
-    "나에게 맞는 지역과 환경": { v: ["사람 많고 활기찬 도심", "조용하고 차분한 동네", "자연과 가까운 곳", "변화가 잦은 새로운 곳", "익숙하고 안정된 곳"][s % 5] },
-    "평생 피해야 할 선택이나 행동": { v: ["감정적인 즉흥 결정", "혼자 다 떠안기", "확인 없이 밀어붙이기", "손해를 감수하며 참기", "새 시도를 미루기"][(s + 4) % 5] },
+    "나에게 맞는 지역과 환경": { v: ["자연과 가까운 곳", "사람 많고 활기찬 도심", "익숙하고 안정된 곳", "정돈된 계획도시", "물과 가까운 조용한 곳"][me.useEl] },
+    "평생 피해야 할 선택이나 행동": { v: AVOID_BY_GROUP[topGroup(A)] },
   };
 }
 
@@ -2148,11 +2276,15 @@ export function generateReport(input: ReportInput): Report | null {
   const sections: Section[] = category.questions.map((q, qi) => {
     const val = vals[q] ?? { v: "" };
     const stat = category.previewStats?.find((s) => s.label === q);
+    // 접미사가 조사로 시작하면 값의 받침에 맞춘다. 값은 명식에서 나오므로 사람마다
+    // 형태가 다르다("2026년 전후" / "35" / "오래"). 조사를 데이터에 박아 두면
+    // "전후이 고비예요" 같은 문장이 그대로 나간다.
+    const tail = fixJosa(stat?.suffix ?? "", val.v);
     const headline = !stat
       ? `${q} — ${val.v}`
       : stat.subject === "shared"
-        ? `${stat.prefix}${val.v}${stat.suffix ?? ""}`
-        : `${stat.subject === "partner" ? pWho : who}의 ${stat.prefix}${val.v}${stat.suffix ?? ""}`;
+        ? `${stat.prefix}${val.v}${tail}`
+        : `${stat.subject === "partner" ? pWho : who}의 ${stat.prefix}${val.v}${tail}`;
 
     let paragraphs: Para[];
     if (category.id === "love-life") paragraphs = loveLife(q, me, input.name ?? "", val.v, ledger, qi);

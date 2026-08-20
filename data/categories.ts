@@ -175,9 +175,9 @@ export const categories: Category[] = [
       },
       {
         label: "서로에 대한 호감도 비교",
-        prefix: "호감은 상대 쪽이 ",
+        prefix: "호감의 기울기는 ",
         value: "12",
-        suffix: "%p 더 커요",
+        suffix: "%p 정도예요",
         subject: "shared",
       },
       {
