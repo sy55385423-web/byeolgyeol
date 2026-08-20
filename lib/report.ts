@@ -2344,15 +2344,19 @@ const AXIS_DECILES: Record<string, number[][]> = {
 };
 
 
-/** 원점수 → 백분위 → 눈금(38~88). 끝을 20이나 96까지 밀지 않는다. */
+/** 원점수 → 백분위 → 눈금(41~94).
+ *
+ *  상위권은 상위권답게 보여야 하므로 위쪽을 94까지 올린다. 아래쪽은 그대로 둔다 —
+ *  바닥을 같이 올리면 얇은 자리도 높아 보여서, 어느 자리가 실제로 얇은지가 안 보인다.
+ *  백분위 자체는 손대지 않으므로 사람의 등수는 그대로다. */
 function toPercentileScale(cid: string, axis: number, raw: number): number {
   const d = AXIS_DECILES[cid]?.[axis];
-  if (!d) return Math.max(30, Math.min(90, Math.round(raw)));
+  if (!d) return Math.max(41, Math.min(94, Math.round(raw)));
   let below = 0;
   for (const b of d) if (raw >= b) below++;
   // 같은 값이 여러 분위에 걸치면(정수 눈금인 축) 가운데로 보낸다
   const pct = (below + 0.5) / (d.length + 1);
-  return Math.round(38 + pct * 50);
+  return Math.round(38 + pct * 59);
 }
 
 export function radarStats(ctx: Ctx): RadarStats {
