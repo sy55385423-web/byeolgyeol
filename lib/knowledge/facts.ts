@@ -4,6 +4,7 @@
 import { computeChart, type Chart } from "../saju";
 import { analyze } from "../core/analyze";
 import { scoreYears } from "../core/luck";
+import { comingMonths } from "../core/month";
 import type { Facts } from "./types";
 
 export function buildFacts(
@@ -30,6 +31,8 @@ export function buildFacts(
   }
 
   const years = scoreYears(a, chart.birthYear, now.getFullYear(), 10, chart.luck.list);
+  // 앞으로 14개월. 해를 넘겨서 봐야 "올해 남은 달"만 보고 답하는 일이 없다.
+  const months = comingMonths(a, 14, (y) => years.find((x) => x.year === y)?.score ?? 50, now);
 
   return {
     a,
@@ -38,6 +41,7 @@ export function buildFacts(
     luckStartAge: chart.luck.startAge,
     luckForward: chart.luck.forward,
     years,
+    months,
     isMale: chart.isMale,
     genderKnown: chart.genderKnown,
     who: name ? `${name}님` : "당신",

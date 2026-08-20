@@ -24,6 +24,7 @@ import { analyzeTiming, timingReason } from "./timing";
 import { buildFacts } from "./knowledge/facts";
 import { compose, newLedger, type ComposeLedger } from "./knowledge/compose";
 import { scoreDecadals, spanScore, scoreYears } from "./core/luck";
+import { comingMonths } from "./core/month";
 import { branchSix, branchClash, STEM_EL, BRANCH_EL } from "./core/ganji";
 import { topicOf } from "./knowledge/topicMap";
 import type { Facts, Topic } from "./knowledge/types";
@@ -1015,7 +1016,15 @@ function rulePassages(
  *  문장에 박고, 좋은 달·주의할 달에 더해 "무엇이 달라지는지"까지 명반 값으로 갈라 쓴다. */
 function flow(c: Chart, salt: number, topic: string) {
   const tm = analyzeTiming(c);
-  const { good, risk } = tm;
+  // 좋은 달·조심할 달은 월운에서 뽑는다. 예전에는 용신 오행에 해당하는 달을
+  // 골랐는데, 그건 매년 돌아오는 달이라 연도가 없었다. 읽는 사람은 올해로
+  // 받아들이지만 실제로는 어느 해인지 정해지지 않은 값이었다.
+  const yl = scoreYears(tm.analysis, c.birthYear, new Date().getFullYear(), 3, c.luck?.list ?? []);
+  const ml = comingMonths(tm.analysis, 14, (y) => yl.find((x) => x.year === y)?.score ?? 50);
+  const sorted = [...ml].sort((a, b) => b.score - a.score);
+  const ym = (x?: { year: number; month: number }) => (!x ? "" : `${x.year}년 ${x.month}월`);
+  const good = ym(sorted[0]) || `${tm.good}월`;
+  const risk = ym(sorted[sorted.length - 1]) || `${tm.risk}월`;
   const g = grounding(c);
   // 이 사람이 좋은 시기에 실제로 뭘 하게 되는지 — 강한 오행 기준으로 갈린다.
   const move = [
@@ -1035,17 +1044,16 @@ function flow(c: Chart, salt: number, topic: string) {
   ][Math.max(0, ELEMENTS.indexOf(g.lackEl))];
   // 왜 이 달인지 — 근거를 한 줄 붙인다. 숫자만 던지면 해시 시절과 읽는 느낌이 같아진다.
   const why = timingReason(tm, c.dayMaster);
-  const span =
-    tm.goodMonths.length > 1
-      ? `${tm.goodMonths.join("월·")}월이 같은 결의 달입니다.`
-      : `${tm.good}월이 그 자리입니다.`;
+  const span = sorted[1]
+    ? `${ym(sorted[1])}(${sorted[1].ganji})도 같은 결의 달입니다.`
+    : `${good}이 그 자리입니다.`;
   const lines = [
-    `${why} ${topic}${ga(topic)} 크게 움직이는 구간은 ${good}월 전후입니다. ${move} 흐름이라, 이때 들어오는 신호는 흘려보내지 않는 편이 좋습니다. 반대로 ${risk}월 전후에는 ${slip} 쉬우니, 이 시기의 큰 결정은 2주만 미뤄도 결과가 달라집니다.`,
-    `${why} 그래서 ${good}월 무렵에 ${topic} 쪽으로 창이 열립니다. ${move} 시기라 평소보다 진도가 빠르게 나갑니다. 다만 ${risk}월에는 같은 상황도 더 예민하게 받아들이기 쉬우니, 이때 내린 결론은 한 박자 뒤에 다시 확인하세요.`,
-    `${good}월 전후로 ${topic}에 관한 흐름이 유리하게 기웁니다. ${span} ${move} 구간이라 미뤄 두면 오히려 손해입니다. 반면 ${risk}월은 ${slip} 쉬운 시기라, 먼저 움직이기보다 상황을 한 번 더 보고 맞추는 편이 안전합니다.`,
-    `${topic}${eul(topic)} 기준으로 보면 ${good}월 무렵이 가장 유리합니다. ${move} 결이라 이때 시작한 건 뒤로 잘 밀리지 않습니다. 대신 ${risk}월 전후에는 ${slip} 쉬워서, 그 구간엔 새로 벌이기보다 이미 하던 걸 지키는 쪽이 낫습니다.`,
-    `${good}월 전후가 ${topic}의 분기점이 될 가능성이 높습니다. ${move} 시기와 겹쳐 평소라면 망설였을 선택도 비교적 수월하게 넘어갑니다. ${risk}월에는 ${slip} 쉬우니, 그때는 판단을 서두르지 않는 것만으로 절반은 막힙니다.`,
-    `${topic}${neun(topic)} ${good}월 무렵에 한 번 정리됩니다. ${move} 흐름이 받쳐 주는 구간이라 결론이 빨리 납니다. 반대로 ${risk}월 전후는 ${slip} 쉬운 자리라, 이 시기에 확정한 건 나중에 다시 손볼 확률이 있습니다.`,
+    `${why} ${topic}${ga(topic)} 크게 움직이는 구간은 ${good} 전후입니다. ${move} 흐름이라, 이때 들어오는 신호는 흘려보내지 않는 편이 좋습니다. 반대로 ${risk} 전후에는 ${slip} 쉬우니, 이 시기의 큰 결정은 2주만 미뤄도 결과가 달라집니다.`,
+    `${why} 그래서 ${good} 무렵에 ${topic} 쪽으로 창이 열립니다. ${move} 시기라 평소보다 진도가 빠르게 나갑니다. 다만 ${risk}에는 같은 상황도 더 예민하게 받아들이기 쉬우니, 이때 내린 결론은 한 박자 뒤에 다시 확인하세요.`,
+    `${good} 전후로 ${topic}에 관한 흐름이 유리하게 기웁니다. ${span} ${move} 구간이라 미뤄 두면 오히려 손해입니다. 반면 ${risk}은 ${slip} 쉬운 시기라, 먼저 움직이기보다 상황을 한 번 더 보고 맞추는 편이 안전합니다.`,
+    `${topic}${eul(topic)} 기준으로 보면 ${good} 무렵이 가장 유리합니다. ${move} 결이라 이때 시작한 건 뒤로 잘 밀리지 않습니다. 대신 ${risk} 전후에는 ${slip} 쉬워서, 그 구간엔 새로 벌이기보다 이미 하던 걸 지키는 쪽이 낫습니다.`,
+    `${good} 전후가 ${topic}의 분기점이 될 가능성이 높습니다. ${move} 시기와 겹쳐 평소라면 망설였을 선택도 비교적 수월하게 넘어갑니다. ${risk}에는 ${slip} 쉬우니, 그때는 판단을 서두르지 않는 것만으로 절반은 막힙니다.`,
+    `${topic}${neun(topic)} ${good} 무렵에 한 번 정리됩니다. ${move} 흐름이 받쳐 주는 구간이라 결론이 빨리 납니다. 반대로 ${risk} 전후는 ${slip} 쉬운 자리라, 이 시기에 확정한 건 나중에 다시 손볼 확률이 있습니다.`,
   ];
   return pick(lines, c.seed + salt * 3 + strHash(topic));
 }
@@ -1457,13 +1465,31 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
       ];
     case "새로운 사람의 존재":
       return [
-        P("결론", `${pWord} 주변의 새로운 사람은 지금 '${v}' 상태로 읽힙니다. ${v.includes("없") ? "확실한 대상은 아직 없습니다." : "가벼운 흐름은 있지만 깊지 않습니다."}`),
+        P("결론", `새 인연이 들어올 자리가 얼마나 열려 있는지는 대운과 올해 세운으로 잽니다. ${
+          v === "아직 조용해요"
+            ? "지금은 인연을 밀어 주는 자리가 대운에도 세운에도 없습니다. 없다는 뜻이 아니라, 저절로 굴러오지 않으니 움직인 만큼만 생긴다는 뜻입니다."
+            : v === "조금 열려 있어요"
+              ? "자리가 조금 열려 있습니다. 만남은 생기는데 깊어지기까지는 시간이 더 필요한 배치입니다."
+              : v === "열리는 중이에요"
+                ? "인연을 밀어 주는 기운이 실제로 들어와 있습니다. 이 구간에 움직이면 결과가 붙습니다."
+                : "대운과 세운이 함께 열린 드문 구간입니다. 이런 자리는 평생 몇 번 오지 않으니 미룰 이유가 없습니다."
+        }`),
         P("명반 근거", `${pWord} 부처궁의 ${gp.buchoStar}성 흐름상, ${v.includes("없") ? "지금은 새 인연보다 이전 관계의 여운이 더 크게 남아 있습니다." : "새로 스치는 인연이 있어도 부처궁을 채울 만큼 깊지는 않습니다."}`),
         P("의미", `${v.includes("없") ? `${meWord}에게 시간이 아직 있다는 뜻이지만, 그게 곧 기다리라는 뜻은 아닙니다.` : `조급해할 필요는 없습니다. 깊지 않은 인연은 ${meWord}${wa(meWord)}의 관계를 대체하지 못합니다.`} ${pWord}의 새 인연 여부에 ${meWord}의 페이스를 맞추지 마세요.`),
       ];
     case "재회 후 관계":
       return [
-        P("결론", `만약 다시 이어진다면, 관계는 ${v}해질 수 있습니다. 단, 조건이 있습니다.`),
+        P("결론", `두 명식을 대조해 보면, 다시 이어졌을 때의 결이 여기서 갈립니다. ${
+          v === "이전보다 단단해져요"
+            ? "배우자 자리끼리 육합이라 다시 붙는 힘이 있습니다. 같은 이유로 헤어지기도 어려운 배치입니다."
+            : v === "형태가 달라져요"
+              ? "배우자 자리끼리 충이라 예전 모습 그대로는 못 돌아갑니다. 다시 만난다면 관계의 규칙 자체가 새로 짜여야 합니다."
+              : v === "천천히 회복돼요"
+                ? "맞물리는 자리가 어긋나는 자리보다 많습니다. 급하게 되돌리려 들지만 않으면 시간이 편을 듭니다."
+                : v === "속도를 다시 맞춰야 해요"
+                  ? "맞는 자리와 어긋나는 자리가 반반입니다. 헤어진 이유가 그대로 남아 있으면 같은 지점에서 다시 걸립니다."
+                  : "두 명식이 서로를 채워 주는 배치가 아닙니다. 다시 만나도 예전과 같은 자리에서 부딪히기 쉽습니다."
+        }`),
         P("명반 근거", `${relName} 관계는 재회 후에도 그 성질이 그대로 갑니다. ${rel.startsWith("剋") ? "끌림은 여전하되 같은 갈등 구조가 남아 있어, 그 지점을 손보지 않으면 반복됩니다." : "편안함은 그대로지만 헤어진 원인이던 권태나 온도차는 여전히 숙제로 남습니다."}`),
         P("조건", `${openerFor(gm, me.seed + strHash(q) + 14)} 헤어진 진짜 이유였던 그 지점을 서로 인정하고 넘어가야 합니다. 그러지 않으면 초반의 반가움이 지나간 뒤 같은 자리에서 또 멈춥니다. 재회를 결심하기 전에, 그때와 지금 무엇이 달라졌는지부터 스스로 답해보세요.`),
       ];
@@ -1922,6 +1948,15 @@ const VALUE_BY_GROUP: Record<God5, string> = {
   인성: "이해받는 느낌",
 };
 /** 같은 갈래가 지나치면 나오는 실수 — 평생 피해야 할 행동. */
+/** 가장 무거운 십신이 돈에서 만드는 실수. */
+const SPEND_BY_GROUP: Record<God5, string> = {
+  비겁: "같이 쓰다 생기는 지출",
+  식상: "충동 단발 지출",
+  재성: "규모를 키우는 투자",
+  관성: "체면 유지 비용",
+  인성: "배움에 묶이는 지출",
+};
+
 const AVOID_BY_GROUP: Record<God5, string> = {
   비겁: "몫을 따지지 않고 같이 벌이기",
   식상: "감정적인 즉흥 결정",
@@ -1936,7 +1971,7 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
   // 시기 답은 해시가 아니라 용신·기신에서 나온다(lib/timing.ts).
   const tm = analyzeTiming(me);
   const p = pt?.seed ?? 0;
-  const pct = popularityPct(ctx.input.me.y, ctx.input.me.m, ctx.input.me.d);
+  const pct = popularityPct(me);
   // 나이로 답해야 하는 문항은 실제 대운에서 뽑는다. 예전에는 seed에서 만든 숫자였는데,
   // 그러면 "48세 전후"라고 써 놓고 본문에서는 22·32·42세에 대운이 바뀐다고 말하게 된다.
   const dec = scoreDecadals(tm.analysis, me.luck?.list ?? []);
@@ -1951,6 +1986,15 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
   const A = tm.analysis;
   const thisYear = new Date().getFullYear();
   const yrs = scoreYears(A, me.birthYear, thisYear, 10, me.luck?.list ?? []);
+  // 앞으로 14개월 월운. "몇 월"만 말하면 어느 해인지 알 수 없다 — 용신 오행에
+  // 해당하는 달은 매년 돌아오기 때문이다. 그해 그달의 실제 간지로 점수를 낸다.
+  const mons = comingMonths(A, 14, (y) => yrs.find((x) => x.year === y)?.score ?? 50);
+  const byScore = [...mons].sort((a, b) => b.score - a.score);
+  const bestMon = byScore[0];
+  const worstMon = byScore[byScore.length - 1];
+  /** "2027년 8월" 꼴. 올해라도 연도를 뺀 적이 있었는데, 리포트는 링크로 오래
+   *  남으므로 나중에 열었을 때 어느 해인지 알 수 없게 된다. 항상 붙인다. */
+  const ym = (x?: { year: number; month: number }) => (!x ? "" : `${x.year}년 ${x.month}월`);
   const bestYear = [...yrs].sort((x, y2) => y2.score - x.score)[0];
   const gw = A.groupWeight;
   // 십신 개수 — 여덟 글자에서 특정 십신이 몇 번 나오는지
@@ -2033,10 +2077,11 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     })()}` },
     "결혼 예상 나이": { v: `${marriageAge()}` },
     "운명의 상대의 특징과 외모": { v: EL[me.useEl].fromLabel },
-    "연애하면 안 되는 사람의 특징": { v: "확인을 강요하는 유형" },
-    "나의 연애에서 주의할 점": { v: `${tm.risk}월` },
+    // 기신 오행이 두꺼운 사람이 이 명식에는 부담이 된다. 익숙해서 끌리지만 오래 못 간다.
+    "연애하면 안 되는 사람의 특징": { v: ["새 일을 계속 벌이는 유형", "감정 기복이 큰 유형", "고집을 안 굽히는 유형", "확인을 강요하는 유형", "속을 안 보이는 유형"][me.avoidEl] },
+    "나의 연애에서 주의할 점": { v: ym(worstMon) },
     "나는 어떤 사람에게 끌릴까": { v: ["새 일을 벌이는 추진형", "표현이 밝은 활력형", "끝까지 자리를 지키는 신뢰형", "선이 분명한 리더형", "속이 깊은 몰입형"][me.useEl] },
-    "나의 연애운이 가장 좋은 시기": { v: `${tm.good}월` },
+    "나의 연애운이 가장 좋은 시기": { v: ym(bestMon) },
     "나와 상대방의 타고난 특징": { v: pt ? `${ELEMENTS[me.dayMaster]}${wa(ELEMENTS[me.dayMaster])} ${ELEMENTS[pt.dayMaster]}` : "" },
     "서로에 대한 호감도 비교": { v: `${Math.abs(favorGap())}`, gauge: 50 + favorGap() },
     "지금 연인이 최선의 선택인지": { v: (pairScore?.score ?? 60) >= 62 ? "최선에 가까운" : (pairScore?.score ?? 60) >= 45 ? "노력하면 오래갈" : "다시 볼 필요가 있는" },
@@ -2070,18 +2115,46 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     "연락 타이밍": { v: `${Math.max(1, Math.min(8, monthsToGood(tm.goodMonths) * 2))}주 뒤` },
     // 재회도 내 용신이 들어오는 달로 본다. 용신 달이 여럿이면(토는 넷) 상대 명반으로 갈라
     // 같은 사람이라도 상대에 따라 다른 달이 나오게 한다.
-    "재회 시기": { v: `${tm.goodMonths[p % tm.goodMonths.length]}월` },
-    "새로운 사람의 존재": { v: yrs[0] && [0, 3, 6, 9].includes(yrs[0].branch) ? "가벼운 만남 있음" : "아직 없음" },
-    "재회 후 관계": { v: "이전보다 단단" },
-    "나의 마음이 정리되는 시기": { v: `${monthsToGood(tm.goodMonths)}개월 후` },
+    "재회 시기": { v: ym(byScore.find((x) => x.score >= 55) ?? bestMon) },
+    // 앞으로 3년 안에 도화나 배우자성이 드는 해가 있는지로 본다.
+    // 예전 식은 올해 지지 하나만 봐서 모든 사람에게 같은 답이 나왔다.
+    "새로운 사람의 존재": { v: (() => {
+      // "지금 새 사람이 있느냐"는 명리가 직접 답할 수 있는 물음이 아니다.
+      // 답할 수 있는 것은 "인연이 들어올 자리가 얼마나 열려 있는가"다.
+      // 대운(10년 판) · 올해 세운 · 원국의 배우자성 무게를 함께 점수로 낸다.
+      const el = me.genderKnown ? ((me.isMale ? A.dayEl + 2 : A.dayEl + 3) % 5) : ((A.dayEl + 2) % 5);
+      const inEl = (st: number, br: number) => STEM_EL[st] === el || BRANCH_EL[br] === el;
+      let n = 0;
+      const l = me.luck?.list?.find((d) => {
+        const age = new Date().getFullYear() - me.birthYear + 1;
+        return age >= d.age && age < d.age + 10;
+      });
+      if (l && inEl(l.stem, l.branch)) n += 2;               // 대운에 배우자성 — 10년 내내 열린 판
+      if (l && [0, 3, 6, 9].includes(l.branch)) n += 1;      // 대운 도화
+      const y0 = yrs[0];
+      if (y0 && inEl(y0.stem, y0.branch)) n += 2;            // 올해 배우자성
+      if (y0 && [0, 3, 6, 9].includes(y0.branch)) n += 1;    // 올해 도화
+      if (A.groupWeight[me.isMale ? "재성" : "관성"] >= 2) n += 1;  // 원국 배우자성이 두꺼움
+      if (y0 && y0.score >= 60) n += 1;
+      return n >= 5 ? "활짝 열려 있어요" : n >= 3 ? "열리는 중이에요" : n >= 2 ? "조금 열려 있어요" : "아직 조용해요";
+    })() },
+    // 일지 육합이면 다시 묶이고 충이면 형태가 바뀐다. 그 밖에는 대조 점수로 가른다.
+    // 점수 분포가 중앙 55·사분위 45/65라 그 값을 경계로 쓴다.
+    "재회 후 관계": { v: pairScore
+      ? pairScore.six ? "이전보다 단단해져요"
+        : pairScore.clash ? "형태가 달라져요"
+        : pairScore.score >= 65 ? "천천히 회복돼요"
+        : pairScore.score >= 48 ? "속도를 다시 맞춰야 해요" : "같은 자리에서 반복돼요"
+      : "천천히 회복돼요" },
+    "나의 마음이 정리되는 시기": { v: ym(mons.find((x) => x.score >= 55) ?? bestMon) },
     "상대방의 마음이 정리되는 시기": { v: `${pt ? monthsToGood(analyzeTiming(pt).goodMonths) : monthsToGood(tm.goodMonths, 1)}개월 후` },
-    "나에게 새로운 인연이 들어오는 시기": { v: `${tm.goodMonths[tm.goodMonths.length - 1]}월` },
+    "나에게 새로운 인연이 들어오는 시기": { v: ym(byScore.filter((x) => [0, 3, 6, 9].includes(x.branch))[0] ?? bestMon) },
     "타고난 직업 적성과 일의 그릇": { v: EL[me.dayMaster].fromLabel.replace(/[은는]$/, "") },
     "나에게 맞는 일의 방식": { v: me.dominant % 2 === 0 ? "주도형" : "조율형" },
-    "커리어 전환에 유리한 시기": { v: `${tm.good}월` },
+    "커리어 전환에 유리한 시기": { v: ym(bestMon) },
     "성취·승진 운의 흐름": { v: `${bestYear.year}년 상승`, gauge: Math.round(Math.max(40, Math.min(95, bestYear.score))) },
     "함께 일할 때 시너지가 나는 사람": { v: `${ELEMENTS[me.useEl]} 기운의 동료` },
-    "커리어에서 주의할 시기와 선택": { v: `${tm.risk}월` },
+    "커리어에서 주의할 시기와 선택": { v: ym(worstMon) },
     "내가 성공하기 쉬운 분야": { v: ["새로 여는 분야", "사람 앞에 서는 분야", "신뢰를 쌓는 분야", "전문성 있는 분야", "전략을 짜는 분야"][me.dominant] },
     "내가 피해야 할 직업/업무 스타일": { v: ["반복 매뉴얼 업무", "존재감 없는 자리", "관계가 자주 바뀌는 환경", "기준 없는 조직", "판단 여지 없는 단순 업무"][me.dominant] },
     "해외·이동 운": { v: hasSinsal("역마") ? "강한 편" : A.relations.some((r) => r.kind === "충") ? "보통" : "국내가 더 유리한 편" },
@@ -2089,16 +2162,16 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     "돈이 들어오는 방식과 통로": { v: godCount(["편재"]) > godCount(["정재"]) ? "유통형" : "축적형" },
     "재물운의 큰 흐름": { v: `${bestYear.year}년 상승` },
     "나에게 맞는 돈 관리 방식": { v: me.dominant === 1 ? "자동 저축" : "분리 계좌" },
-    "주의해야 할 소비·투자 습관": { v: "충동 단발 지출" },
-    "재물이 모이는 시기": { v: `${tm.good}월` },
-    "재물을 잃기 쉬운 시기": { v: `${tm.risk}월` },
+    "주의해야 할 소비·투자 습관": { v: SPEND_BY_GROUP[topGroup(A)] },
+    "재물이 모이는 시기": { v: ym(bestMon) },
+    "재물을 잃기 쉬운 시기": { v: ym(worstMon) },
     "투자운": { v: gw.비겁 >= 2.2 ? "분산형이 유리" : gw.재성 >= 2 && A.strong ? "적극형이 유리" : gw.식상 >= 2 ? "직접 굴리는 쪽이 유리" : gw.관성 >= 2.2 ? "원칙을 정해두는 쪽이 유리" : "신중형이 유리" },
     "부동산운": { v: A.elementWeight[2] >= 2.5 ? "일찍 유리" : gw.재성 >= 1.5 ? "천천히 유리" : "무리하지 않는 게 유리" },
     "타고난 체질과 기운의 강약": { v: `${ELEMENTS[me.dominant]} 강 · ${ELEMENTS[me.lacking]} 약` },
     "특히 아껴야 할 몸의 부분": { v: ["간·눈", "심장·혈관", "위장", "폐·호흡기", "신장·순환"][me.lacking] },
-    "컨디션이 흔들리기 쉬운 시기": { v: `${tm.risk}월` },
+    "컨디션이 흔들리기 쉬운 시기": { v: ym(worstMon) },
     "나에게 맞는 생활 리듬": { v: me.useEl === 1 || me.useEl === 0 ? "아침형" : "밤 정리형" },
-    "시기별 관리 포인트": { v: "수면 리듬" },
+    "시기별 관리 포인트": { v: ["눈과 근육 피로", "심장·혈압 부담", "소화와 끼니 리듬", "호흡기와 피부", "수면과 수분"][me.avoidEl] },
     "나에게 맞는 스트레스 관리법": { v: ["몸을 움직이는 활동", "혼자만의 시간", "대화로 풀기", "몰입할 취미", "충분한 수면"][me.useEl] },
     "나에게 필요한 건강 관리법": { v: ["가벼운 유산소", "명상·호흡", "규칙적인 식사", "충분한 휴식", "수분 섭취"][me.useEl] },
     "나의 본성과 성격": { v: EL[me.dayMaster].fromLabel },

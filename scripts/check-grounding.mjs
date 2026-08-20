@@ -32,7 +32,7 @@ for(const c of categories) for(const [i,p] of P.entries()){
     const t=s.content;
     const n=cnt(t,GAN)+cnt(t,GOD)+cnt(t,OH)+cnt(t,TW)+cnt(t,SIN)+cnt(t,ZI);
     const nn=cnt(t,NUM);
-    tot++; dens.push(n); if(n===0){zero++; if(worst.length<3)worst.push(`${c.id} / ${s.question}`);}
+    tot++; dens.push(n); if(n<4 && worst.length<6)worst.push(`근거 ${n}개 · ${c.id} / ${s.question} · ${t.slice(0,60)}`); if(n===0)zero++;
     if(nn>0) withNum++;
   }
 }
@@ -43,4 +43,4 @@ console.log(`  근거 0개 섹션        ${zero}  ${zero?"◀":""}`);
 console.log(`  근거 4개 미만 섹션    ${lowN} (${Math.round(lowN/tot*100)}%)`);
 console.log(`  섹션당 근거 최소 ${dens[0]} / 중앙 ${dens[dens.length>>1]} / 최대 ${dens[dens.length-1]}`);
 console.log(`  수치를 인용한 섹션    ${Math.round(withNum/tot*100)}%`);
-worst.forEach(w=>console.log("   근거 없음:",w));
+worst.forEach(w=>console.log("  ",w));

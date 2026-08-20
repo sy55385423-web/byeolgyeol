@@ -190,7 +190,7 @@ export const domain3Rules: Rule[] = [
   /* ═══════════ 건강 ═══════════ */
   {
     id: "건강-편중도",
-    topics: ["건강", "성격"],
+    topics: ["건강"],
     when: () => true,
     weight: 82,
     tag: "건강-편중",
@@ -222,7 +222,7 @@ export const domain3Rules: Rule[] = [
         "정리하고 비우는 것 — 호흡 운동, 정돈된 공간, 매운 것과 자극을 줄이는 식단이 이 기운을 세웁니다",
         "쉬고 잠기는 것 — 수분, 충분한 수면, 혼자 있는 시간이 이 기운을 회복시킵니다",
       ];
-      return `이 명식에 필요한 기운은 ${ELEMENTS[f.a.useEl]}(${ORGAN[f.a.useEl]})입니다. 건강 관리도 여기에 맞춥니다. ${HOW[f.a.useEl]}. 반대로 기신인 ${ELEMENTS[f.a.avoidEl]}(${ORGAN[f.a.avoidEl]}) 쪽을 더 자극하는 습관은 같은 노력으로 손해가 납니다.`;
+      return `이 명식에 필요한 기운은 ${ELEMENTS[f.a.useEl]}(${ORGAN[f.a.useEl]})인데, 여덟 글자 안에 ${f.a.elementWeight[f.a.useEl].toFixed(1)}밖에 없습니다(기신 ${ELEMENTS[f.a.avoidEl]}${eun(ELEMENTS[f.a.avoidEl])} ${f.a.elementWeight[f.a.avoidEl].toFixed(1)}). 건강 관리도 여기에 맞춥니다. ${HOW[f.a.useEl]}. 반대로 기신인 ${ELEMENTS[f.a.avoidEl]}(${ORGAN[f.a.avoidEl]}) 쪽을 더 자극하는 습관은 같은 노력으로 손해가 납니다.`;
     },
   },
   {
@@ -264,6 +264,27 @@ export const domain3Rules: Rule[] = [
     prefer: ["시기별 관리 포인트"],
     text: (f) =>
       `재성이 ${f.a.groupWeight.재성.toFixed(1)}로 두꺼운데 일간이 그걸 감당할 힘은 ${(f.a.groupWeight.비겁 + f.a.groupWeight.인성).toFixed(1)}입니다. 재성은 몸을 써서 얻는 자리라, 이 차이는 곧 과로로 나타납니다. 일이 많아서가 아니라 쉬는 법을 모르는 쪽입니다. 벌 수 있을 때 벌어 두자는 생각이 이 명식에서는 가장 비싼 판단이 됩니다. 수입이 늘어나는 구간일수록 검진 주기를 짧게 잡아야 합니다.`,
+  },
+  {
+    id: "건강-스트레스경로",
+    topics: ["건강", "성격"],
+    when: () => true,
+    weight: 83,
+    tag: "건강-스트레스",
+    prefer: ["스트레스 관리법"],
+    text: (f) => {
+      const g = f.a.groupWeight;
+      const top = (Object.entries(g) as [string, number][]).sort((a, b) => b[1] - a[1])[0];
+      const E = el5(f.a.dayEl);
+      const WAY: Record<string, string> = {
+        비겁: "사람 사이에서 몫이 어긋날 때 가장 크게 받습니다. 혼자 삭이면 오래가니, 같은 처지의 사람과 말로 풀어내는 방식이 맞습니다",
+        식상: "하고 싶은 말을 못 할 때 쌓입니다. 표현할 통로 — 글·운동·만드는 일 — 를 정해 두지 않으면 엉뚱한 자리에서 터집니다",
+        재성: "결과가 안 나올 때 조급함으로 옵니다. 숫자에서 잠시 떨어지는 시간이 필요하고, 몸을 쓰는 활동이 가장 빨리 듣습니다",
+        관성: "책임과 평가에서 옵니다. 잘 쉬지 못하는 쪽이라, 쉬는 것도 일정으로 잡아 두어야 실제로 쉽니다",
+        인성: "생각이 멈추지 않아 옵니다. 정보를 더 넣는 방식은 역효과라, 혼자 조용히 있는 시간과 자는 시간을 먼저 확보해야 합니다",
+      };
+      return `스트레스가 어디로 들어오는지는 가장 무거운 갈래가 정합니다. ${f.who}의 경우 ${top[0]}이 ${top[1].toFixed(1)}로 가장 두껍습니다. ${WAY[top[0]]}. 몸에서는 ${ELEMENTS[E[top[0] as keyof typeof E] ?? f.a.dayEl]}(${ORGAN[E[top[0] as keyof typeof E] ?? f.a.dayEl]}) 쪽에 먼저 신호가 옵니다.`;
+    },
   },
   {
     id: "건강-취약계절",

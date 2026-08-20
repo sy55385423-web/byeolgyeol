@@ -17,6 +17,7 @@ import { loveRules } from "./love";
 import { gyeokRules } from "./gyeokguk";
 import { domainRules } from "./domains";
 import { pairRules } from "./pair";
+import { pair2Rules } from "./pair2";
 import { attractionRules } from "./attraction";
 import { primeRules } from "./prime";
 import { genderRules } from "./gender";
@@ -28,7 +29,7 @@ import { astroRules } from "./astro";
 
 export const ALL_RULES: Rule[] = [
   ...structureRules, ...gyeokRules, ...tenGodRules, ...loveRules, ...attractionRules,
-  ...domainRules, ...domain2Rules, ...domain3Rules, ...pairRules, ...primeRules, ...genderRules, ...ziweiYearRules, ...astroRules, ...timing2Rules, ...timingRules,
+  ...domainRules, ...domain2Rules, ...domain3Rules, ...pairRules, ...pair2Rules, ...primeRules, ...genderRules, ...ziweiYearRules, ...astroRules, ...timing2Rules, ...timingRules,
 ];
 
 /** 리포트 한 부 동안 어떤 규칙을 이미 썼는지 기억한다.
@@ -48,23 +49,28 @@ export type Composed = { id: string; tag: string; text: string; weight: number }
  *  동떨어진 말이 아니다. 두 사람 중 한 명이 이 사람이기 때문이다.
  *  단, 순서가 있다. 가까운 주제부터 쓰고 먼 주제는 마지막에 쓴다. */
 const FALLBACK: Record<Topic, Topic[]> = {
-  재회: ["궁합", "연애패턴", "배우자", "성격", "연애주의"],
-  궁합: ["연애패턴", "배우자", "성격", "끌림"],
-  매력: ["인기", "끌림", "성격"],
+  // 연애 계열 — 연애 안에서만 돈다
+  재회: ["궁합", "연애패턴", "배우자", "연애주의"],
+  궁합: ["연애패턴", "배우자", "끌림", "연애주의"],
+  매력: ["인기", "끌림", "연애패턴"],
   끌림: ["연애패턴", "배우자", "매력"],
-  인기: ["매력", "성격"],
-  연애패턴: ["연애주의", "끌림", "성격"],
-  연애주의: ["연애패턴", "성격"],
+  인기: ["매력", "끌림", "연애패턴"],
+  연애패턴: ["연애주의", "끌림", "매력"],
+  연애주의: ["연애패턴", "배우자", "끌림"],
   배우자: ["결혼시기", "끌림", "연애패턴"],
-  결혼시기: ["배우자", "연애시기"],
-  연애시기: ["결혼시기", "대운", "전성기"],
-  성격: ["인생흐름", "연애패턴"],
+  결혼시기: ["배우자", "연애시기", "연애패턴"],
+  연애시기: ["결혼시기", "배우자", "연애패턴"],
+  // 인생 계열
+  성격: ["인생흐름", "전성기"],
   인생흐름: ["성격", "전성기", "대운"],
   전성기: ["대운", "인생흐름"],
   대운: ["전성기", "인생흐름"],
-  직업: ["재물", "인생흐름", "성격"],
+  // 일·돈
+  직업: ["재물", "인생흐름"],
   재물: ["직업", "인생흐름"],
-  건강: ["성격", "인생흐름", "대운"],
+  // 건강 → 성격·인생흐름은 열어 둔다. 체질과 성격은 같은 명식에서 나오니 어색하지 않다.
+  // 반대 방향(연애 문항이 건강 규칙을 끌어오는 것)은 연애 계열 체인에 건강이 없어서 막힌다.
+  건강: ["성격", "인생흐름"],
 };
 
 export function compose(

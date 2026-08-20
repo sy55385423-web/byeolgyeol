@@ -133,7 +133,7 @@ export const attractionRules: Rule[] = [
     text: (f) => {
       const u = ELEMENTS[f.a.useEl];
       const h = ELEMENTS[f.a.helpEl];
-      return `${f.who}에게 필요한 기운은 ${u}, 그걸 받쳐 주는 것이 ${h}입니다. 명리에서 "끌린다"는 건 대개 내게 없는 걸 가진 사람을 만났다는 뜻입니다. ${u} 기운이 두꺼운 사람 — ${EL_PERSON[f.a.useEl]} — 곁에서 유독 편하고 일이 잘 풀립니다. 조건을 따져 고른 사람보다 이 결을 가진 사람이 결과적으로 오래갑니다.`;
+      return `${f.who}에게 필요한 기운은 ${u}(현재 ${f.a.elementWeight[f.a.useEl].toFixed(1)}), 그걸 받쳐 주는 것이 ${h}(${f.a.elementWeight[f.a.helpEl].toFixed(1)})입니다. 명리에서 "끌린다"는 건 대개 내게 없는 걸 가진 사람을 만났다는 뜻입니다. ${u} 기운이 두꺼운 사람 — ${EL_PERSON[f.a.useEl]} — 곁에서 유독 편하고 일이 잘 풀립니다. 조건을 따져 고른 사람보다 이 결을 가진 사람이 결과적으로 오래갑니다.`;
     },
   },
   {
