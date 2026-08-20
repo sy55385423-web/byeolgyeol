@@ -2229,17 +2229,31 @@ export type RadarStats = {
   title: string;          // 원형 게이지 위 라벨 (예: "타고난 인기")
   score: number;          // 0~100
   caption: string;        // 원형 게이지 아래 짧은 설명 (예: "상위 18%")
-  axes: { label: string; value: number }[]; // 5축, 각 0~100
+  axes: { label: string; value: number; basis: string }[]; // 5축, 각 0~100 + 산출 근거
 };
 
+/** 레이더 5축 = 십신 다섯 갈래.
+ *
+ *  예전에는 "사교성·독립성·책임감" 같은 심리 용어를 축으로 쓰고, 그 값을
+ *  십신 여럿을 조합해 만들었다(비겁 + 식상 + 관성×0.4 − 인성×0.3 …).
+ *  명리에 그런 개념이 없으니 조합식과 계수를 전부 내가 정해야 했고,
+ *  계수 하나 바꿀 때마다 결과가 흔들렸다. 근거가 전통이 아니라 내 손에 있었다.
+ *
+ *  그래서 축을 십신 갈래 그대로 둔다. 비겁·식상·재성·관성·인성은 명리가
+ *  사람을 나누는 정통 다섯 자리다. 조합식이 없으니 계수도 없고, 값이 어디서
+ *  왔는지 한 줄로 추적된다. 라벨만 그 영역에서 쓰는 말로 바꾼다.
+ *
+ *  순서는 항상 비겁·식상·재성·관성·인성이다. */
 const RADAR_AXES: Record<string, string[]> = {
-  "love-life": ["사교성", "감정표현", "독립성", "신뢰감", "책임감"],
-  "love-compatibility": ["케미", "신뢰", "소통", "안정감", "설렘"],
-  "love-reunion": ["미련", "소통 가능성", "감정 안정", "시기 적합도", "회복력"],
-  career: ["리더십", "전문성", "적응력", "협업력", "실행력"],
-  wealth: ["저축력", "투자 감각", "소비 관리", "수입 다각화", "재물 그릇"],
+  "love-life": ["자기 주장", "표현력", "현실 감각", "책임감", "받아주는 힘"],
+  career: ["주도성", "창의·표현", "성과 지향", "조직 적응", "전문성"],
+  wealth: ["나눔·동업", "만들어 버는 힘", "재물 감각", "관리·통제", "지키는 힘"],
+  "life-overview": ["자기 축", "재능 발산", "현실 성취", "사회적 자리", "배움과 수용"],
+  // 건강은 십신보다 강약·오행이 직접 답하는 자리라 그대로 둔다
   health: ["체력", "회복력", "면역력", "스트레스 관리", "생활 리듬"],
-  "life-overview": ["본성", "초년운", "중년운", "말년운", "성장력"],
+  // 궁합·재회는 두 명식을 대조하는 자리다. 명리가 궁합에서 실제로 보는 다섯 곳.
+  "love-compatibility": ["일간 관계", "배우자궁", "기운 교환", "힘의 균형", "시기 동조"],
+  "love-reunion": ["일간 관계", "배우자궁", "기운 교환", "힘의 균형", "시기 동조"],
 };
 
 /** 레이더 5축 — 명식에서 계산한다.
@@ -2264,10 +2278,40 @@ type AxisCtx = {
   /** 기둥별 [천간 오행, 지지 오행]. 명리에서 년주는 초년, 월주는 청년,
    *  일주는 중년, 시주는 말년을 맡는다. 그 나이대의 운은 그 기둥으로 읽는다. */
   pel: { 년: [number, number]; 월: [number, number]; 일: [number, number]; 시: [number, number] | null };
-  /** 상대 일지와의 합·충 — 재회에서 붙드는 힘을 본다 */
+  /** 상대 일지와의 합·충 */
   six?: boolean;
   clash?: boolean;
+  /** 일간 오행 */
+  dayEl: number;
+  /** 두 일간의 관계. 상생 +1 · 비화 0 · 상극 −1 */
+  dayRel?: number;
+  /** 용신 교환 — 상대가 내 용신을 갖고 나도 상대 용신을 가지면 2, 한쪽만이면 1, 없으면 0 */
+  useSwap?: number;
+  /** 상대의 강약 점수 — 힘의 균형을 보려면 둘 다 필요하다 */
+  otherStrength?: number;
+  /** 시기 동조 — 앞으로 10년에 두 사람 다 나쁘지 않은 해가 있는가 */
+  yearSync?: number;
 };
+
+/** 태과불급(太過不及) — 명리는 부족한 것만큼 넘치는 것도 문제로 본다.
+ *
+ *  식상이 적당하면 표현이 살아나지만, 지나치면 말이 흩어지고 마무리가 안 된다.
+ *  관성이 적당하면 책임감이 되지만, 지나치면 눌려서 움직이지 못한다.
+ *  선형으로 더하면 "많을수록 좋다"가 되어 명리와 어긋난다.
+ *
+ *  3.0 언저리를 꼭짓점으로 두고, 그보다 넘치면 완만하게 깎는다. */
+const temper = (w: number) => (w <= 3 ? w : 3 + (w - 3) * 0.35);
+
+/** 감당계수 — 일간이 설기·극을 감당하는 정도.
+ *
+ *  명리의 기본은 억부(抑扶)다. 같은 식상 3.3이라도
+ *    신강한 사람  쓸 힘이 있어 표현이 활발해진다
+ *    신약한 사람  기운이 새어 나가 오히려 위축된다(설기태과)
+ *  십신의 양만 보고 이걸 빼면 해석이 정반대로 뒤집힌다.
+ *
+ *  0.3~1.3. 신약이어도 0.3 아래로는 내리지 않는다 — 아예 0이 되면
+ *  그 사람에게 그 자리가 없는 것처럼 보인다. */
+const capacity = (c: AxisCtx) => Math.max(0.3, Math.min(1.3, c.strength / 50));
 
 /** 한 기둥이 이 명식에 얼마나 순한가. 천간·지지 각각 용신 +2 / 희신 +1 / 기신 −2.
  *  −4~+4가 19~91로 펴진다. */
@@ -2288,62 +2332,92 @@ const gScale = (v: number) => 30 + v * 15;
 /** 개수(0~4개)를 원점수로 */
 const cScale = (n: number, base = 40, step = 13) => base + n * step;
 
+/** 십신 한 갈래를 눈금으로. 조합하지 않는다 — 그 갈래의 무게가 곧 값이다.
+ *
+ *  두 가지만 얹는다. 둘 다 명리의 원리다.
+ *    태과불급  넘치면 오히려 제 구실을 못 한다
+ *    억부      설기 계열(식상·재성·관성)은 일간이 감당해야 쓸 수 있다.
+ *              받쳐 주는 계열(비겁·인성)은 감당의 문제가 아니라 그대로 본다. */
+const DRAIN = new Set(["식상", "재성", "관성"]);
+const godAxis = (c: AxisCtx, k: "비겁" | "식상" | "재성" | "관성" | "인성") =>
+  gScale(temper(c.g[k]) * (DRAIN.has(k) ? capacity(c) : 1));
+
+const FIVE = ["비겁", "식상", "재성", "관성", "인성"] as const;
+/** 개인 명식 카테고리는 다섯 갈래를 그대로 쓴다 */
+const fiveGods: ((c: AxisCtx) => number)[] = FIVE.map((k) => (c: AxisCtx) => godAxis(c, k));
+
+/** 궁합·재회 — 명리가 두 명식을 볼 때 짚는 다섯 자리.
+ *
+ *  각 자리의 뼈대는 셋 중 하나(상생·비화·상극 / 합·무관·충)로 떨어지지만,
+ *  그것만 쓰면 값이 서너 종류로 뭉쳐 그림이 다 비슷해진다. 그 자리에 실제로
+ *  얼마나 힘이 실렸는지(오행 무게·십신 무게)를 함께 봐서 폭을 만든다. */
+const pairAxes: ((c: AxisCtx) => number)[] = [
+  // 일간 관계 — 상생·비화·상극에 두 일간 오행의 두께를 얹는다
+  (c) => 55 + (c.dayRel ?? 0) * 16 + (c.el[c.dayEl] - 2) * 3,
+  // 배우자궁 — 육합·충에 일지가 실제로 얼마나 무거운지(월지 대비)를 얹는다
+  (c) => (c.six ? 82 : c.clash ? 38 : 58) + (c.g.비겁 + c.g.인성 - 2) * 3,
+  // 기운 교환 — 서로 용신을 갖는 자리 수에 그 기운의 실제 두께를 얹는다
+  (c) => 48 + (c.useSwap ?? 0) * 14 + (c.el[c.useEl] - 1.5) * 4,
+  // 힘의 균형 — 두 사람 강약 점수 차
+  (c) => 88 - Math.abs(c.strength - (c.otherStrength ?? 50)) * 0.55,
+  // 시기 동조 — 앞으로 10년에 둘 다 괜찮은 해가 몇 번인가
+  (c) => c.yearSync ?? 55,
+];
+
+/** 축마다 어떤 명식 값을 썼는지 한 줄로 밝힌다.
+ *
+ *  이 그림은 명리 값을 눈금으로 옮긴 것이라 본문 규칙보다 한 단계 더 가공된다.
+ *  그러면 근거를 감추지 않는 편이 낫다. 숫자를 그대로 보여 주고 판단을 맡긴다. */
+const f1 = (v: number) => v.toFixed(1);
+const cnt = (c: AxisCtx, ...names: string[]) => c.gods.filter((x) => names.includes(x)).length;
+
+const AXIS_BASIS: Record<string, ((c: AxisCtx) => string)[]> = {
+  ...Object.fromEntries(
+    (["love-life", "career", "wealth", "life-overview"] as const).map((cid) => [
+      cid,
+      FIVE.map((k) => (c: AxisCtx) =>
+        DRAIN.has(k) ? `${k} ${f1(c.g[k])} · 감당 ${c.strength}점` : `${k} ${f1(c.g[k])}`,
+      ),
+    ]),
+  ),
+  health: [
+    (c: AxisCtx) => `강약 ${c.strength}점`,
+    (c: AxisCtx) => `강약 ${c.strength}점 · 인성 ${f1(c.g.인성)}`,
+    (c: AxisCtx) => `용신 ${ELEMENTS[c.useEl]} ${f1(c.el[c.useEl])} · 기신 ${ELEMENTS[c.avoidEl]} ${f1(c.el[c.avoidEl])}`,
+    (c: AxisCtx) => `관성 ${f1(c.g.관성)} (많을수록 압박)`,
+    (c: AxisCtx) => `정관·정인·정재 ${cnt(c, "정관", "정인", "정재")}개 · 인성 ${f1(c.g.인성)}`,
+  ],
+  ...Object.fromEntries(
+    (["love-compatibility", "love-reunion"] as const).map((cid) => [
+      cid,
+      [
+        (c: AxisCtx) => `두 일간이 ${c.dayRel === 1 ? "상생" : c.dayRel === -1 ? "상극" : "비화"}`,
+        (c: AxisCtx) => `일지가 ${c.six ? "육합" : c.clash ? "충" : "직접 관계 없음"}`,
+        (c: AxisCtx) => `서로 용신을 가진 자리 ${c.useSwap ?? 0}곳`,
+        (c: AxisCtx) => `강약 ${c.strength}점 대 ${c.otherStrength ?? "—"}점`,
+        (c: AxisCtx) => `10년 세운에서 둘 다 괜찮은 해`,
+      ],
+    ]),
+  ),
+};
+
 const AXIS_FN: Record<string, ((c: AxisCtx) => number)[]> = {
-  // 연애 총론 — 사람을 만나고 유지하는 힘
-  "love-life": [
-    (c) => gScale(c.g.식상 + c.g.재성 * 0.6) + (c.sinsal.includes("도화") ? 8 : 0), // 사교성
-    (c) => gScale(c.g.식상 * 1.3),                                                   // 감정표현
-    (c) => Math.round(gScale(c.g.비겁) * 0.5 + c.strength * 0.5),                    // 독립성
-    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정재").length, 45, 12) + (c.g.관성 + c.g.재성) * 3, // 신뢰감
-    (c) => gScale(c.g.관성 * 1.2),                                                   // 책임감
-  ],
-  // 궁합 — 두 명식 대조 점수를 축마다 다른 각도로 쪼갠다
-  "love-compatibility": [
-    (c) => Math.round((c.pairScore ?? 55) * 0.9 + gScale(c.g.식상) * 0.1),           // 케미
-    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정재").length, 42, 12) + (c.g.관성 + c.g.재성) * 3, // 신뢰
-    (c) => gScale(c.g.식상 + c.g.인성 * 0.4),                                        // 소통
-    (c) => Math.round((c.pairScore ?? 55) * 0.5 + (c.strong ? 60 : 45) * 0.5),        // 안정감
-    (c) => cScale(c.gods.filter((x) => x === "편관" || x === "편재").length, 40, 13) + (c.sinsal.includes("도화") ? 8 : 0) + c.g.식상 * 3, // 설렘
-  ],
-  // 재회 — 미련은 인성·비겁(붙드는 힘), 회복력은 강약
-  "love-reunion": [
-    // 미련 — 붙드는 성향(인성·비겁)에 배우자 자리의 합충을 얹는다.
-    // 일지가 육합이면 자리끼리 서로 붙잡고, 충이면 끊는 힘이 앞선다.
-    (c) => gScale(c.g.인성 + c.g.비겁 * 0.5) + (c.six ? 14 : 0) - (c.clash ? 12 : 0), // 미련
-    (c) => gScale(c.g.식상 * 1.2),                                                   // 소통 가능성
-    (c) => Math.round(c.strength * 0.7 + gScale(c.g.관성) * 0.3),                    // 감정 안정
-    (c) => Math.round((c.pairScore ?? 50) * 0.8 + 20),                               // 시기 적합도
-    (c) => Math.round(c.strength * 0.6 + gScale(c.g.비겁) * 0.4),                    // 회복력
-  ],
-  career: [
-    (c) => gScale(c.g.관성 + c.g.비겁 * 0.4),                                        // 리더십
-    (c) => gScale(c.g.인성 * 1.2),                                                   // 전문성
-    (c) => gScale(c.g.식상) + (c.sinsal.includes("역마") ? 8 : 0),                    // 적응력
-    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정인").length, 42, 12) + (c.g.관성 + c.g.인성) * 3, // 협업력
-    (c) => Math.round(gScale(c.g.재성) * 0.5 + c.strength * 0.5),                    // 실행력
-  ],
-  wealth: [
-    (c) => cScale(c.gods.filter((x) => x === "정재").length, 42, 15) + c.g.재성 * 6 + (c.strong ? 6 : 0), // 저축력
-    (c) => cScale(c.gods.filter((x) => x === "편재").length, 40, 15) + c.g.재성 * 4 + c.g.식상 * 4, // 투자 감각
-    (c) => Math.max(20, Math.min(96, 90 - Math.round(c.g.비겁 * 14))),                // 소비 관리(비겁이 크면 샌다)
-    (c) => gScale(c.g.식상 + c.g.재성 * 0.5),                                        // 수입 다각화
-    (c) => Math.round(gScale(c.g.재성) * 0.6 + c.strength * 0.4),                    // 재물 그릇
-  ],
+  "love-life": fiveGods,
+  career: fiveGods,
+  wealth: fiveGods,
+  "life-overview": fiveGods,
+  "love-compatibility": pairAxes,
+  "love-reunion": pairAxes,
+  // 건강은 십신보다 강약·오행이 직접 답한다
   health: [
     (c) => Math.round(c.strength * 0.8 + 15),                                        // 체력
-    (c) => Math.round(c.strength * 0.5 + gScale(c.g.인성) * 0.5),                    // 회복력
-    (c) => Math.max(20, Math.min(96, 92 - Math.round(Math.abs(c.el[c.avoidEl] - c.el[c.useEl]) * 12))), // 면역력(편중이 크면 낮다)
-    (c) => Math.max(20, Math.min(96, 92 - Math.round(c.g.관성 * 12))),                // 스트레스 관리(관성 압박)
-    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정인" || x === "정재").length, 40, 11) + c.g.인성 * 4 + (c.strong ? 5 : 0), // 생활 리듬
-  ],
-  "life-overview": [
-    (c) => Math.round(c.strength * 0.6 + gScale(c.g.비겁) * 0.4),                    // 본성
-    (c) => pillarScore(c, c.pel.년) * 0.7 + gScale(c.g.인성) * 0.3,                  // 초년운 — 년주
-    (c) => pillarScore(c, c.pel.일) * 0.6 + gScale(c.g.재성 + c.g.관성 * 0.5) * 0.4, // 중년운 — 일주
-    (c) => pillarScore(c, c.pel.시) * 0.7 + gScale(c.g.식상) * 0.3,                  // 말년운 — 시주
-    (c) => Math.round(gScale(c.g.식상) * 0.5 + c.strength * 0.5),                    // 성장력
+    (c) => Math.round(c.strength * 0.5 + gScale(temper(c.g.인성)) * 0.5),            // 회복력
+    (c) => 92 - Math.abs(c.el[c.avoidEl] - c.el[c.useEl]) * 12,                       // 면역력 — 오행이 치우칠수록 낮다
+    (c) => 92 - temper(c.g.관성) * 12,                                                // 스트레스 관리 — 관성은 압박
+    (c) => cScale(cnt(c, "정관", "정인", "정재"), 40, 11) + c.g.인성 * 4 + (c.strong ? 5 : 0), // 생활 리듬
   ],
 };
+
 
 /** 축별 원점수의 10분위 기준점 — 400명 표본으로 미리 잰 값.
  *
@@ -2356,14 +2430,21 @@ const AXIS_FN: Record<string, ((c: AxisCtx) => number)[]> = {
  *  ⚠️ 축 계산식(AXIS_FN)을 고치면 이 표도 다시 재야 한다. scripts/check-radar.mjs가
  *  분포가 무너지면 잡아 준다. */
 const AXIS_DECILES: Record<string, number[][]> = {
-  "love-life": [[49.1, 54.9, 59.5, 64.5, 68.9, 73.7, 77.8, 85, 92.5], [34.6, 40.4, 49.5, 54.1, 59.9, 67.7, 71, 77.5, 88.5], [30.3, 35, 39.5, 44.3, 47.3, 50.5, 54.5, 58.5, 64.8], [51.5, 57.3, 63.5, 65.5, 67.5, 71.7, 78.2, 81.5, 93.1], [35.4, 43.2, 48, 52.2, 57.6, 61.8, 67.8, 73.2, 84]],
-  "love-compatibility": [[40, 43.9, 46.9, 51, 53.8, 56.9, 61.5, 66, 74.1], [48.5, 54.3, 60.5, 62.5, 64.5, 68.7, 75.2, 78.5, 90.1], [35.9, 42.8, 48.4, 52.9, 56.5, 59.4, 62.5, 67.6, 72.3], [42.5, 47.5, 49.5, 50.5, 52.5, 55, 58.5, 60, 62.5], [46.3, 53.7, 56.9, 59.9, 64.6, 68.6, 71.4, 75.1, 82.3]],
-  "love-reunion": [[44.5, 49.5, 54, 58.8, 63.8, 67.5, 72.8, 78.3, 87.5], [34.2, 39.6, 48, 52.2, 57.6, 64.8, 67.8, 73.8, 84], [33.6, 39, 42.1, 46.1, 48.8, 51.3, 55.1, 57.6, 62.3], [52, 53.6, 56, 60, 64, 65.6, 68.8, 72, 80], [28.8, 34.2, 39.2, 43.8, 47.2, 51, 54.6, 58.8, 64.8]],
-  "life-overview": [[28.8, 34.2, 39.2, 43.8, 47.2, 51, 54.6, 58.8, 64.8], [39.4, 45.1, 49.9, 53.4, 56.2, 59.2, 62.8, 66.1, 71.5], [47.8, 53.1, 57.3, 60.2, 62.1, 64.6, 66.9, 69.8, 72.9], [45.4, 50.1, 54.9, 60, 64.1, 67.6, 72, 76, 83.7], [39.3, 42.5, 45.3, 47.8, 50.3, 52, 55, 57.8, 60.5]],
-  "career": [[43.4, 49, 52.9, 56.7, 60.7, 64.4, 67.7, 73.4, 82.2], [34.2, 40.8, 48, 52.2, 55.8, 66, 70.2, 75.6, 87], [33.5, 40.5, 46.5, 50.5, 55, 60, 64, 69, 76], [48.5, 53.4, 60, 61.8, 64.4, 68.1, 75.9, 79.2, 90.4], [37.8, 42.5, 44.5, 47.5, 50, 52.5, 54.5, 58, 61.8]],
-  "wealth": [[48, 49.4, 52, 55.8, 63.4, 69, 70.8, 75.2, 85.6], [46.9, 49.5, 52.7, 55.9, 63, 66.9, 69.7, 73.7, 84.8], [54.5, 61.5, 65.7, 70.9, 74.1, 76, 81.6, 85.8, 88.6], [45.3, 51.3, 56.5, 61, 65.5, 69.3, 74.5, 78.8, 86.3], [39.2, 43.3, 45.8, 48, 50.4, 52.8, 55, 58.1, 62.4]],
-  "health": [[32.6, 39, 43.8, 48.6, 52.6, 55.8, 59, 63, 68.6], [31.8, 36.8, 40.5, 45.5, 50, 53.8, 58.5, 64.3, 71.3], [56.8, 62.4, 66.8, 70.4, 74, 77.6, 81.2, 84.4, 88.4], [56, 63.2, 66.8, 70.8, 73.6, 77.2, 80, 83.6, 88.4], [52.2, 56.2, 62, 66, 69.4, 73.1, 77.9, 82.7, 91.5]],
+  "love-life": [[31.5, 34.5, 39, 45, 47.5, 50.5, 56, 60.5, 68], [33.8, 38.3, 41.4, 44.6, 47.6, 50.7, 55.3, 60.6, 67.1], [33.3, 38.5, 42.1, 45.6, 48.9, 51.6, 55.4, 59.7, 68.1], [34.1, 39, 42.3, 46.2, 48.6, 51.5, 54, 59.4, 66.6], [33.5, 39, 45, 48.5, 51.5, 60, 63.5, 68, 75.9]],
+  "love-compatibility": [[37.8, 39.9, 42.2, 46.6, 55.3, 59.1, 69, 71.3, 74.2], [53.8, 56.8, 58.1, 59.2, 60.5, 61.9, 63.2, 64.6, 68.1], [44.1, 45.7, 46.4, 47.7, 49.6, 51.2, 58.4, 61.2, 64.3], [66, 70.4, 74.3, 76.5, 79.2, 80.9, 82.5, 84.2, 86.4], [42, 42, 56, 56, 70, 70, 70, 84, 84]],
+  "love-reunion": [[37.8, 39.9, 42.2, 46.6, 55.3, 59.1, 69, 71.3, 74.2], [53.8, 56.8, 58.1, 59.2, 60.5, 61.9, 63.2, 64.6, 68.1], [44.1, 45.7, 46.4, 47.7, 49.6, 51.2, 58.4, 61.2, 64.3], [66, 70.4, 74.3, 76.5, 79.2, 80.9, 82.5, 84.2, 86.4], [42, 42, 56, 56, 70, 70, 70, 84, 84]],
+  "life-overview": [[31.5, 34.5, 39, 45, 47.5, 50.5, 56, 60.5, 68], [33.8, 38.3, 41.4, 44.6, 47.6, 50.7, 55.3, 60.6, 67.1], [33.3, 38.5, 42.1, 45.6, 48.9, 51.6, 55.4, 59.7, 68.1], [34.1, 39, 42.3, 46.2, 48.6, 51.5, 54, 59.4, 66.6], [33.5, 39, 45, 48.5, 51.5, 60, 63.5, 68, 75.9]],
+  "career": [[31.5, 34.5, 39, 45, 47.5, 50.5, 56, 60.5, 68], [33.8, 38.3, 41.4, 44.6, 47.6, 50.7, 55.3, 60.6, 67.1], [33.3, 38.5, 42.1, 45.6, 48.9, 51.6, 55.4, 59.7, 68.1], [34.1, 39, 42.3, 46.2, 48.6, 51.5, 54, 59.4, 66.6], [33.5, 39, 45, 48.5, 51.5, 60, 63.5, 68, 75.9]],
+  "wealth": [[31.5, 34.5, 39, 45, 47.5, 50.5, 56, 60.5, 68], [33.8, 38.3, 41.4, 44.6, 47.6, 50.7, 55.3, 60.6, 67.1], [33.3, 38.5, 42.1, 45.6, 48.9, 51.6, 55.4, 59.7, 68.1], [34.1, 39, 42.3, 46.2, 48.6, 51.5, 54, 59.4, 66.6], [33.5, 39, 45, 48.5, 51.5, 60, 63.5, 68, 75.9]],
+  "health": [[33, 39, 44, 49, 53, 56, 59, 63, 69], [32, 37, 41, 46, 50, 54, 59, 64, 70], [56.8, 62.4, 66.8, 70.4, 74, 77.6, 81.2, 84.4, 88.4], [56, 63.2, 66.8, 70.8, 73.6, 77.2, 80, 83.6, 88.4], [52.2, 56.2, 62, 66, 69.4, 73.1, 77.9, 82.7, 91.5]],
 };
+
+
+
+
+
+
+
 
 
 
@@ -2381,13 +2462,13 @@ function toPercentileScale(cid: string, axis: number, raw: number): number {
   return Math.round(47.6 + pct * 48.9);
 }
 
-export function radarStats(ctx: Ctx): RadarStats {
+/** 축의 원점수(백분위 변환 전). scripts/calibrate-radar.mjs가 기준점을 다시 잴 때 쓴다.
+ *  예전에는 보정 스크립트가 계산식을 통째로 베껴 놨는데, 식을 고치면 두 곳을 같이
+ *  고쳐야 했고 어긋나도 아무도 몰랐다. 이제 같은 함수를 쓴다. */
+function buildAxisCtx(ctx: Ctx): AxisCtx {
   const { me, pt, c: category } = ctx;
-  const s = me.seed;
-  const p = pt?.seed ?? 0;
-  const axesLabels = RADAR_AXES[category.id] ?? ["균형", "안정", "성장", "표현", "실행"];
   const A = analyzeTiming(me).analysis;
-  const axisCtx: AxisCtx = {
+  return {
     g: A.groupWeight,
     el: A.elementWeight,
     strong: A.strong,
@@ -2395,6 +2476,7 @@ export function radarStats(ctx: Ctx): RadarStats {
     gods: A.tenGods.flatMap((t) => [t.stem, t.branch]) as string[],
     sinsal: A.sinsal.map((x) => x.name),
     pairScore: pt ? Number(values(ctx)["궁합 총점수"]?.v ?? values(ctx)["재회 가능성"]?.v ?? 55) : undefined,
+    dayEl: A.dayEl,
     useEl: A.useEl,
     helpEl: A.helpEl,
     avoidEl: A.avoidEl,
@@ -2404,13 +2486,51 @@ export function radarStats(ctx: Ctx): RadarStats {
       일: [STEM_EL[A.pillars.일!.stem], BRANCH_EL[A.pillars.일!.branch]],
       시: A.pillars.시 ? [STEM_EL[A.pillars.시.stem], BRANCH_EL[A.pillars.시.branch]] : null,
     },
-    six: pt ? branchSix(A.pillars.일!.branch, analyzeTiming(pt).analysis.pillars.일!.branch) : undefined,
-    clash: pt ? branchClash(A.pillars.일!.branch, analyzeTiming(pt).analysis.pillars.일!.branch) : undefined,
+    ...(pt
+      ? (() => {
+          const B = analyzeTiming(pt).analysis;
+          const mb = A.pillars.일!.branch, ob = B.pillars.일!.branch;
+          const rel = A.dayEl === B.dayEl ? 0
+            : (A.dayEl + 1) % 5 === B.dayEl || (B.dayEl + 1) % 5 === A.dayEl ? 1 : -1;
+          const swap = (B.dominant === A.useEl ? 1 : 0) + (A.dominant === B.useEl ? 1 : 0);
+          // 두 사람의 좋은 해가 겹치는가 — 내 세운이 55점 이상이면서 상대 용신도 드는 해
+          const yrs = scoreYears(A, me.birthYear, new Date().getFullYear(), 10, me.luck?.list ?? []);
+          const both = yrs.filter(
+            (y) => y.score >= 52 && (STEM_EL[y.stem] === B.useEl || BRANCH_EL[y.branch] === B.useEl),
+          ).length;
+          return {
+            six: branchSix(mb, ob),
+            clash: branchClash(mb, ob),
+            dayRel: rel,
+            useSwap: swap,
+            otherStrength: B.strengthScore,
+            yearSync: Math.min(92, 42 + both * 14),
+          };
+        })()
+      : {}),
   };
+}
+
+export function rawAxisScores(ctx: Ctx): number[] {
+  const fns = AXIS_FN[ctx.c.id];
+  if (!fns) return [];
+  const c = buildAxisCtx(ctx);
+  return fns.map((f) => f(c));
+}
+
+export function radarStats(ctx: Ctx): RadarStats {
+  const { me, pt, c: category } = ctx;
+  const s = me.seed;
+  const p = pt?.seed ?? 0;
+  const axesLabels = RADAR_AXES[category.id] ?? ["균형", "안정", "성장", "표현", "실행"];
+  const axisCtx = buildAxisCtx(ctx);
+
   const fns = AXIS_FN[category.id];
+  const bases = AXIS_BASIS[category.id];
   const axes = axesLabels.map((label, i) => ({
     label,
     value: fns?.[i] ? toPercentileScale(category.id, i, fns[i](axisCtx)) : 55,
+    basis: bases?.[i] ? bases[i](axisCtx) : "",
   }));
 
   const v = values(ctx);
