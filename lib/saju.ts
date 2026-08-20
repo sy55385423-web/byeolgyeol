@@ -388,9 +388,48 @@ function computeChartUncached(b: Birth): Chart {
 }
 
 /** 무료 공개용 "타고난 인기 상위 %" — Flow와 리포트가 같은 값을 쓰도록 중앙화 (마케팅 훅용 결정적 값) */
-export function popularityPct(y: number, m: number, d: number) {
-  const n = y * 372 + m * 31 + d;
-  return 3 + (n % 28);
+/** 타고난 인기 — 상위 몇 %인가.
+ *
+ *  예전에는 생년월일 해시(3 + n % 28)였다. 사람마다 다르게 나오니 그럴듯해 보이지만
+ *  명반과 아무 관계가 없었다. 게다가 이 값은 결제 전에 무료로 공개되는 유일한 수치라,
+ *  근거 없는 숫자를 내보이는 자리로는 가장 나빴다.
+ *
+ *  명리에서 "사람이 붙는 힘"으로 보는 자리를 합산한다.
+ *    식상  밖으로 내보내는 힘 — 표현·매력이 드러나는 통로
+ *    재성  사교와 인연의 폭
+ *    도화  이성에게 눈에 띄는 자리
+ *    천을귀인  사람이 돕고 싶어지는 자리
+ *    명궁 주성  자미·태양·탐랑·천동은 사람이 모이는 별
+ *  반대로 화개(예술·고독)와 공망은 폭을 좁히는 쪽으로 본다. */
+const CROWD_STARS = ["자미", "태양", "탐랑", "천동", "천상", "천량"];
+
+export function popularityScore(c: Chart): number {
+  const a = analyze(
+    {
+      year: { stem: c.pillars.year.stem, branch: c.pillars.year.branch },
+      month: { stem: c.pillars.month.stem, branch: c.pillars.month.branch },
+      day: { stem: c.pillars.day.stem, branch: c.pillars.day.branch },
+      hour: c.pillars.hour ? { stem: c.pillars.hour.stem, branch: c.pillars.hour.branch } : null,
+    },
+    c.voidBranches,
+  );
+  let s = 30;
+  s += Math.min(22, a.groupWeight.식상 * 7);
+  s += Math.min(18, a.groupWeight.재성 * 6);
+  if (a.sinsal.some((x) => x.name === "도화")) s += 12;
+  if (a.sinsal.some((x) => x.name === "천을귀인")) s += 9;
+  if (a.sinsal.some((x) => x.name === "문창귀인")) s += 5;
+  if (CROWD_STARS.includes(c.mingStar)) s += 8;
+  if (a.sinsal.some((x) => x.name === "화개")) s -= 6;
+  if (a.sinsal.some((x) => x.name === "공망")) s -= 4;
+  if (a.groupWeight.인성 > a.groupWeight.식상 + 1.5) s -= 5; // 받아들이는 쪽이 무거우면 밖으로 덜 드러난다
+  return Math.max(0, Math.min(100, Math.round(s)));
+}
+
+/** 인기 점수 → 상위 몇 %. 점수가 높을수록 상위로 간다(숫자가 작아진다). */
+export function popularityPct(c: Chart): number {
+  const s = popularityScore(c);
+  return Math.max(2, Math.min(48, Math.round(50 - s * 0.46)));
 }
 
 /** 시간 라벨("자시 (23:30~01:29)") → 지지 index */

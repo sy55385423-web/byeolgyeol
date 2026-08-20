@@ -1922,6 +1922,15 @@ const VALUE_BY_GROUP: Record<God5, string> = {
   인성: "이해받는 느낌",
 };
 /** 같은 갈래가 지나치면 나오는 실수 — 평생 피해야 할 행동. */
+/** 가장 무거운 십신이 돈에서 만드는 실수. */
+const SPEND_BY_GROUP: Record<God5, string> = {
+  비겁: "같이 쓰다 생기는 지출",
+  식상: "충동 단발 지출",
+  재성: "규모를 키우는 투자",
+  관성: "체면 유지 비용",
+  인성: "배움에 묶이는 지출",
+};
+
 const AVOID_BY_GROUP: Record<God5, string> = {
   비겁: "몫을 따지지 않고 같이 벌이기",
   식상: "감정적인 즉흥 결정",
@@ -1936,7 +1945,7 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
   // 시기 답은 해시가 아니라 용신·기신에서 나온다(lib/timing.ts).
   const tm = analyzeTiming(me);
   const p = pt?.seed ?? 0;
-  const pct = popularityPct(ctx.input.me.y, ctx.input.me.m, ctx.input.me.d);
+  const pct = popularityPct(me);
   // 나이로 답해야 하는 문항은 실제 대운에서 뽑는다. 예전에는 seed에서 만든 숫자였는데,
   // 그러면 "48세 전후"라고 써 놓고 본문에서는 22·32·42세에 대운이 바뀐다고 말하게 된다.
   const dec = scoreDecadals(tm.analysis, me.luck?.list ?? []);
@@ -2033,7 +2042,8 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     })()}` },
     "결혼 예상 나이": { v: `${marriageAge()}` },
     "운명의 상대의 특징과 외모": { v: EL[me.useEl].fromLabel },
-    "연애하면 안 되는 사람의 특징": { v: "확인을 강요하는 유형" },
+    // 기신 오행이 두꺼운 사람이 이 명식에는 부담이 된다. 익숙해서 끌리지만 오래 못 간다.
+    "연애하면 안 되는 사람의 특징": { v: ["새 일을 계속 벌이는 유형", "감정 기복이 큰 유형", "고집을 안 굽히는 유형", "확인을 강요하는 유형", "속을 안 보이는 유형"][me.avoidEl] },
     "나의 연애에서 주의할 점": { v: `${tm.risk}월` },
     "나는 어떤 사람에게 끌릴까": { v: ["새 일을 벌이는 추진형", "표현이 밝은 활력형", "끝까지 자리를 지키는 신뢰형", "선이 분명한 리더형", "속이 깊은 몰입형"][me.useEl] },
     "나의 연애운이 가장 좋은 시기": { v: `${tm.good}월` },
@@ -2071,8 +2081,18 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     // 재회도 내 용신이 들어오는 달로 본다. 용신 달이 여럿이면(토는 넷) 상대 명반으로 갈라
     // 같은 사람이라도 상대에 따라 다른 달이 나오게 한다.
     "재회 시기": { v: `${tm.goodMonths[p % tm.goodMonths.length]}월` },
-    "새로운 사람의 존재": { v: yrs[0] && [0, 3, 6, 9].includes(yrs[0].branch) ? "가벼운 만남 있음" : "아직 없음" },
-    "재회 후 관계": { v: "이전보다 단단" },
+    // 앞으로 3년 안에 도화나 배우자성이 드는 해가 있는지로 본다.
+    // 예전 식은 올해 지지 하나만 봐서 모든 사람에게 같은 답이 나왔다.
+    "새로운 사람의 존재": { v: (() => {
+      const el = me.genderKnown ? ((me.isMale ? A.dayEl + 2 : A.dayEl + 3) % 5) : ((A.dayEl + 2) % 5);
+      const near = yrs.slice(0, 3);
+      const peach = near.some((x) => [0, 3, 6, 9].includes(x.branch));
+      const star = near.some((x) => STEM_EL[x.stem] === el || BRANCH_EL[x.branch] === el);
+      return peach && star ? "곧 나타남" : star ? "가벼운 만남 있음" : peach ? "스치는 인연 있음" : "아직 없음";
+    })() },
+    "재회 후 관계": { v: pairScore
+      ? pairScore.six ? "이전보다 단단" : pairScore.clash ? "형태가 달라짐" : pairScore.score >= 62 ? "천천히 회복" : "같은 자리 반복"
+      : "천천히 회복" },
     "나의 마음이 정리되는 시기": { v: `${monthsToGood(tm.goodMonths)}개월 후` },
     "상대방의 마음이 정리되는 시기": { v: `${pt ? monthsToGood(analyzeTiming(pt).goodMonths) : monthsToGood(tm.goodMonths, 1)}개월 후` },
     "나에게 새로운 인연이 들어오는 시기": { v: `${tm.goodMonths[tm.goodMonths.length - 1]}월` },
@@ -2089,7 +2109,7 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     "돈이 들어오는 방식과 통로": { v: godCount(["편재"]) > godCount(["정재"]) ? "유통형" : "축적형" },
     "재물운의 큰 흐름": { v: `${bestYear.year}년 상승` },
     "나에게 맞는 돈 관리 방식": { v: me.dominant === 1 ? "자동 저축" : "분리 계좌" },
-    "주의해야 할 소비·투자 습관": { v: "충동 단발 지출" },
+    "주의해야 할 소비·투자 습관": { v: SPEND_BY_GROUP[topGroup(A)] },
     "재물이 모이는 시기": { v: `${tm.good}월` },
     "재물을 잃기 쉬운 시기": { v: `${tm.risk}월` },
     "투자운": { v: gw.비겁 >= 2.2 ? "분산형이 유리" : gw.재성 >= 2 && A.strong ? "적극형이 유리" : gw.식상 >= 2 ? "직접 굴리는 쪽이 유리" : gw.관성 >= 2.2 ? "원칙을 정해두는 쪽이 유리" : "신중형이 유리" },
@@ -2098,7 +2118,7 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     "특히 아껴야 할 몸의 부분": { v: ["간·눈", "심장·혈관", "위장", "폐·호흡기", "신장·순환"][me.lacking] },
     "컨디션이 흔들리기 쉬운 시기": { v: `${tm.risk}월` },
     "나에게 맞는 생활 리듬": { v: me.useEl === 1 || me.useEl === 0 ? "아침형" : "밤 정리형" },
-    "시기별 관리 포인트": { v: "수면 리듬" },
+    "시기별 관리 포인트": { v: ["눈과 근육 피로", "심장·혈압 부담", "소화와 끼니 리듬", "호흡기와 피부", "수면과 수분"][me.avoidEl] },
     "나에게 맞는 스트레스 관리법": { v: ["몸을 움직이는 활동", "혼자만의 시간", "대화로 풀기", "몰입할 취미", "충분한 수면"][me.useEl] },
     "나에게 필요한 건강 관리법": { v: ["가벼운 유산소", "명상·호흡", "규칙적인 식사", "충분한 휴식", "수분 섭취"][me.useEl] },
     "나의 본성과 성격": { v: EL[me.dayMaster].fromLabel },
