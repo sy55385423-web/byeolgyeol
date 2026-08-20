@@ -21,10 +21,12 @@ import { attractionRules } from "./attraction";
 import { primeRules } from "./prime";
 import { genderRules } from "./gender";
 import { domain2Rules } from "./domains2";
+import { timing2Rules } from "./timing2";
+import { domain3Rules } from "./domains3";
 
 export const ALL_RULES: Rule[] = [
   ...structureRules, ...gyeokRules, ...tenGodRules, ...loveRules, ...attractionRules,
-  ...domainRules, ...domain2Rules, ...pairRules, ...primeRules, ...genderRules, ...timingRules,
+  ...domainRules, ...domain2Rules, ...domain3Rules, ...pairRules, ...primeRules, ...genderRules, ...timing2Rules, ...timingRules,
 ];
 
 /** 리포트 한 부 동안 어떤 규칙을 이미 썼는지 기억한다.
@@ -69,6 +71,10 @@ export function compose(
   count: number,
   ledger?: ComposeLedger,
   rules: Rule[] = ALL_RULES,
+  /** 문항 제목 — prefer 키워드와 맞으면 그 규칙을 먼저 쓴다 */
+  question?: string,
+  /** 이 카테고리의 전체 문항 — 뒤 문항 몫을 앞 문항이 가져가지 않게 한다 */
+  siblings?: string[],
 ): Composed[] {
   const matched = rules
     .filter((r) => r.topics.includes(topic))
@@ -83,9 +89,31 @@ export function compose(
 
   // 한 리포트 안에서 같은 규칙은 한 번만 쓴다. 같은 문단이 문항마다 다시 나오면
   // "엔진이 돌려막는다"는 인상을 주기 때문에, 후보가 모자라면 문단 수를 줄이는 쪽을 택한다.
-  const sorted = matched
-    .filter((r) => !ledger?.has(r.id))
-    .sort((a, b) => b.weight - a.weight);
+  // 문항 제목과 규칙의 prefer를 맞춰 본다.
+  //
+  //  맞으면        +40 — 이 문항이 이 규칙의 제자리다
+  //  안 맞는데
+  //  다른 문항엔 맞으면 −60 — 그 문항 몫이니 여기서 쓰지 않는다
+  //
+  //  두 번째가 없으면 "재물을 잃기 쉬운 시기"에 정작 연도를 대는 규칙이 안 나간다.
+  //  앞 문항이 weight 순으로 이미 가져가 버리기 때문이다.
+  const fits = (r: Rule, q?: string) => !!q && !!r.prefer?.some((k) => q.includes(k));
+  /** 아직 오지 않은 문항 몫으로 잡아 둔 규칙인가.
+   *
+   *  감점만으로는 부족하다 — 후보가 모자라면 결국 뽑혀 나가서 정작 그 문항이
+   *  빈손이 된다. 그렇다고 무조건 막으면, 이미 지나간 문항이 안 쓰고 넘긴
+   *  규칙까지 영영 못 쓰게 된다. 그래서 "뒤에 올 문항" 것만 잠근다. */
+  const here = question && siblings ? siblings.indexOf(question) : -1;
+  const reserved = (r: Rule) => {
+    if (!r.prefer || fits(r, question)) return false;
+    if (!siblings) return false;
+    return siblings.some((q, i) => i > here && q !== question && fits(r, q));
+  };
+
+  const avail = matched.filter((r) => !ledger?.has(r.id));
+  const sorted = avail
+    .filter((r) => !reserved(r))
+    .sort((a, b) => b.weight + (fits(b, question) ? 40 : 0) - (a.weight + (fits(a, question) ? 40 : 0)));
 
   const out: Composed[] = [];
   const usedTags = new Set<string>();
@@ -108,6 +136,7 @@ export function compose(
   take(sorted);
 
   // 이 주제 규칙을 다 썼는데 문단이 모자라면 인접 주제에서 채운다.
+  // (예약해 둔 규칙은 마지막까지 남겨 둔다 — 아래 최후 보루에서만 쓴다)
   // 템플릿으로 떨어뜨리는 것보다 명식에서 나온 문장 하나가 낫다.
   if (out.length < count) {
     for (const alt of FALLBACK[topic] ?? []) {
@@ -123,9 +152,12 @@ export function compose(
           }
         })
         .sort((a, b) => b.weight - a.weight);
-      take(more);
+      take(more.filter((r) => !reserved(r)));
     }
   }
+
+  // 예약분은 끝까지 건드리지 않는다. 여기서 한 문단을 더 채우려고 뒤 문항의
+  // 답을 가져오면, 그 문항이 통째로 빈손이 된다. 문단 하나가 비는 편이 낫다.
   return out;
 }
 

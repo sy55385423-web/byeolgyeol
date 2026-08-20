@@ -45,6 +45,7 @@ export const attractionRules: Rule[] = [
     when: () => true,
     weight: 89,
     tag: "매력-질감",
+    prefer: ["타고난 매력"],
     text: (f) => {
       const d = f.a.dominant;
       const w = f.a.elementWeight[d];
@@ -128,6 +129,7 @@ export const attractionRules: Rule[] = [
     when: () => true,
     weight: 91,
     tag: "끌림-용신",
+    prefer: ["어떤 사람에게 끌릴까"],
     text: (f) => {
       const u = ELEMENTS[f.a.useEl];
       const h = ELEMENTS[f.a.helpEl];
@@ -140,6 +142,7 @@ export const attractionRules: Rule[] = [
     when: (f) => f.a.elementWeight[f.a.avoidEl] >= 2,
     weight: 83,
     tag: "끌림-함정",
+    prefer: ["안 되는 사람의 특징"],
     text: (f) => {
       const av = ELEMENTS[f.a.avoidEl];
       return `주의할 자리가 하나 있습니다. ${f.who}에게 부담이 되는 기운은 ${av}인데, 원국에 이미 ${f.a.elementWeight[f.a.avoidEl].toFixed(1)}만큼 실려 있습니다. 익숙한 기운이라 편하게 느껴지지만, 편한 것과 이로운 것은 다릅니다. ${av} 기운이 강한 사람 — ${EL_PERSON[f.a.avoidEl]} — 에게 자꾸 끌린다면 그건 취향이 아니라 관성입니다. 만나면 처음엔 익숙하고 나중에 지칩니다.`;
@@ -177,6 +180,7 @@ export const attractionRules: Rule[] = [
     when: (f) => f.a.groupWeight.식상 + f.a.groupWeight.재성 >= 3,
     weight: 82,
     tag: "인기-경로",
+    prefer: ["타고난 인기"],
     text: (f) =>
       `식상(${f.a.groupWeight.식상.toFixed(1)})과 재성(${f.a.groupWeight.재성.toFixed(1)})이 함께 실려 있습니다. 식상은 밖으로 내보내는 힘, 재성은 그게 실제 결과로 맺히는 자리라, 이 둘이 이어지면 표현한 것이 사람으로 돌아옵니다. 인기가 저절로 생기기보다 무언가를 내놓았을 때 붙는 구조입니다. 가만히 있으면 조용하고, 움직이면 사람이 모입니다.`,
   },
@@ -206,6 +210,7 @@ export const attractionRules: Rule[] = [
     when: () => true,
     weight: 87,
     tag: "배우자-궁",
+    prefer: ["운명의 상대"],
     text: (f) => {
       const b = f.a.pillars.일!.branch;
       const st = twelveStage(f.a.dayStem, b);
@@ -226,6 +231,7 @@ export const attractionRules: Rule[] = [
     when: (f) => f.genderKnown && f.a.tenGods.some((t) => godGroupOf(t.stem) === 배우자성(f) || godGroupOf(t.branch) === 배우자성(f)),
     weight: 85,
     tag: "배우자-자리",
+    prefer: ["결혼 예상 나이"],
     text: (f) => {
       const grp = 배우자성(f);
       const seats = f.a.tenGods

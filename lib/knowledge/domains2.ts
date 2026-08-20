@@ -43,6 +43,7 @@ export const domain2Rules: Rule[] = [
     when: (f) => f.a.groupWeight.식상 >= 1.2 && f.a.groupWeight.재성 >= 1.2,
     weight: 88,
     tag: "재물-생재",
+    prefer: ["성공하기 쉬운"],
     text: (f) => {
       const E = els(f.a.dayEl);
       return `식상(${ELEMENTS[E.식상]}) ${f.a.groupWeight.식상.toFixed(1)}, 재성(${ELEMENTS[E.재성]}) ${f.a.groupWeight.재성.toFixed(1)}로 둘 다 실려 있습니다. 식상이 재성을 생하는 식상생재(食傷生財) 구조입니다. 명리에서 돈이 가장 안정적으로 들어오는 배치로 봅니다. 남의 돈을 옮겨 받는 게 아니라 자기가 만들어 낸 것이 값이 되는 방식이라, 기술·콘텐츠·제작처럼 결과물이 남는 일에서 특히 잘 굴러갑니다. 월급만 받는 구조에서는 이 회로가 놀고 있는 셈입니다.`;
@@ -54,6 +55,7 @@ export const domain2Rules: Rule[] = [
     when: () => true,
     weight: 92,
     tag: "재물-길흉",
+    prefer: ["재물운의 큰 흐름"],
     text: (f) => {
       const E = els(f.a.dayEl);
       const jae = E.재성;
@@ -74,6 +76,7 @@ export const domain2Rules: Rule[] = [
     when: (f) => f.a.tenGods.some((t) => t.stem === "정재" || t.stem === "편재" || t.branch === "정재" || t.branch === "편재"),
     weight: 84,
     tag: "재물-자리",
+    prefer: ["부동산운"],
     text: (f) => {
       const seats = f.a.tenGods
         .filter((t) => ["정재", "편재"].includes(t.stem as string) || ["정재", "편재"].includes(t.branch as string))
@@ -94,6 +97,7 @@ export const domain2Rules: Rule[] = [
     when: (f) => f.a.tenGods.some((t) => t.branch === "정재" || t.branch === "편재"),
     weight: 76,
     tag: "재물-왕쇠",
+    prefer: ["투자운"],
     text: (f) => {
       const seat = f.a.tenGods.find((t) => t.branch === "정재" || t.branch === "편재")!;
       const b = f.a.pillars[seat.pos]!.branch;
@@ -112,6 +116,7 @@ export const domain2Rules: Rule[] = [
     when: (f) => f.a.groupWeight.비겁 >= 2.5 && f.a.groupWeight.재성 < f.a.groupWeight.비겁 / 2,
     weight: 86,
     tag: "재물-쟁재",
+    prefer: ["소비·투자 습관"],
     text: (f) =>
       `군겁쟁재(群劫爭財) 구조입니다. 비겁이 ${f.a.groupWeight.비겁.toFixed(1)}로 두꺼운데 재성은 ${f.a.groupWeight.재성.toFixed(1)}에 그칩니다. 나눠 가질 사람은 많은데 나눌 것이 적은 배치라, 동업·공동투자·보증에서 특히 손해가 납니다. 사람이 나쁜 게 아니라 구조가 그렇습니다. 돈과 사람을 같은 자리에 두지 않는 것 하나만 지켜도 이 명식은 크게 달라집니다.`,
   },
@@ -121,6 +126,7 @@ export const domain2Rules: Rule[] = [
     when: (f) => f.a.groupWeight.인성 >= 2.5 && f.a.groupWeight.식상 < 1,
     weight: 78,
     tag: "재물-인다",
+    prefer: ["돈 관리 방식"],
     text: (f) =>
       `인성이 ${f.a.groupWeight.인성.toFixed(1)}로 두꺼운데 식상은 ${f.a.groupWeight.식상.toFixed(1)}에 그칩니다. 인성은 받아들이는 힘, 식상은 내보내는 힘입니다. 들어오는 문은 넓은데 나가는 문이 좁은 배치라, 아는 것과 배운 것에 비해 실제로 만들어 낸 결과가 적습니다. 돈은 아는 만큼이 아니라 내놓은 만큼 붙습니다. 완성도를 낮추더라도 밖으로 내보내는 횟수를 늘리는 쪽이 이 명식에는 정확한 처방입니다.`,
   },
@@ -130,6 +136,7 @@ export const domain2Rules: Rule[] = [
     when: (f) => !!f.luck,
     weight: 82,
     tag: "재물-대운",
+    prefer: ["재물운의 큰 흐름"],
     text: (f) => {
       const E = els(f.a.dayEl);
       const l = f.luck!;
@@ -155,6 +162,7 @@ export const domain2Rules: Rule[] = [
     when: (f) => f.a.groupWeight.인성 >= 2,
     weight: 84,
     tag: "직업-인성",
+    prefer: ["직업 적성과 일의 그릇"],
     text: (f) =>
       `인성이 ${f.a.groupWeight.인성.toFixed(1)}로 실려 있습니다. 인성은 자격·문서·배움의 자리입니다. 이 명식은 자격증이나 학위처럼 종이로 증명되는 것이 실제 수입으로 이어집니다. 반대로 아무 근거 없이 몸으로 부딪히는 일에서는 남들만큼 성과가 안 납니다. 커리어가 막혔다고 느낄 때 이 사람이 손대야 할 것은 이직이 아니라 자격입니다.`,
   },
@@ -164,6 +172,7 @@ export const domain2Rules: Rule[] = [
     when: (f) => f.a.groupWeight.재성 >= 2 && f.a.groupWeight.재성 > f.a.groupWeight.인성,
     weight: 84,
     tag: "직업-재성",
+    prefer: ["성공하기 쉬운"],
     text: (f) =>
       `재성이 ${f.a.groupWeight.재성.toFixed(1)}로 인성(${f.a.groupWeight.인성.toFixed(1)})보다 무겁습니다. 재성은 실물과 숫자를 다루는 자리입니다. 이론을 정리하는 일보다 실제로 사고팔고 굴리는 일, 결과가 숫자로 찍히는 일에서 힘이 붙습니다. 영업·유통·금융·자영업 쪽이 여기 해당합니다. 자격증을 늘리는 것보다 거래를 늘리는 쪽이 이 명식에는 빠릅니다.`,
   },
@@ -173,6 +182,7 @@ export const domain2Rules: Rule[] = [
     when: (f) => f.a.groupWeight.관성 < 0.6,
     weight: 86,
     tag: "직업-무관",
+    prefer: ["피해야 할 직업"],
     text: (f) =>
       `관성이 ${f.a.groupWeight.관성.toFixed(1)}로 거의 없습니다. 관성은 나를 눌러 자리를 잡아 주는 틀입니다. 이게 얇으면 조직의 규칙이 유독 불편하게 느껴집니다. 참을성이 없어서가 아니라 눌러 줄 자리가 명식에 없어서입니다. 큰 조직에서 오래 버티는 방식은 이 사람에게 비용이 큽니다. 대신 스스로 마감과 규칙을 만들어 두면 그 자리를 대신할 수 있습니다.`,
   },
@@ -182,6 +192,7 @@ export const domain2Rules: Rule[] = [
     when: (f) => f.a.groupWeight.식상 < 0.6,
     weight: 80,
     tag: "직업-무식",
+    prefer: ["시너지가 나는"],
     text: (f) =>
       `식상이 ${f.a.groupWeight.식상.toFixed(1)}로 거의 없습니다. 식상은 밖으로 내놓는 힘, 곧 표현과 영업의 자리입니다. 이게 없으면 실력이 있어도 알려지는 속도가 느립니다. 일 자체는 잘하는데 평가가 늦게 따라오는 패턴이 반복됩니다. 이 명식은 결과물을 남이 대신 말해 주는 구조 — 팀, 에이전트, 기록 — 를 만들어 두는 것이 실력을 올리는 것만큼 중요합니다.`,
   },
@@ -191,6 +202,7 @@ export const domain2Rules: Rule[] = [
     when: (f) => has(f, "양인"),
     weight: 74,
     tag: "직업-양인",
+    prefer: ["직업 적성과 일의 그릇"],
     text: (f) => {
       const s = f.a.sinsal.find((x) => x.name === "양인")!;
       return `${s.where.join("·")}지에 양인(羊刃)이 있습니다. 칼과 날의 기운입니다. 결단이 필요한 자리, 남들이 망설이는 순간에 손이 나가는 일에서 이 힘이 제값을 합니다. 의료·기술·수사·현장직처럼 정확도와 결단이 동시에 필요한 쪽이 여기 해당합니다. 반대로 눈치와 조율이 핵심인 자리에서는 이 기운이 계속 부딪힙니다.`;
@@ -202,6 +214,7 @@ export const domain2Rules: Rule[] = [
     when: (f) => !!f.luck,
     weight: 81,
     tag: "직업-대운",
+    prefer: ["승진 운의 흐름"],
     text: (f) => {
       const E = els(f.a.dayEl);
       const l = f.luck!;
@@ -225,6 +238,7 @@ export const domain2Rules: Rule[] = [
     when: () => true,
     weight: 70,
     tag: "직업-기세",
+    prefer: ["맞는 일의 방식"],
     text: (f) => {
       const b = f.a.pillars.일!.branch;
       const st = twelveStage(f.a.dayStem, b);
@@ -244,6 +258,7 @@ export const domain2Rules: Rule[] = [
     when: () => true,
     weight: 87,
     tag: "건강-조후",
+    prefer: ["타고난 체질"],
     text: (f) => {
       const mb = f.a.pillars.월!.branch;
       const se = season(mb);
@@ -265,6 +280,7 @@ export const domain2Rules: Rule[] = [
     when: (f) => f.a.relations.some((r) => r.kind === "충"),
     weight: 83,
     tag: "건강-충",
+    prefer: ["아껴야 할 몸"],
     text: (f) => {
       const r = f.a.relations.find((x) => x.kind === "충")!;
       const [p1, p2] = r.between;
@@ -279,6 +295,7 @@ export const domain2Rules: Rule[] = [
     when: (f) => f.a.relations.some((r) => r.kind === "형"),
     weight: 75,
     tag: "건강-형",
+    prefer: ["시기별 관리 포인트"],
     text: (f) => {
       const r = f.a.relations.find((x) => x.kind === "형")!;
       return `${r.between.join("·")}지에 형(刑)이 걸립니다(${r.chars}). 형은 충처럼 한 번에 깨지는 게 아니라 안에서 서서히 갈리는 자리로 봅니다. 몸으로는 만성적인 통증이나 반복되는 염증처럼 오래 끄는 형태로 나오고, 관계에서는 같은 문제로 계속 부딪히는 형태로 나옵니다. 급성보다 만성을 조심해야 하는 명식입니다.`;
@@ -290,6 +307,7 @@ export const domain2Rules: Rule[] = [
     when: () => true,
     weight: 85,
     tag: "건강-총량",
+    prefer: ["타고난 체질"],
     text: (f) => {
       const sup = f.a.groupWeight.비겁 + f.a.groupWeight.인성;
       const drain = f.a.groupWeight.식상 + f.a.groupWeight.재성 + f.a.groupWeight.관성;
@@ -306,6 +324,7 @@ export const domain2Rules: Rule[] = [
     when: (f) => f.a.groupWeight.식상 >= 2.5 && !f.a.strong,
     weight: 77,
     tag: "건강-소모",
+    prefer: ["스트레스 관리법"],
     text: (f) => {
       const E = els(f.a.dayEl);
       return `식상이 ${f.a.groupWeight.식상.toFixed(1)}로 두꺼운데 일간은 받쳐 주는 힘이 얇습니다(${f.a.strengthScore}점). 식상은 밖으로 내보내는 자리라, 이 배치는 늘 자기 그릇보다 많이 쏟아붓는 구조입니다. 재미있어서 하는 일에서 특히 그렇습니다. 하고 나면 좋은데 그다음 이삼 일이 무너지는 패턴이 반복된다면 이 자리 때문입니다. ${ELEMENTS[E.식상]}(${ORGAN[E.식상]}) 쪽에 먼저 신호가 옵니다.`;
@@ -313,10 +332,11 @@ export const domain2Rules: Rule[] = [
   },
   {
     id: "건강-대운기신",
-    topics: ["건강", "대운"],
+    topics: ["건강"],
     when: (f) => !!f.luck,
     weight: 79,
     tag: "건강-대운",
+    prefer: ["맞는 생활 리듬"],
     text: (f) => {
       const l = f.luck!;
       const se = STEM_EL[l.stem], be = BRANCH_EL[l.branch];

@@ -53,6 +53,7 @@ export const genderRules: Rule[] = [
     when: (f) => f.genderKnown,
     weight: 90,
     tag: "성-무게",
+    prefer: ["총 연애 횟수"],
     text: (f) => {
       const s = spouse(f);
       const total = Object.values(f.a.groupWeight).reduce((a, b) => a + b, 0);
@@ -73,6 +74,7 @@ export const genderRules: Rule[] = [
     when: (f) => f.genderKnown,
     weight: 93,
     tag: "성-길흉",
+    prefer: ["어떤 사람에게 끌릴까"],
     text: (f) => {
       const s = spouse(f);
       const good = s.el === f.a.useEl || s.el === f.a.helpEl;
@@ -94,6 +96,7 @@ export const genderRules: Rule[] = [
     when: (f) => f.genderKnown && f.isMale && f.a.groupWeight.재성 >= 2 && !f.a.strong,
     weight: 87,
     tag: "성-감당",
+    prefer: ["연애에서 주의할 점"],
     text: (f) =>
       `재다신약(財多身弱) 구조입니다. 재성이 ${f.a.groupWeight.재성.toFixed(1)}로 두꺼운데 일간을 받쳐 주는 힘은 ${(f.a.groupWeight.비겁 + f.a.groupWeight.인성).toFixed(1)}에 그칩니다(강약 ${f.a.strengthScore}점). 남명에서 재성은 여자이자 돈인데, 그 둘이 다 감당할 수 있는 크기를 넘어섭니다. 좋은 인연이 와도 끝까지 쥐기가 어렵고, 관계에서 쓰는 에너지가 유독 큽니다. 눈앞의 사람에게 전부를 걸기보다 자기 축을 먼저 세우는 순서가 이 명식에는 맞습니다.`,
   },
@@ -107,6 +110,7 @@ export const genderRules: Rule[] = [
     },
     weight: 87,
     tag: "성-감당",
+    prefer: ["연애에서 주의할 점"],
     text: (f) => {
       const g = godsOf(f);
       const jeong = g.filter((x) => x === "정관").length;
@@ -122,6 +126,7 @@ export const genderRules: Rule[] = [
     when: (f) => f.genderKnown && spouse(f).rivalWeight >= 2,
     weight: 82,
     tag: "성-경쟁",
+    prefer: ["안 되는 사람의 특징"],
     text: (f) => {
       const s = spouse(f);
       return s.male
@@ -179,6 +184,7 @@ export const genderRules: Rule[] = [
     when: (f) => f.genderKnown && !!f.luck,
     weight: 89,
     tag: "성-대운",
+    prefer: ["연애운이 가장 좋은 시기"],
     text: (f) => {
       const s = spouse(f);
       const l = f.luck!;
@@ -206,6 +212,7 @@ export const genderRules: Rule[] = [
     },
     weight: 85,
     tag: "대운-일지",
+    prefer: ["결혼 예상 나이"],
     text: (f) => {
       const b = f.a.pillars.일!.branch;
       const six = branchSix(b, f.luck!.branch);

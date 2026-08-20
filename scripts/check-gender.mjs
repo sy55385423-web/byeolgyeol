@@ -24,7 +24,13 @@ for(const c of categories){
   console.log(`  ${c.id.padEnd(19)} ${String(pct).padStart(3)}%${pct<15?"  ◀ 낮음":""}`);
 }
 // 대운 방향이 실제로 뒤집히는지
-const f=computeChart({y:1998,m:5,d:12,hourBranch:6,gender:"female"});
-const m=computeChart({y:1998,m:5,d:12,hourBranch:6,gender:"male"});
-console.log(`\n대운 검증(1998-05-12 무인년=양년) 여성 ${f.luck.startAge}세 ${f.luck.forward?"순행":"역행"} · 남성 ${m.luck.startAge}세 ${m.luck.forward?"순행":"역행"}`);
-console.log(f.luck.forward!==m.luck.forward ? "  → 방향이 반대로 갈립니다 (양남 순행 / 양녀 역행)" : "  ◀ 방향이 같습니다 — 성별이 반영 안 됨");
+// 양남음녀 원칙 — 년간이 양간이면 남자 순행/여자 역행, 음간이면 반대
+console.log("\n대운 순역 검증 (양남음녀)");
+let bad=0;
+for(const y of [1985,1990,1995,1998,2001,2004]) for(const g of ["male","female"]){
+  const c=computeChart({y,m:5,d:12,hourBranch:6,gender:g});
+  const yang=c.pillars.year.stem%2===0;
+  const want=(yang===(g==="male"));
+  if(want!==c.luck.forward){ bad++; console.log(`  ◀ ${y} ${g} · 년간 ${yang?"양":"음"} · ${c.luck.forward?"순행":"역행"} (기대: ${want?"순행":"역행"})`); }
+}
+console.log(bad? `  ${bad}건 불일치` : "  12건 모두 원칙과 일치");

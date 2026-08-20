@@ -29,6 +29,7 @@ export const domainRules: Rule[] = [
     when: () => true,
     weight: 96,
     tag: "재물-그릇",
+    prefer: ["타고난 재물의 그릇"],
     text: (f) => {
       const jae = w(f, "재성");
       const strong = f.a.strong;
@@ -48,6 +49,7 @@ export const domainRules: Rule[] = [
     when: () => true,
     weight: 84,
     tag: "재물-통로",
+    prefer: ["들어오는 방식과 통로"],
     text: (f) => {
       const seats = f.a.tenGods.filter((t) => ["편재", "정재"].includes(t.stem) || ["편재", "정재"].includes(t.branch));
       if (!seats.length)
@@ -100,6 +102,7 @@ export const domainRules: Rule[] = [
     when: () => true,
     weight: 94,
     tag: "직업-축",
+    prefer: ["맞는 일의 방식"],
     text: (f) => {
       const gwan = w(f, "관성"), sik = w(f, "식상");
       if (gwan >= sik + 1)
@@ -126,6 +129,7 @@ export const domainRules: Rule[] = [
     when: (f) => f.a.sinsal.some((s) => s.name === "역마"),
     weight: 70,
     tag: "신살-역마",
+    prefer: ["해외·이동"],
     text: () =>
       `역마가 붙어 있어 한자리에 오래 머무는 구조가 아닙니다. 출장·이동·해외·이직이 잦은 쪽인데, 이걸 불안정으로 보면 손해입니다. 움직임이 있는 일에서 오히려 성과가 나므로, 이동을 전제로 진로를 짜는 편이 맞습니다.`,
   },
@@ -137,6 +141,7 @@ export const domainRules: Rule[] = [
     when: () => true,
     weight: 96,
     tag: "건강-약처",
+    prefer: ["아껴야 할 몸"],
     text: (f) => {
       const weakEl = f.a.missing.length ? f.a.missing[0] : (f.a.elementWeight.indexOf(Math.min(...f.a.elementWeight)) as 0 | 1 | 2 | 3 | 4);
       const b = BODY[weakEl];
@@ -149,6 +154,7 @@ export const domainRules: Rule[] = [
     when: (f) => Math.max(...f.a.elementWeight) >= 4.5,
     weight: 84,
     tag: "건강-과다",
+    prefer: ["필요한 건강 관리법"],
     text: (f) => {
       const b = BODY[f.a.dominant];
       return `반대로 ${ELEMENTS[f.a.dominant]} 기운은 지나치게 두껍습니다(${f.a.elementWeight[f.a.dominant].toFixed(1)}). 부족한 것만 문제가 아니라 넘치는 것도 부담이 되는데, 이쪽은 ${b.organ} 계통에 과부하로 옵니다. 몰아서 쓰고 몰아서 쉬는 패턴을 줄이는 것만으로 체감이 달라집니다.`;

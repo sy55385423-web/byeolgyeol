@@ -32,6 +32,7 @@ export const primeRules: Rule[] = [
     when: (f) => decadalScores(f).some((s) => s.score > 0),
     weight: 93,
     tag: "전성기-구간",
+    prefer: ["전성기"],
     text: (f) => {
       const all = decadalScores(f);
       const best = [...all].sort((a, b) => b.score - a.score)[0];
@@ -58,6 +59,7 @@ export const primeRules: Rule[] = [
     when: (f) => decadalScores(f).some((s) => s.score <= -3),
     weight: 81,
     tag: "전성기-역풍",
+    prefer: ["전성기"],
     text: (f) => {
       const all = decadalScores(f);
       const worst = [...all].sort((a, b) => a.score - b.score)[0];
@@ -95,8 +97,11 @@ export const primeRules: Rule[] = [
     when: (f) => f.genderKnown,
     weight: 64,
     tag: "전성기-방향",
+    prefer: ["대운이 바뀌는"],
     text: (f) => {
-      const yang = f.chart.birthYear % 2 === 1; // 양년(갑병무경임)은 홀수 해로 떨어진다
+      // 년주 천간이 양간(갑·병·무·경·임)이면 양년이다. 서기 연도의 홀짝으로 어림하면
+      // 안 된다 — 1998년은 무인년이라 양년인데 짝수 해다. 실제 간지를 본다.
+      const yang = f.a.pillars.년!.stem % 2 === 0;
       return `대운은 ${f.luckStartAge}세부터 ${f.luckForward ? "순행" : "역행"}합니다. ${
         f.isMale ? "남명" : "여명"
       }이고 태어난 해가 ${yang ? "양년" : "음년"}이라 방향이 이렇게 정해집니다. ${
@@ -113,6 +118,7 @@ export const primeRules: Rule[] = [
     when: (f) => !!f.luck,
     weight: 82,
     tag: "대운-십신",
+    prefer: ["대운이 바뀌는"],
     text: (f) => {
       const g = tenGod(f.a.dayStem, f.luck!.stem);
       const desc: Record<string, string> = {
