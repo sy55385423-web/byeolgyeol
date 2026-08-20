@@ -55,7 +55,7 @@ export const structureRules: Rule[] = [
     text: (f) =>
       `${f.who}의 명식이 필요로 하는 기운은 ${ELEMENTS[f.a.useEl]}입니다. ${f.a.useReason[0]}. ${
         f.a.useReason[1] ? `${f.a.useReason[1]}.` : ""
-      } 그래서 ${ELEMENTS[f.a.useEl]} 기운이 들어오는 자리와 시기에 일이 수월하게 풀리고, ${ELEMENTS[f.a.avoidEl]}${ga(ELEMENTS[f.a.avoidEl])} 두꺼워지는 구간에서는 같은 일도 더 무겁게 걸립니다.`,
+      } 이 기운이 두꺼워지는 자리와 시기에 판단이 정확해지고 하는 일이 맞물립니다. 반대로 ${ELEMENTS[f.a.avoidEl]}${ga(ELEMENTS[f.a.avoidEl])} 실리는 구간에는 같은 노력이 덜 남습니다.`,
   },
 
   /* ───────── 오행 편중 ───────── */

@@ -20,10 +20,11 @@ import { pairRules } from "./pair";
 import { attractionRules } from "./attraction";
 import { primeRules } from "./prime";
 import { genderRules } from "./gender";
+import { domain2Rules } from "./domains2";
 
 export const ALL_RULES: Rule[] = [
   ...structureRules, ...gyeokRules, ...tenGodRules, ...loveRules, ...attractionRules,
-  ...domainRules, ...pairRules, ...primeRules, ...genderRules, ...timingRules,
+  ...domainRules, ...domain2Rules, ...pairRules, ...primeRules, ...genderRules, ...timingRules,
 ];
 
 /** 리포트 한 부 동안 어떤 규칙을 이미 썼는지 기억한다.
@@ -32,6 +33,35 @@ export type ComposeLedger = Set<string>;
 export const newLedger = (): ComposeLedger => new Set();
 
 export type Composed = { id: string; tag: string; text: string; weight: number };
+
+/** 주제가 마르면 어디서 더 가져올지.
+ *
+ *  한 규칙은 리포트 안에서 한 번만 쓴다(돌려막는 인상을 주지 않으려고). 그런데
+ *  재회 카테고리는 열세 문항이 거의 다 "재회" 주제라, 재회 규칙 아홉 개를 다 쓰고
+ *  나면 나머지 문단이 전부 템플릿으로 떨어졌다(요청 53문단 중 규칙이 채운 것 9개).
+ *
+ *  인접 주제로 내려가며 채운다. 재회를 묻는 사람에게 "이 사람은 신약이라 …"는
+ *  동떨어진 말이 아니다. 두 사람 중 한 명이 이 사람이기 때문이다.
+ *  단, 순서가 있다. 가까운 주제부터 쓰고 먼 주제는 마지막에 쓴다. */
+const FALLBACK: Record<Topic, Topic[]> = {
+  재회: ["궁합", "연애패턴", "배우자", "성격", "연애주의"],
+  궁합: ["연애패턴", "배우자", "성격", "끌림"],
+  매력: ["인기", "끌림", "성격"],
+  끌림: ["연애패턴", "배우자", "매력"],
+  인기: ["매력", "성격"],
+  연애패턴: ["연애주의", "끌림", "성격"],
+  연애주의: ["연애패턴", "성격"],
+  배우자: ["결혼시기", "끌림", "연애패턴"],
+  결혼시기: ["배우자", "연애시기"],
+  연애시기: ["결혼시기", "대운", "전성기"],
+  성격: ["인생흐름", "연애패턴"],
+  인생흐름: ["성격", "전성기", "대운"],
+  전성기: ["대운", "인생흐름"],
+  대운: ["전성기", "인생흐름"],
+  직업: ["재물", "인생흐름", "성격"],
+  재물: ["직업", "인생흐름"],
+  건강: ["성격", "인생흐름", "대운"],
+};
 
 export function compose(
   facts: Facts,
@@ -59,19 +89,42 @@ export function compose(
 
   const out: Composed[] = [];
   const usedTags = new Set<string>();
-  for (const r of sorted) {
-    if (out.length >= count) break;
-    if (usedTags.has(r.tag)) continue;
-    let text: string;
-    try {
-      text = r.text(facts);
-    } catch {
-      continue;
+  const take = (list: Rule[]) => {
+    for (const r of list) {
+      if (out.length >= count) return;
+      if (usedTags.has(r.tag)) continue;
+      let text: string;
+      try {
+        text = r.text(facts);
+      } catch {
+        continue;
+      }
+      if (!text || text.trim().length < 10) continue;
+      usedTags.add(r.tag);
+      ledger?.add(r.id);
+      out.push({ id: r.id, tag: r.tag, text: text.trim(), weight: r.weight });
     }
-    if (!text || text.trim().length < 10) continue;
-    usedTags.add(r.tag);
-    ledger?.add(r.id);
-    out.push({ id: r.id, tag: r.tag, text: text.trim(), weight: r.weight });
+  };
+  take(sorted);
+
+  // 이 주제 규칙을 다 썼는데 문단이 모자라면 인접 주제에서 채운다.
+  // 템플릿으로 떨어뜨리는 것보다 명식에서 나온 문장 하나가 낫다.
+  if (out.length < count) {
+    for (const alt of FALLBACK[topic] ?? []) {
+      if (out.length >= count) break;
+      const more = rules
+        .filter((r) => r.topics.includes(alt))
+        .filter((r) => !ledger?.has(r.id) && !usedTags.has(r.tag))
+        .filter((r) => {
+          try {
+            return r.when(facts);
+          } catch {
+            return false;
+          }
+        })
+        .sort((a, b) => b.weight - a.weight);
+      take(more);
+    }
   }
   return out;
 }
