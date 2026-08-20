@@ -254,7 +254,7 @@ export const domain2Rules: Rule[] = [
   /* ═══════════ 건강 ═══════════ */
   {
     id: "건강-조후",
-    topics: ["건강", "성격"],
+    topics: ["건강"],
     when: () => true,
     weight: 87,
     tag: "건강-조후",
