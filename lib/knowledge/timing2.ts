@@ -12,7 +12,7 @@
  *  영역별로는 그 영역을 쥔 십신이 드는 해에 가점을 준다.
  *    재물 재성 · 직업 관성 · 연애 재성(남)/관성(여) · 공부 인성 · 창업 식상 */
 
-import { ELEMENTS, STEM_EL, BRANCH_EL, type ElIdx } from "../core/ganji";
+import { ELEMENTS, BRANCHES, STEM_EL, BRANCH_EL, branchSix, type ElIdx } from "../core/ganji";
 import type { Rule, Facts } from "./types";
 import { ga, eun, eul } from "./types";
 
@@ -233,6 +233,35 @@ export const timing2Rules: Rule[] = [
     },
   },
 
+  {
+    id: "결혼시기-혼인자리",
+    topics: ["결혼시기", "배우자"],
+    when: (f) => f.years.length > 0,
+    weight: 91,
+    tag: "결혼-자리",
+    prefer: ["결혼 예상 나이", "결혼 가능성"],
+    text: (f) => {
+      const now = new Date().getFullYear() - f.chart.birthYear + 1;
+      const el = f.genderKnown ? ((f.isMale ? f.a.dayEl + 2 : f.a.dayEl + 3) % 5) : f.a.useEl;
+      const label = f.genderKnown ? (f.isMale ? "재성" : "관성") : "용신";
+      const day = f.a.pillars.일!.branch;
+      // 앞으로 10년 안에서 혼인 기운이 실리는 해
+      const hits = f.years.filter(
+        (y) => STEM_EL[y.stem] === el || BRANCH_EL[y.branch] === el || branchSix(day, y.branch),
+      );
+      const six = f.years.find((y) => branchSix(day, y.branch));
+      return `혼인 시기는 두 자리를 겹쳐 봅니다. 하나는 배우자를 뜻하는 ${label}(${ELEMENTS[el]})이 드는 해, 다른 하나는 배우자 자리인 일지 ${BRANCHES[day]}${ga(BRANCHES[day])} 육합으로 묶이는 해입니다. 일지가 묶이는 해를 고전에서 가장 크게 봅니다. ${
+        six
+          ? `${f.who}의 경우 ${six.year}년(${six.ganji}, ${six.age}세)에 일지가 ${BRANCHES[six.branch]}${wa2(BRANCHES[six.branch])} 육합합니다. 앞으로 10년 중 그 자리가 가장 뚜렷합니다.`
+          : hits.length
+            ? `앞으로 10년 중 ${label}이 드는 해는 ${hits.slice(0, 3).map((y) => `${y.year}년(${y.age}세)`).join(", ")}입니다. 일지가 직접 묶이는 해는 이 구간에 없어, 사건보다 준비가 결과를 정합니다.`
+            : `앞으로 10년에는 두 자리 모두 직접 들지 않습니다. 시기를 기다리는 방식보다 관계를 만드는 쪽이 이 명식에 맞습니다.`
+      }${
+        now > 40 ? " 나이가 이미 그 자리를 지났다면, 명식이 가리키는 것은 결혼 여부가 아니라 관계의 성질입니다." : ""
+      }`;
+    },
+  },
+
   /* ───────── 월운 — 연·월을 함께 댄다 ───────── */
   {
     id: "월운-좋은달",
@@ -269,3 +298,8 @@ export const timing2Rules: Rule[] = [
     },
   },
 ];
+
+function wa2(w: string) {
+  const c = w.charCodeAt(w.length - 1);
+  return (c - 0xac00) % 28 !== 0 ? "과" : "와";
+}

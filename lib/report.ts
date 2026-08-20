@@ -25,7 +25,7 @@ import { buildFacts } from "./knowledge/facts";
 import { compose, newLedger, type ComposeLedger } from "./knowledge/compose";
 import { scoreDecadals, spanScore, scoreYears } from "./core/luck";
 import { comingMonths } from "./core/month";
-import { branchSix, branchClash, STEM_EL, BRANCH_EL } from "./core/ganji";
+import { branchSix, branchClash, STEM_EL, BRANCH_EL, TRIPLE } from "./core/ganji";
 import { topicOf } from "./knowledge/topicMap";
 import type { Facts, Topic } from "./knowledge/types";
 import { marriageAgeFromSeed } from "./top1";
@@ -2030,18 +2030,53 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
   const favorGap = () => favorGapOf(me, pt);
   /** 결혼 나이 — 배우자성(남명 재성·여명 관성)이 대운으로 들어오는 첫 구간에서 잡는다.
    *  성별을 모르면 용신 대운으로 대신한다. seed에서 뽑던 숫자와 달리 근거가 있다. */
+  /** 결혼 나이 — 대운과 세운을 겹쳐 연 단위로 짚는다.
+   *
+   *  예전에는 배우자성이 드는 대운을 하나 찾아 그 한가운데(시작 나이 + 4)를 썼다.
+   *  대운은 10년 구간이라 정밀도가 낮고, 늦은 구간이 먼저 걸리면 52세 같은 값이
+   *  나왔다. 결혼은 연 단위 사건이므로 세운에서 골라야 한다.
+   *
+   *  스물둘부터 마흔다섯까지 해마다 점수를 매긴다.
+   *    배우자성이 드는 해        +3   그해 천간·지지에 재성(남)/관성(여)
+   *    일지와 육합              +4   배우자궁이 묶이는 자리 — 고전적으로 가장 크게 본다
+   *    일지와 삼합              +2
+   *    도화가 드는 해            +1
+   *    배우자성 대운 안          +3   판이 깔린 구간
+   *    세운 점수                 +0~3 전체 흐름이 받쳐 주는가
+   *  같은 점수면 이른 해를 고른다. */
   const marriageAge = (): number => {
     const list = me.luck?.list ?? [];
     if (!list.length) return marriageAgeFromSeed(s);
-    const target = me.genderKnown
-      ? ((me.isMale ? A.dayEl + 2 : A.dayEl + 3) % 5)
-      : A.useEl;
-    const hit = list.find(
-      (d) => d.age >= 22 && d.age <= 48 && (STEM_EL[d.stem] === target || BRANCH_EL[d.branch] === target),
-    );
-    const pick = hit ?? list.find((d) => d.age >= 25 && d.age <= 45);
-    // 대운 10년의 한가운데를 대표값으로 쓴다.
-    return pick ? pick.age + 4 : marriageAgeFromSeed(s);
+    const target = me.genderKnown ? ((me.isMale ? A.dayEl + 2 : A.dayEl + 3) % 5) : A.useEl;
+    const dayBranch = A.pillars.일!.branch;
+    const spanYears = scoreYears(A, me.birthYear, me.birthYear + 21, 30, list); // 22~51세
+    const scored: { age: number; score: number }[] = [];
+    for (const y of spanYears) {
+      if (y.age < 22 || y.age > 50) continue;
+      let sc = 0;
+      if (STEM_EL[y.stem] === target || BRANCH_EL[y.branch] === target) sc += 3;
+      if (branchSix(dayBranch, y.branch)) sc += 4;
+      else if (TRIPLE.some((t) => t.members.includes(dayBranch) && t.members.includes(y.branch))) sc += 2;
+      if ([0, 3, 6, 9].includes(y.branch)) sc += 1;
+      const dw = list.filter((d) => y.age >= d.age).slice(-1)[0];
+      if (dw && (STEM_EL[dw.stem] === target || BRANCH_EL[dw.branch] === target)) sc += 3;
+      sc += Math.max(0, Math.min(3, Math.round((y.score - 50) / 10)));
+      scored.push({ age: y.age, score: sc });
+    }
+    if (!scored.length) return marriageAgeFromSeed(s);
+    // 본문 규칙(결혼시기-혼인자리)은 앞으로 10년에서 혼인 자리를 짚는다.
+    // 제목이 지나온 나이를 말하면 둘이 어긋나 "23세 전후인데 2028년(35세)에
+    // 일지가 묶인다"는 문장이 한 화면에 같이 뜬다. 같은 기준을 쓴다.
+    const nowAge = new Date().getFullYear() - me.birthYear + 1;
+    const pick = (arr: { age: number; score: number }[]) => {
+      const top = Math.max(...arr.map((x) => x.score));
+      const ties = arr.filter((x) => x.score === top).map((x) => x.age).sort((a, b) => a - b);
+      // 최고점이 여러 해에 걸리면 가운데를 고른다. 이른 쪽만 고르면 스물두셋으로,
+      // 늦은 쪽만 고르면 마흔 넘어로 몰린다.
+      return ties[Math.floor((ties.length - 1) / 2)];
+    };
+    const ahead = scored.filter((x) => x.age >= nowAge);
+    return ahead.length ? pick(ahead) : pick(scored);
   };
   // 두 명식 대조 점수 — 궁합·재회 숫자를 seed 대신 여기서 낸다.
   const pairScore = (() => {
@@ -2207,18 +2242,108 @@ const RADAR_AXES: Record<string, string[]> = {
   "life-overview": ["본성", "초년운", "중년운", "말년운", "성장력"],
 };
 
-/** seed 기반 0~100 근사 의사난수 (42~96 사이로 눌러서 극단값 방지) */
-function seededAxisValue(seed: number, salt: number): number {
-  const n = Math.abs((seed * 131 + salt * 977) % 1000);
-  return 42 + (n % 55);
-}
+/** 레이더 5축 — 명식에서 계산한다.
+ *
+ *  예전에는 seed 해시(42 + n % 55)였다. 사람마다 다르게 나오니 그럴듯해 보이지만
+ *  "신뢰감 78"이 무엇에서 나온 값인지 설명할 수 없었다. 그래서 이 그림은 리포트에서
+ *  가장 먼저 눈에 들어오는데도 근거가 하나도 없는 자리였다.
+ *
+ *  각 축을 명식의 어느 자리로 읽을지는 아래에 정해 둔다. 십신 다섯 갈래와
+ *  강약·오행 무게로 잰다. 0~100으로 눌러 그림이 찌그러지지 않게만 다듬는다. */
+type AxisCtx = {
+  g: Record<"비겁" | "식상" | "재성" | "관성" | "인성", number>;
+  el: number[];          // 오행 무게 (목화토금수)
+  strong: boolean;
+  strength: number;      // 강약 0~100
+  gods: string[];        // 여덟 글자의 십신 목록
+  sinsal: string[];
+  pairScore?: number;    // 궁합·재회에서 두 명식 대조 점수
+  useEl: number;
+  avoidEl: number;
+};
+
+/** 십신 무게(대개 0~4)를 0~100 눈금으로. 0이면 30, 4면 90 언저리. */
+const gScale = (v: number) => Math.max(20, Math.min(96, Math.round(30 + v * 15)));
+/** 개수(0~4개)를 눈금으로 */
+const cScale = (n: number, base = 40, step = 13) => Math.max(20, Math.min(96, base + n * step));
+
+const AXIS_FN: Record<string, ((c: AxisCtx) => number)[]> = {
+  // 연애 총론 — 사람을 만나고 유지하는 힘
+  "love-life": [
+    (c) => gScale(c.g.식상 + c.g.재성 * 0.6) + (c.sinsal.includes("도화") ? 8 : 0), // 사교성
+    (c) => gScale(c.g.식상 * 1.3),                                                   // 감정표현
+    (c) => Math.round(gScale(c.g.비겁) * 0.5 + c.strength * 0.5),                    // 독립성
+    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정재").length, 45, 12), // 신뢰감
+    (c) => gScale(c.g.관성 * 1.2),                                                   // 책임감
+  ],
+  // 궁합 — 두 명식 대조 점수를 축마다 다른 각도로 쪼갠다
+  "love-compatibility": [
+    (c) => Math.round((c.pairScore ?? 55) * 0.9 + gScale(c.g.식상) * 0.1),           // 케미
+    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정재").length, 42, 12), // 신뢰
+    (c) => gScale(c.g.식상 + c.g.인성 * 0.4),                                        // 소통
+    (c) => Math.round((c.pairScore ?? 55) * 0.5 + (c.strong ? 60 : 45) * 0.5),        // 안정감
+    (c) => cScale(c.gods.filter((x) => x === "편관" || x === "편재").length, 40, 13) + (c.sinsal.includes("도화") ? 8 : 0), // 설렘
+  ],
+  // 재회 — 미련은 인성·비겁(붙드는 힘), 회복력은 강약
+  "love-reunion": [
+    (c) => gScale(c.g.인성 + c.g.비겁 * 0.5),                                        // 미련
+    (c) => gScale(c.g.식상 * 1.2),                                                   // 소통 가능성
+    (c) => Math.round(c.strength * 0.7 + gScale(c.g.관성) * 0.3),                    // 감정 안정
+    (c) => Math.round((c.pairScore ?? 50) * 0.8 + 20),                               // 시기 적합도
+    (c) => Math.round(c.strength * 0.6 + gScale(c.g.비겁) * 0.4),                    // 회복력
+  ],
+  career: [
+    (c) => gScale(c.g.관성 + c.g.비겁 * 0.4),                                        // 리더십
+    (c) => gScale(c.g.인성 * 1.2),                                                   // 전문성
+    (c) => gScale(c.g.식상) + (c.sinsal.includes("역마") ? 8 : 0),                    // 적응력
+    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정인").length, 42, 12), // 협업력
+    (c) => Math.round(gScale(c.g.재성) * 0.5 + c.strength * 0.5),                    // 실행력
+  ],
+  wealth: [
+    (c) => cScale(c.gods.filter((x) => x === "정재").length, 42, 15),                 // 저축력
+    (c) => cScale(c.gods.filter((x) => x === "편재").length, 40, 15),                 // 투자 감각
+    (c) => Math.max(20, Math.min(96, 90 - Math.round(c.g.비겁 * 14))),                // 소비 관리(비겁이 크면 샌다)
+    (c) => gScale(c.g.식상 + c.g.재성 * 0.5),                                        // 수입 다각화
+    (c) => Math.round(gScale(c.g.재성) * 0.6 + c.strength * 0.4),                    // 재물 그릇
+  ],
+  health: [
+    (c) => Math.round(c.strength * 0.8 + 15),                                        // 체력
+    (c) => Math.round(c.strength * 0.5 + gScale(c.g.인성) * 0.5),                    // 회복력
+    (c) => Math.max(20, Math.min(96, 92 - Math.round(Math.abs(c.el[c.avoidEl] - c.el[c.useEl]) * 12))), // 면역력(편중이 크면 낮다)
+    (c) => Math.max(20, Math.min(96, 92 - Math.round(c.g.관성 * 12))),                // 스트레스 관리(관성 압박)
+    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정인" || x === "정재").length, 40, 11), // 생활 리듬
+  ],
+  "life-overview": [
+    (c) => Math.round(c.strength * 0.6 + gScale(c.g.비겁) * 0.4),                    // 본성
+    (c) => gScale(c.g.인성 * 1.1),                                                   // 초년운
+    (c) => gScale(c.g.재성 + c.g.관성 * 0.5),                                        // 중년운
+    (c) => gScale(c.g.식상 + c.g.인성 * 0.4),                                        // 말년운
+    (c) => Math.round(gScale(c.g.식상) * 0.5 + c.strength * 0.5),                    // 성장력
+  ],
+};
 
 export function radarStats(ctx: Ctx): RadarStats {
   const { me, pt, c: category } = ctx;
   const s = me.seed;
   const p = pt?.seed ?? 0;
   const axesLabels = RADAR_AXES[category.id] ?? ["균형", "안정", "성장", "표현", "실행"];
-  const axes = axesLabels.map((label, i) => ({ label, value: seededAxisValue(s + p, i + 1) }));
+  const A = analyzeTiming(me).analysis;
+  const axisCtx: AxisCtx = {
+    g: A.groupWeight,
+    el: A.elementWeight,
+    strong: A.strong,
+    strength: A.strengthScore,
+    gods: A.tenGods.flatMap((t) => [t.stem, t.branch]) as string[],
+    sinsal: A.sinsal.map((x) => x.name),
+    pairScore: pt ? Number(values(ctx)["궁합 총점수"]?.v ?? values(ctx)["재회 가능성"]?.v ?? 55) : undefined,
+    useEl: A.useEl,
+    avoidEl: A.avoidEl,
+  };
+  const fns = AXIS_FN[category.id];
+  const axes = axesLabels.map((label, i) => ({
+    label,
+    value: fns?.[i] ? Math.max(20, Math.min(96, Math.round(fns[i](axisCtx)))) : 55,
+  }));
 
   const v = values(ctx);
   let title: string, score: number, caption: string;
