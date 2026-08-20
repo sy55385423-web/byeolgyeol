@@ -371,9 +371,9 @@ export const categories: Category[] = [
       },
       {
         label: "새로운 사람의 존재",
-        prefix: "새로운 사람은 ",
-        value: "아직 없음",
-        suffix: "으로 보여요",
+        prefix: "새 인연이 들어올 자리는 ",
+        value: "아직 조용해요",
+        suffix: "",
         subject: "shared",
       },
       {
@@ -385,9 +385,9 @@ export const categories: Category[] = [
       },
       {
         label: "재회 후 관계",
-        prefix: "재회 후는 ",
-        value: "이전보다 단단",
-        suffix: "해져요",
+        prefix: "다시 이어진다면 ",
+        value: "이전보다 단단해져요",
+        suffix: "",
         subject: "shared",
       },
     ],
