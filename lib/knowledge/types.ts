@@ -16,6 +16,7 @@
 
 import type { Analysis } from "../core/analyze";
 import type { YearScore } from "../core/luck";
+import type { MonthScore } from "../core/month";
 import type { Chart } from "../saju";
 
 /** 리포트가 다루는 주제. 문항을 이 단위로 묶어 규칙을 고른다. */
@@ -35,6 +36,9 @@ export type Facts = {
   luckForward: boolean;
   /** 올해부터 10년 치 세운 점수 */
   years: YearScore[];
+  /** 앞으로 14개월 월운 — "몇 년 몇 월"까지 말하려면 이게 있어야 한다.
+   *  용신 오행에 해당하는 달을 고르는 방식은 매년 반복되는 달이라 연도가 없다. */
+  months: MonthScore[];
   isMale: boolean;
   genderKnown: boolean;
   /** 이름 — 문장에서 부를 때 쓴다. 없으면 "당신" */

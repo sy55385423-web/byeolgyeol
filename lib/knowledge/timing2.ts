@@ -29,6 +29,9 @@ const el5 = (d: ElIdx) => ({
 const yearsWith = (f: Facts, el: ElIdx) =>
   f.years.filter((y) => STEM_EL[y.stem] === el || BRANCH_EL[y.branch] === el);
 
+/** "2027년 8월" 꼴. 연도를 빼면 어느 해인지 알 수 없다. */
+const mm = (x: { year: number; month: number }) => `${x.year}년 ${x.month}월`;
+
 const fmt = (y: { year: number; age: number; ganji: string; score: number }) =>
   `${y.year}년(${y.ganji}, ${y.age}세, ${y.score}점)`;
 
@@ -185,6 +188,42 @@ export const timing2Rules: Rule[] = [
         인성: "이해받는 느낌입니다. 잘해 주는 것보다 알아주는 것에 마음이 열리고, 설명이 필요 없는 관계를 찾습니다",
       };
       return `가치관은 여덟 글자에서 가장 무거운 십신 갈래가 정합니다. ${f.who}의 경우 ${top[0]}이 ${top[1].toFixed(1)}로 가장 두껍습니다(비겁 ${g.비겁.toFixed(1)} · 식상 ${g.식상.toFixed(1)} · 재성 ${g.재성.toFixed(1)} · 관성 ${g.관성.toFixed(1)} · 인성 ${g.인성.toFixed(1)}). 그래서 이 사람이 관계에서 가장 크게 치는 것은 ${desc[top[0]]}.`;
+    },
+  },
+
+  /* ───────── 월운 — 연·월을 함께 댄다 ───────── */
+  {
+    id: "월운-좋은달",
+    topics: ["연애시기", "전성기", "재물", "직업"],
+    when: (f) => f.months.length > 0,
+    weight: 90,
+    tag: "월운+",
+    prefer: ["가장 좋은 시기", "유리한 시기", "모이는 시기"],
+    text: (f) => {
+      const s2 = [...f.months].sort((a, b) => b.score - a.score);
+      const top = s2.slice(0, 2);
+      const t = top[0];
+      return `달 단위로 좁히면 앞으로 14개월 중 ${mm(t)}(${t.ganji})이 가장 낫습니다(${t.score}점, ${t.reasons.join(", ") || "거스르는 자리가 없음"}). ${
+        top[1] ? `그다음이 ${mm(top[1])}(${top[1].ganji}, ${top[1].score}점)입니다. ` : ""
+      }달의 간지는 절기로 정해지므로 같은 5월이라도 해마다 다릅니다. 여기 적은 달은 그 해의 그 달을 가리킵니다.`;
+    },
+  },
+  {
+    id: "월운-주의달",
+    topics: ["연애주의", "건강", "재물", "직업"],
+    when: (f) => f.months.length > 0,
+    weight: 87,
+    tag: "월운-",
+    prefer: ["주의할 점", "흔들리기 쉬운", "잃기 쉬운", "주의할 시기와 선택"],
+    text: (f) => {
+      const s2 = [...f.months].sort((a, b) => a.score - b.score);
+      const w = s2[0];
+      const clash = f.months.find((x) => x.clashes.length > 0);
+      return `반대로 조심할 달은 ${mm(w)}(${w.ganji})입니다(${w.score}점, ${w.reasons.join(", ") || "받쳐 주는 자리가 없음"}).${
+        clash && clash.month !== w.month
+          ? ` ${mm(clash)}에는 원국의 ${clash.clashes.join("·")}${ga(clash.clashes[clash.clashes.length - 1])} 충을 맞아 자리가 흔들립니다.`
+          : ""
+      } 한 달 전체가 나쁘다는 뜻은 아니고, 그 구간에 큰 결정을 몰아 두지 않는 편이 낫다는 뜻입니다.`;
     },
   },
 ];
