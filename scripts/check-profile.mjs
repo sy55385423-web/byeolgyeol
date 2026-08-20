@@ -26,6 +26,14 @@ console.log("\n2) 감당력이 낮으면 발현이 눌리는가 (잠재는 비�
 const hiP=rows.filter(r=>r.ax["감정표현"].potential>=50);
 const s2=hiP.filter(r=>r.str>=55), w2=hiP.filter(r=>r.str<35);
 console.log(`  잠재 50+ 중 신강(${s2.length}) 발현 ${avg(s2,"감정표현",x=>x.ax["감정표현"].expression)} · 신약(${w2.length}) ${avg(w2,"감정표현",x=>x.ax["감정표현"].expression)}  ${ok(avg(s2,"감정표현",x=>x.ax["감정표현"].expression)>avg(w2,"감정표현",x=>x.ax["감정표현"].expression))}`);
+console.log("\n2-2) 감당 민감도 — 설기 계열 능력만 감당력에 눌려야 한다");
+const wk=rows.filter(r=>r.str<35), st=rows.filter(r=>r.str>=55);
+for(const [k,sens] of [["감정표현","민감 1.0"],["사교성","민감 1.0"],["독립성","둔감 0.3"],["신뢰감","중간 0.6"]]){
+  const d=avg(st,k)-avg(wk,k);
+  console.log(`  ${k.padEnd(5)}(${sens}) 신강 ${avg(st,k)} · 신약 ${avg(wk,k)} · 차이 ${d}점`);
+}
+console.log("  → 민감한 축은 차이가 크고, 둔감한 축(독립성)은 작아야 한다");
+
 console.log("\n3) 종합 점수와 백분위가 다른 값인가");
 const same=rows.filter(r=>r.comp===100-r.pct).length;
 const comps=[...new Set(rows.map(r=>r.comp))].length, pcts=[...new Set(rows.map(r=>r.pct))].length;
