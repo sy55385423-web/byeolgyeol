@@ -8,6 +8,7 @@
 import { astro } from "iztro";
 import { getVoidBranches, getLuckPillars } from "manseryeok";
 import { Origin, Horoscope } from "circular-natal-horoscope-js";
+import { analyze } from "./core/analyze";
 
 export const STEMS = ["갑", "을", "병", "정", "무", "기", "경", "신", "임", "계"];
 export const STEMS_HANJA = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
@@ -47,7 +48,13 @@ export type Chart = {
   dayMaster: Element;          // 일간 오행 — 성격·해석의 축
   elementCount: number[];      // 오행 분포 (8글자 기준)
   dominant: Element;
+  /** 원국에서 글자 수가 가장 적은 오행. "이 기운이 얇다"는 사실 서술에만 쓴다. */
   lacking: Element;
+  /** 용신 — 이 사람에게 실제로 필요한 기운. lacking과 다르다.
+   *  글자 수가 적다고 그게 필요한 기운은 아니다. 신강이면 힘을 빼 주는 쪽이,
+   *  신약이면 받쳐 주는 쪽이 용신이다. "나를 채워 주는 사람"은 여기서 나온다. */
+  useEl: Element;
+  avoidEl: Element;
   mingStar: string;            // 자미두수 명궁 주성
   gongs: { name: string; star: string; isMing: boolean; branch: string }[];
   sun: string;
@@ -263,12 +270,26 @@ function computeChartUncached(b: Birth): Chart {
     .filter((x): x is NonNullable<typeof x> => !!x)
     .sort((a2, b2) => a2.from - b2.from);
 
+  // 용신은 글자 수가 아니라 강약에서 나온다. 지장간을 일수 비중으로 펼치고 득령·득지·득세를
+  // 함께 보는 core/analyze가 판정한다. 리포트 전체가 이 하나를 기준으로 말해야 어긋나지 않는다.
+  const analysis = analyze(
+    {
+      year: { stem: year.stem, branch: year.branch },
+      month: { stem: month.stem, branch: month.branch },
+      day: { stem: day.stem, branch: day.branch },
+      hour: hour ? { stem: hour.stem, branch: hour.branch } : null,
+    },
+    voidBranches,
+  );
+
   return {
     pillars: { year, month, day, hour },
     dayMaster,
     elementCount,
     dominant,
     lacking,
+    useEl: analysis.useEl as Element,
+    avoidEl: analysis.avoidEl as Element,
     mingStar,
     gongs,
     sun: sunSign(m, d),

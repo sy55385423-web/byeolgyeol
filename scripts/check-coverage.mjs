@@ -1,7 +1,7 @@
 import { buildFacts } from "../lib/knowledge/facts.ts";
 import { coverage, ALL_RULES } from "../lib/knowledge/compose.ts";
 import { computeChart } from "../lib/saju.ts";
-const T=["매력","끌림","인기","연애패턴","연애주의","배우자","결혼시기","연애시기","성격","인생흐름","전성기","직업","재물","건강","궁합","재회"];
+const T=["매력","끌림","인기","연애패턴","연애주의","배우자","결혼시기","연애시기","성격","인생흐름","전성기","대운","직업","재물","건강","궁합","재회"];
 const mk=n=>{const a=[];for(let i=0;i<n;i++)a.push({y:1960+(i%50),m:1+((i*7)%12),d:1+((i*13)%28),hourBranch:i%12,gender:i%2?"male":"female"});return a;};
 const ppl=mk(200), agg={};
 for(const [i,p] of ppl.entries()){

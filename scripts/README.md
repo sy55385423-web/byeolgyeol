@@ -8,7 +8,8 @@
 | `check-reports.mjs` | 1,050건 생성 — 문장 반복·조사·마침표·빈 문단·금지 표현·예외·분량·문단 수 |
 | `check-josa.mjs` | 명식 낱말(오행·천간·지지·십신·격) 뒤 조사가 받침과 맞는지 전수 대조 |
 | `check-repeats.mjs` | 한 섹션 안에서 같은 어구가 두 번 나오는 자리를 빈도순으로 |
-| `check-coverage.mjs` | 200명 × 16주제 — 주제별로 걸리는 규칙이 몇 개인지 (최소 3 미만이면 구멍) |
+| `check-coverage.mjs` | 200명 × 17주제 — 주제별로 걸리는 규칙이 몇 개인지 (최소 3 미만이면 구멍) |
+| `check-consistency.mjs` | 한 리포트가 "필요한 기운"을 용신 하나로만 말하는지 (lacking과 섞이면 모순) |
 
 ```
 npx tsx scripts/check-reports.mjs

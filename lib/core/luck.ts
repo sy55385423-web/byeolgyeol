@@ -149,3 +149,60 @@ export function bestYearsFor(scores: YearScore[], domain: keyof typeof DOMAIN_GR
     .sort((x, y) => y.domainScore - x.domainScore)
     .slice(0, top);
 }
+
+/* ───────────────────── 대운(大運) 점수 ─────────────────────
+ *
+ *  세운이 한 해의 날씨라면 대운은 10년의 기후다. "몇 살이 전성기냐"는 질문에
+ *  원국만으로 답할 수 없다. 원국은 타고난 배치고, 그게 언제 열리는지는 대운이 정한다.
+ *
+ *  그 대운의 천간·지지가 각각
+ *    용신 +3 · 희신 +2 · 기신 −3 · 기신을 생하는 오행 −1
+ *  지지는 계절을 쥐고 있어 1.5배로 본다.
+ *
+ *  ⚠️ 유파에 따라 지지만 보기도, 천간·지지를 5년씩 나눠 보기도 한다. 여기서는
+ *  10년을 한 덩어리로 두되 지지에 가중치를 준다. */
+
+export type DecadalScore = {
+  age: number;
+  ko: string;
+  score: number;
+  /** 왜 이 점수인지 — 문장에 그대로 인용한다 */
+  why: string[];
+};
+
+/** 오행 하나가 이 명식에 몇 점짜리인지. */
+export function elementScore(a: Pick<Analysis, "useEl" | "helpEl" | "avoidEl">, el: number): number {
+  if (el === a.useEl) return 3;
+  if (el === a.helpEl) return 2;
+  if (el === a.avoidEl) return -3;
+  if ((el + 1) % 5 === a.avoidEl) return -1; // 기신을 생하는 오행
+  return 0;
+}
+
+export function scoreDecadals(
+  a: Pick<Analysis, "useEl" | "helpEl" | "avoidEl">,
+  list: { age: number; stem: number; branch: number; ko: string }[],
+): DecadalScore[] {
+  return list.map((d) => {
+    const se = STEM_EL[d.stem], be = BRANCH_EL[d.branch];
+    const ss = elementScore(a, se), bs = elementScore(a, be);
+    const why: string[] = [];
+    // 조사는 괄호 앞 간지 이름을 따라간다 — "지지 진(토)이 희신"으로 읽는다.
+    const j = (w: string) => {
+      const c = w.charCodeAt(w.length - 1);
+      return (c - 0xac00) % 28 !== 0 ? "이" : "가";
+    };
+    if (ss > 0) why.push(`천간 ${STEMS[d.stem]}(${ELEMENTS[se]})${j(STEMS[d.stem])} ${ss === 3 ? "용신" : "희신"}`);
+    if (bs > 0) why.push(`지지 ${BRANCHES[d.branch]}(${ELEMENTS[be]})${j(BRANCHES[d.branch])} ${bs === 3 ? "용신" : "희신"}`);
+    if (ss < 0) why.push(`천간 ${STEMS[d.stem]}(${ELEMENTS[se]})${j(STEMS[d.stem])} 부담`);
+    if (bs < 0) why.push(`지지 ${BRANCHES[d.branch]}(${ELEMENTS[be]})${j(BRANCHES[d.branch])} 부담`);
+    return { age: d.age, ko: d.ko, score: ss + bs * 1.5, why };
+  });
+}
+
+/** 나이 구간(초년·청년·중년·말년)에 걸치는 대운들의 평균 점수. */
+export function spanScore(scores: DecadalScore[], from: number, to: number): number {
+  const hit = scores.filter((s) => s.age + 9 >= from && s.age <= to);
+  if (!hit.length) return 0;
+  return hit.reduce((sum, s) => sum + s.score, 0) / hit.length;
+}

@@ -118,6 +118,9 @@ export function grounding(c: Chart) {
     ascLove: c.asc ? SIGN_LOVE[c.asc] ?? "" : null,
     domEl: ELEMENTS[c.dominant],
     lackEl: ELEMENTS[c.lacking],
+    // 용신 — "이 사람에게 필요한 기운". lackEl(글자 수가 가장 적은 오행)과 다르다.
+    // 나를 채워 주는 사람·환경을 말할 때는 반드시 이쪽을 써야 리포트가 어긋나지 않는다.
+    useEl: ELEMENTS[c.useEl],
     // 오행 분포 원본 — "여덟 글자 중 토가 네 자"처럼 실제 수치를 인용해야 근거가 구체해진다.
     // 지금까지는 domEl/lackEl(강·약 라벨)만 써서 어느 명반이든 같은 문장이 나왔다.
     domCount: c.elementCount[c.dominant],
