@@ -18,7 +18,8 @@
  *  실제 상담에서는 이보다 훨씬 많은 요소를 함께 본다. 다만 "왜 이 달인지" 설명할 수
  *  있다는 점에서 해시 방식과는 성격이 다르다. */
 
-import { BRANCH_ELEMENT, STEM_ELEMENT, ELEMENTS, type Chart, type Element } from "./saju";
+import { BRANCH_ELEMENT, ELEMENTS, type Chart, type Element } from "./saju";
+import { analyze, type Analysis } from "./core/analyze";
 
 /** 일간(D)을 기준으로 한 십신 계열의 오행.
  *  상생은 (i+1)%5 (목→화→토→금→수→목), 상극은 (i+2)%5 (목→토, 화→금 …). */
@@ -43,6 +44,8 @@ export type Timing = {
   good: number;            // 대표 좋은 달
   risk: number;            // 대표 조심할 달
   daewoon?: { from: number; to: number; stem: string; branch: string; el: Element; helpful: boolean };
+  /** 십신·관계·신살까지 담긴 전체 분석 — 리포트가 사실을 인용할 때 쓴다. */
+  analysis: Analysis;
 };
 
 /** 양력 달 → 월지 index. 절기 기준이라 실제로는 4~5일 앞뒤로 밀리지만,
@@ -54,41 +57,20 @@ export const monthElement = (m: number): Element => BRANCH_ELEMENT[monthBranch(m
 const monthsOf = (el: Element) => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].filter((m) => monthElement(m) === el);
 
 export function analyzeTiming(c: Chart, now = new Date()): Timing {
-  const day = c.dayMaster;
-  const t = tenGods(day);
-
-  // ── 1) 신강·신약 ────────────────────────────────────────────────
-  // 여덟 글자를 오행별로 세되, 계절을 쥔 월지에는 가중치를 더 준다(득령).
-  const pillars = [c.pillars.year, c.pillars.month, c.pillars.day, c.pillars.hour].filter(
-    (p): p is NonNullable<typeof p> => !!p,
+  // 강약·용신 판정은 lib/core/analyze.ts가 한다. 그쪽은 지장간을 일수 비중으로 펼치고
+  // 득령·득지·득세를 함께 보므로, 오행 개수만 세던 예전 판정보다 훨씬 정확하다.
+  const a = analyze(
+    {
+      year: { stem: c.pillars.year.stem, branch: c.pillars.year.branch },
+      month: { stem: c.pillars.month.stem, branch: c.pillars.month.branch },
+      day: { stem: c.pillars.day.stem, branch: c.pillars.day.branch },
+      hour: c.pillars.hour ? { stem: c.pillars.hour.stem, branch: c.pillars.hour.branch } : null,
+    },
+    c.voidBranches,
   );
-  const w = [0, 0, 0, 0, 0];
-  for (const p of pillars) {
-    w[STEM_ELEMENT[p.stem]] += 1;
-    w[BRANCH_ELEMENT[p.branch]] += 1;
-  }
-  // 월지 가중 — 계절의 기운이 일간의 강약을 가장 크게 가른다.
-  w[BRANCH_ELEMENT[c.pillars.month.branch]] += 2;
-  // 일지는 일간이 깔고 앉은 자리라 한 단계 더 본다.
-  w[BRANCH_ELEMENT[c.pillars.day.branch]] += 1;
 
-  const support = w[t.비겁] + w[t.인성];
-  const drain = w[t.식상] + w[t.재성] + w[t.관성];
-  const strong = support >= drain;
-
-  // ── 2) 용신 · 기신 ──────────────────────────────────────────────
-  // 신약이면 채워 주는 쪽이 용신이다. 인성이 이미 두꺼우면 같은 편인 비겁으로 옮긴다.
-  // 신강이면 빼 주는 쪽이 용신이다. 식상이 막혀 있으면 재성으로 흘린다.
-  let useEl: Element;
-  let avoidEl: Element;
-  if (!strong) {
-    useEl = w[t.인성] >= 3 ? t.비겁 : t.인성;
-    avoidEl = t.관성; // 약한 일간을 더 누르는 기운
-  } else {
-    useEl = w[t.식상] === 0 ? t.재성 : t.식상;
-    avoidEl = t.인성; // 이미 강한 일간에 더 보태는 기운
-  }
-
+  const useEl = a.useEl as Element;
+  const avoidEl = a.avoidEl as Element;
   const goodMonths = monthsOf(useEl);
   const riskMonths = monthsOf(avoidEl);
   // 대표값 — 같은 오행에 달이 여럿이면(토는 넷) 그중 첫 달을 쓴다. 같은 사람에게 항상
@@ -96,19 +78,21 @@ export function analyzeTiming(c: Chart, now = new Date()): Timing {
   const good = goodMonths[0] ?? 1;
   const risk = riskMonths[0] ?? 7;
 
-  // ── 3) 대한(大限) — 자미두수 쪽에서 실제로 계산된 구간 ─────────────
+  // 대한(大限) — 자미두수 쪽에서 실제로 계산된 구간
   const age = now.getFullYear() - c.birthYear + 1; // 한국식 세는나이
   const cur = c.decadals.find((d) => age >= d.from && age <= d.to);
   const daewoon = cur
-    ? {
-        ...cur,
-        el: BRANCH_ELEMENT[cur.branchIdx] as Element,
-        // 대한의 지지 오행이 용신이면 도움이 되는 구간으로 본다.
-        helpful: (BRANCH_ELEMENT[cur.branchIdx] as Element) === useEl,
-      }
+    ? { ...cur, el: BRANCH_ELEMENT[cur.branchIdx] as Element, helpful: (BRANCH_ELEMENT[cur.branchIdx] as Element) === useEl }
     : undefined;
 
-  return { strong, support, drain, useEl, avoidEl, goodMonths, riskMonths, good, risk, daewoon };
+  return {
+    strong: a.strong,
+    support: a.groupWeight.비겁 + a.groupWeight.인성,
+    drain: a.groupWeight.식상 + a.groupWeight.재성 + a.groupWeight.관성,
+    useEl, avoidEl, goodMonths, riskMonths, good, risk, daewoon,
+    analysis: a,
+  };
+
 }
 
 // 오행 이름의 받침 — 목(ㄱ)·금(ㅁ)만 받침이 있다. 조사를 하드코딩하면 "목가", "화이"가 된다.

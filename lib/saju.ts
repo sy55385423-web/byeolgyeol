@@ -6,6 +6,7 @@
  *    이 사실은 Chart 자체가 아니라 리포트 생성 프롬프트 쪽에서 "시간 미상"으로 별도 처리한다. */
 
 import { astro } from "iztro";
+import { getVoidBranches } from "manseryeok";
 import { Origin, Horoscope } from "circular-natal-horoscope-js";
 
 export const STEMS = ["갑", "을", "병", "정", "무", "기", "경", "신", "임", "계"];
@@ -55,6 +56,7 @@ export type Chart = {
   // 자미두수 대한 — iztro가 궁마다 계산해 주는 10년 단위 구간. lib/timing.ts가
   // 현재 나이로 해당 구간을 찾아 "지금 어떤 흐름에 있는지"를 판단한다.
   decadals: { from: number; to: number; stem: string; branch: string; branchIdx: number }[];
+  voidBranches: string[]; // 공망 지지 두 개 — manseryeok 계산값
 };
 
 const ZODIAC_KO_FROM_EN: Record<string, string> = {
@@ -196,6 +198,17 @@ function computeChartUncached(b: Birth): Chart {
 
   const seed = y * 372 + m * 31 + d + (b.hourBranch ?? 0) * 7;
 
+  // 공망 — 일주가 속한 순(旬)에서 빠지는 지지 두 개. manseryeok이 계산해 준다.
+  let voidBranches: string[] = [];
+  try {
+    voidBranches = getVoidBranches(
+      STEMS[day.stem] as Parameters<typeof getVoidBranches>[0],
+      BRANCHES[day.branch] as Parameters<typeof getVoidBranches>[1],
+    ) as string[];
+  } catch {
+    voidBranches = [];
+  }
+
   // 대한 — 궁마다 [시작나이, 끝나이]와 간지가 붙어 있다. 나이로 찾을 수 있게 펼쳐 둔다.
   const decadals = astrolabe.palaces
     .map((p) => {
@@ -228,6 +241,7 @@ function computeChartUncached(b: Birth): Chart {
     timeKnown,
     birthYear: y,
     decadals,
+    voidBranches,
   };
 }
 
