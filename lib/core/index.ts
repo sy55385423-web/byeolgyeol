@@ -9,7 +9,7 @@
  *  자미두수(iztro)와 서양 점성술은 lib/saju.ts가 계속 담당한다. 그쪽은 이미 실계산이라
  *  건드릴 이유가 없고, 여기서는 사주 쪽 공백만 메운다. */
 
-import { calculateFourPillars, type Gender } from "manseryeok";
+import { calculateFourPillars, getLuckPillars, type Gender } from "manseryeok";
 import { STEMS, BRANCHES, ELEMENTS, type ElIdx } from "./ganji";
 import { analyze, type Analysis, type Pillar } from "./analyze";
 
@@ -44,20 +44,34 @@ export function computeSaju(input: SajuInput): SajuFacts {
   const voidBranches: string[] = Array.isArray(r.voidBranches) ? (r.voidBranches as string[]) : [];
   const analysis = analyze(pillars, voidBranches);
 
-  // 대운 — manseryeok이 절입 시각 차이로 시작 나이까지 계산해 준다.
-  const lp = r.luckPillars as
-    | { startAge?: number; forward?: boolean; pillars?: { age: number; korean: string; pillar: { heavenlyStem: string; earthlyBranch: string } }[] }
-    | undefined;
-  const luck = {
-    startAge: lp?.startAge ?? 0,
-    forward: lp?.forward ?? true,
-    list: (lp?.pillars ?? []).map((p) => ({
-      age: p.age,
-      stem: si(p.pillar.heavenlyStem),
-      branch: bi(p.pillar.earthlyBranch),
-      ko: p.korean,
-    })),
-  };
+  // 대운 — 출생에서 다음(순행)/이전(역행) 절(節)까지의 일수로 시작 나이를 정한다.
+  // 순역은 성별에 달려 있다(양남·음녀 순행 / 음남·양녀 역행). 앱이 성별을 받으므로
+  // 그 값을 그대로 넘긴다. "밝히지 않음"이면 남성 기준으로 계산한다.
+  let luck = { startAge: 0, forward: true, list: [] as { age: number; stem: number; branch: number; ko: string }[] };
+  try {
+    // 출생 절대 순간(UTC ms) — 한국 표준시(UTC+9) 기준
+    const instantUTCms = Date.UTC(y, m - 1, d, (known ? hour! : 12) - 9, 0);
+    const lp = getLuckPillars({
+      instantUTCms,
+      birthYear: y,
+      monthPillar: { heavenlyStem: r.month.heavenlyStem, earthlyBranch: r.month.earthlyBranch },
+      sajuYearStemIndex: si(r.year.heavenlyStem),
+      gender: (isMale ? "male" : "female") as Gender,
+      count: 9,
+    });
+    luck = {
+      startAge: lp.startAge,
+      forward: lp.forward,
+      list: lp.pillars.map((pp) => ({
+        age: pp.age,
+        stem: si(pp.pillar.heavenlyStem),
+        branch: bi(pp.pillar.earthlyBranch),
+        ko: pp.korean,
+      })),
+    };
+  } catch {
+    // 절기 데이터 범위를 벗어나는 연도 등 — 대운이 없어도 나머지 분석은 그대로 유효하다.
+  }
 
   return {
     pillarText: `${r.yearString} ${r.monthString} ${r.dayString}${known ? ` ${r.hourString}` : ""}`,

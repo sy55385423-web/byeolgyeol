@@ -24,7 +24,7 @@ import { analyzeTiming, timingReason } from "./timing";
 import { marriageAgeFromSeed } from "./top1";
 import { categories, type Category } from "@/data/categories";
 
-export type PersonInput = { y: number; m: number; d: number; hourBranch?: number };
+export type PersonInput = { y: number; m: number; d: number; hourBranch?: number; gender?: "male" | "female" | "none" };
 
 export type ReportInput = {
   categoryId: string;

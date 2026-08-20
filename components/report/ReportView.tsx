@@ -51,8 +51,9 @@ function Body({ order, id }: { order: Order; id: string }) {
     const input: ReportInput = {
       categoryId: order.c,
       name: order.n,
-      me: { y: order.me.y, m: order.me.m, d: order.me.d, hourBranch: order.me.h },
-      partner: order.pt ? { y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h } : undefined,
+      me: { y: order.me.y, m: order.me.m, d: order.me.d, hourBranch: order.me.h, gender: order.me.g },
+      partner: order.pt
+        ? { y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h, gender: order.pt.g } : undefined,
       partnerName: order.pn,
       extraQuestion: order.q,
       tier: order.t,
@@ -79,20 +80,21 @@ function Body({ order, id }: { order: Order; id: string }) {
   }, [report, category]);
 
   const myChart = useMemo(
-    () => computeChart({ y: order.me.y, m: order.me.m, d: order.me.d, hourBranch: order.me.h }),
+    () => computeChart({ y: order.me.y, m: order.me.m, d: order.me.d, hourBranch: order.me.h, gender: order.me.g }),
     [order]
   );
 
   const chartCtx: Ctx | null = useMemo(() => {
     if (!category) return null;
     const ptChart = order.pt
-      ? computeChart({ y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h })
+      ? computeChart({ y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h, gender: order.pt.g })
       : undefined;
     const input: ReportInput = {
       categoryId: order.c,
       name: order.n,
-      me: { y: order.me.y, m: order.me.m, d: order.me.d, hourBranch: order.me.h },
-      partner: order.pt ? { y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h } : undefined,
+      me: { y: order.me.y, m: order.me.m, d: order.me.d, hourBranch: order.me.h, gender: order.me.g },
+      partner: order.pt
+        ? { y: order.pt.y, m: order.pt.m, d: order.pt.d, hourBranch: order.pt.h, gender: order.pt.g } : undefined,
       partnerName: order.pn,
       tier: order.t,
     };

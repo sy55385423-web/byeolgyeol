@@ -360,19 +360,21 @@ export default function Flow({ category }: { category: Category }) {
     const meChart = computeChart({
       y: +me.y, m: +me.m, d: +me.d,
       hourBranch: me.knowsTime ? hourBranchFromLabel(me.time) : undefined,
+      gender: me.gender || undefined,
     });
     const ptChart = category.needsPartner
       ? computeChart({
           y: +partner.y, m: +partner.m, d: +partner.d,
           hourBranch: partner.knowsTime ? hourBranchFromLabel(partner.time) : undefined,
+          gender: partner.gender || undefined,
         })
       : undefined;
     const input: ReportInput = {
       categoryId: category.id,
       name: name || undefined,
-      me: { y: +me.y, m: +me.m, d: +me.d, hourBranch: me.knowsTime ? hourBranchFromLabel(me.time) : undefined },
+      me: { y: +me.y, m: +me.m, d: +me.d, hourBranch: me.knowsTime ? hourBranchFromLabel(me.time) : undefined, gender: me.gender || undefined },
       partner: category.needsPartner
-        ? { y: +partner.y, m: +partner.m, d: +partner.d, hourBranch: partner.knowsTime ? hourBranchFromLabel(partner.time) : undefined }
+        ? { y: +partner.y, m: +partner.m, d: +partner.d, hourBranch: partner.knowsTime ? hourBranchFromLabel(partner.time) : undefined, gender: partner.gender || undefined }
         : undefined,
       partnerName: category.needsPartner ? partnerName || undefined : undefined,
       tier: "basic",
@@ -415,9 +417,9 @@ export default function Flow({ category }: { category: Category }) {
   const orderOf = (): Order => ({
     c: category.id,
     n: name || undefined,
-    me: { y: +me.y, m: +me.m, d: +me.d, h: me.knowsTime ? hourBranchFromLabel(me.time) : undefined },
+    me: { y: +me.y, m: +me.m, d: +me.d, h: me.knowsTime ? hourBranchFromLabel(me.time) : undefined, g: me.gender || undefined },
     pt: category.needsPartner
-      ? { y: +partner.y, m: +partner.m, d: +partner.d, h: partner.knowsTime ? hourBranchFromLabel(partner.time) : undefined }
+      ? { y: +partner.y, m: +partner.m, d: +partner.d, h: partner.knowsTime ? hourBranchFromLabel(partner.time) : undefined, g: partner.gender || undefined }
       : undefined,
     pn: category.needsPartner ? partnerName || undefined : undefined,
     t: "basic",

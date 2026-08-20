@@ -37,6 +37,9 @@ export type Birth = {
   m: number;
   d: number;
   hourBranch?: number; // 0(자)~11(해), 모르면 undefined
+  // 대운의 순역과 자미두수 대한이 성별에 따라 달라진다. 밝히지 않으면 남성 기준으로 계산하고,
+  // Chart.genderKnown이 false가 되어 리포트가 그 한계를 밝힐 수 있게 한다.
+  gender?: "male" | "female" | "none";
 };
 
 export type Chart = {
@@ -57,6 +60,8 @@ export type Chart = {
   // 현재 나이로 해당 구간을 찾아 "지금 어떤 흐름에 있는지"를 판단한다.
   decadals: { from: number; to: number; stem: string; branch: string; branchIdx: number }[];
   voidBranches: string[]; // 공망 지지 두 개 — manseryeok 계산값
+  isMale: boolean;        // 대운 순역 계산에 쓰는 값 (미입력 시 남성으로 가정)
+  genderKnown: boolean;   // 사용자가 실제로 성별을 밝혔는지
 };
 
 const ZODIAC_KO_FROM_EN: Record<string, string> = {
@@ -124,7 +129,7 @@ const chartCache = new Map<string, Chart>();
 const CHART_CACHE_MAX = 500;
 
 export function computeChart(b: Birth): Chart {
-  const key = `${b.y}-${b.m}-${b.d}-${b.hourBranch ?? "x"}`;
+  const key = `${b.y}-${b.m}-${b.d}-${b.hourBranch ?? "x"}-${b.gender ?? "x"}`;
   const hit = chartCache.get(key);
   if (hit) return hit;
   const chart = computeChartUncached(b);
@@ -140,7 +145,9 @@ export function computeChart(b: Birth): Chart {
 function computeChartUncached(b: Birth): Chart {
   const { y, m, d } = b;
   const timeKnown = b.hourBranch !== undefined;
-  const gender = "男"; // 자미두수 대한 순역만 성별에 의존 — 이 리포트가 쓰는 명궁/12궁/사화엔 영향 없음
+  const isMale = b.gender !== "female";
+  const genderKnown = b.gender === "male" || b.gender === "female";
+  const gender = isMale ? "男" : "女"; // 자미두수 대한의 순역이 성별에 달려 있다
   const dateStr = `${y}-${m}-${d}`;
   const timeIndex = toIztroTimeIndex(b.hourBranch);
 
@@ -242,6 +249,8 @@ function computeChartUncached(b: Birth): Chart {
     birthYear: y,
     decadals,
     voidBranches,
+    isMale,
+    genderKnown,
   };
 }
 
