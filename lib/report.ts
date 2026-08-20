@@ -1961,6 +1961,15 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     if (B.dominant !== A.useEl && A.dominant !== B.useEl) return "서로를 채우지 못한 것";
     return "엇갈린 타이밍";
   };
+  /** 지금부터 다음 용신 달까지 몇 달 남았는지. "N개월 후"류 답의 근거가 된다.
+   *  기다리라는 말이 아니라, 흐름이 바뀌는 지점까지의 거리다. */
+  const monthsToGood = (months: number[], offset = 0): number => {
+    if (!months.length) return 3;
+    const now = new Date().getMonth() + 1;
+    const gaps = months.map((m) => ((m - now + 12) % 12) || 12).sort((a, b) => a - b);
+    return gaps[offset % gaps.length];
+  };
+  /** 두 사람 중 어느 쪽이 더 기우는가. */
   const favorGap = () => favorGapOf(me, pt);
   /** 결혼 나이 — 배우자성(남명 재성·여명 관성)이 대운으로 들어오는 첫 구간에서 잡는다.
    *  성별을 모르면 용신 대운으로 대신한다. seed에서 뽑던 숫자와 달리 근거가 있다. */
@@ -1996,8 +2005,19 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
   return {
     "나의 타고난 매력은?": { v: EL[me.dayMaster].fromLabel },
     "나의 타고난 인기는 상위 몇 %?": { v: `${pct}`, gauge: 100 - pct },
-    "나를 몰래 좋아했던 사람 수": { v: `${2 + (s % 7)}` },
-    "총 연애 횟수 예상": { v: `${2 + ((s >> 2) % 5)}` },
+    "나를 몰래 좋아했던 사람 수": { v: `${Math.round(2 + gw.식상 * 1.2 + gw.재성 * 0.8 + (hasSinsal("도화") ? 2 : 0))}` },
+    "총 연애 횟수 예상": { v: `${(() => {
+      // 배우자성(남명 재성·여명 관성)이 인연의 수를 쥔다. 다만 원국에 한두 개뿐인
+      // 사람이 절반이 넘어서 그것만 보면 대부분 같은 숫자가 된다. 시작이 잦아지는
+      // 자리(도화·식상)와 관계가 한 번 끊기고 다시 시작되는 자리(일지 충·비겁)를 같이 본다.
+      const names = me.isMale ? ["편재", "정재"] : ["편관", "정관"];
+      let n = 2 + godCount(names);
+      if (hasSinsal("도화")) n += 1;
+      if (A.relations.some((r) => r.kind === "충" && r.between.includes("일"))) n += 1;
+      if (gw.비겁 >= 2) n += 1;
+      if (gw.식상 >= 2) n += 1;
+      return Math.max(2, Math.min(9, n));
+    })()}` },
     "결혼 예상 나이": { v: `${marriageAge()}` },
     "운명의 상대의 특징과 외모": { v: EL[me.useEl].fromLabel },
     "연애하면 안 되는 사람의 특징": { v: "확인을 강요하는 유형" },
@@ -2020,17 +2040,28 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     "둘의 연애가 어땠는지": { v: (() => { const g = favorGap(); const a2 = Math.max(3, Math.min(8, 5 + Math.round(g / 4))); return `${a2}:${10 - a2}`; })() },
     "궁합과 인연": { v: `상위 ${pairScore ? Math.max(3, Math.round(100 - pairScore.score)) : 25}%` },
     "상대방의 현재 마음": { v: pairScore?.six ? "미련 남음" : pairScore?.clash ? "정리 중" : (pairScore?.score ?? 50) >= 60 ? "그리움 잠복" : "정리 중" },
-    "상대방이 나를 기억하는 방식": { v: ["좋았던 계절", "미안한 사이", "그리운 한때"][(p || s + 1) % 3] },
+    "상대방이 나를 기억하는 방식": { v: (() => {
+      // 상대 입장에서 이 관계가 무엇이었는지는 상대의 명식 기준으로 봐야 한다.
+      // 내가 상대의 용신이었다면 실제로 덕을 본 관계고, 일지가 충이면 상처로 남는다.
+      if (!pt) return "그리운 한때";
+      const B = analyzeTiming(pt).analysis;
+      const mb = A.pillars.일!.branch, ob = B.pillars.일!.branch;
+      if (A.dominant === B.useEl) return "고마웠던 사람";
+      if (branchClash(mb, ob)) return "미안한 사이";
+      if (branchSix(mb, ob)) return "좋았던 계절";
+      if (A.dominant === B.avoidEl) return "버거웠던 시기";
+      return "그리운 한때";
+    })() },
     "헤어진 진짜 이유": { v: breakupReason() },
     "재회 가능성": { v: `${pairScore ? (pairScore.six ? Math.min(88, pairScore.score + 10) : pairScore.clash ? Math.max(15, pairScore.score - 18) : pairScore.score - 6) : 45}`, gauge: pairScore ? (pairScore.six ? Math.min(88, pairScore.score + 10) : pairScore.clash ? Math.max(15, pairScore.score - 18) : pairScore.score - 6) : 45 },
-    "연락 타이밍": { v: `${1 + ((s + p) % 6)}주 뒤` },
+    "연락 타이밍": { v: `${Math.max(1, Math.min(8, monthsToGood(tm.goodMonths) * 2))}주 뒤` },
     // 재회도 내 용신이 들어오는 달로 본다. 용신 달이 여럿이면(토는 넷) 상대 명반으로 갈라
     // 같은 사람이라도 상대에 따라 다른 달이 나오게 한다.
     "재회 시기": { v: `${tm.goodMonths[p % tm.goodMonths.length]}월` },
     "새로운 사람의 존재": { v: yrs[0] && [0, 3, 6, 9].includes(yrs[0].branch) ? "가벼운 만남 있음" : "아직 없음" },
     "재회 후 관계": { v: "이전보다 단단" },
-    "나의 마음이 정리되는 시기": { v: `${1 + ((s + 2) % 6)}개월 후` },
-    "상대방의 마음이 정리되는 시기": { v: `${2 + ((p || s + 3) % 7)}개월 후` },
+    "나의 마음이 정리되는 시기": { v: `${monthsToGood(tm.goodMonths)}개월 후` },
+    "상대방의 마음이 정리되는 시기": { v: `${pt ? monthsToGood(analyzeTiming(pt).goodMonths) : monthsToGood(tm.goodMonths, 1)}개월 후` },
     "나에게 새로운 인연이 들어오는 시기": { v: `${tm.goodMonths[tm.goodMonths.length - 1]}월` },
     "타고난 직업 적성과 일의 그릇": { v: EL[me.dayMaster].fromLabel.replace(/[은는]$/, "") },
     "나에게 맞는 일의 방식": { v: me.dominant % 2 === 0 ? "주도형" : "조율형" },
