@@ -7,6 +7,15 @@ import { ELEMENTS, BRANCHES, STEMS } from "../core/ganji";
 import type { Rule, Facts } from "./types";
 import { ga, eun, eul, ro } from "./types";
 
+/** 강약 문단의 여는 말.
+ *
+ *  "나와 상대방의 타고난 특징"처럼 두 사람을 나란히 놓는 문항에서는 신강 문단과 신약
+ *  문단이 한 섹션에 같이 선다. 내용은 서로 다른데 여는 구절이 같으면 읽는 쪽에서는
+ *  같은 말을 두 번 하는 것처럼 보인다. 그래서 여는 말을 그 사람의 명식에서 갈라 낸다.
+ *  랜덤이 아니라 일간과 강약 점수로 정하므로 같은 명식이면 늘 같은 문장이 나온다. */
+const OPENERS = ["여덟 글자를 재 보면", "사주 여덟 글자의 무게를 따져 보면", "명식 전체를 놓고 보면", "여덟 글자의 힘을 저울에 올려 보면"];
+const opener = (f: Facts) => OPENERS[(f.a.dayStem * 7 + f.a.strengthScore) % OPENERS.length];
+
 export const structureRules: Rule[] = [
   /* ───────── 신강 · 신약 ───────── */
   {
@@ -17,7 +26,7 @@ export const structureRules: Rule[] = [
     tag: "강약",
     text: (f) => {
       const got = [f.a.득령 && "월령", f.a.득지 && "일지", f.a.득세 && "천간"].filter(Boolean) as string[];
-      return `${f.who}${eun(f.who)} 여덟 글자를 재 보면 일간 ${STEMS[f.a.dayStem]}${ELEMENTS[f.a.dayEl]}${ga(ELEMENTS[f.a.dayEl])} 힘을 얻은 쪽입니다(신강, ${f.a.strengthScore}점). ${
+      return `${f.who}${eun(f.who)} ${opener(f)} 일간 ${STEMS[f.a.dayStem]}${ELEMENTS[f.a.dayEl]}${ga(ELEMENTS[f.a.dayEl])} 힘을 얻은 쪽입니다(신강, ${f.a.strengthScore}점). ${
         got.length ? `${got.join("·")}에서 받쳐 주는 힘을 얻었습니다. ` : ""
       }밀어붙이는 힘이 있어 스스로 결정하고 스스로 감당하는 데 익숙한데, 그만큼 남의 속도에 맞추는 일이 유독 피곤합니다. 이 명식은 채워 주는 것보다 덜어 주는 것이 필요합니다.`;
     },
@@ -30,7 +39,7 @@ export const structureRules: Rule[] = [
     tag: "강약",
     text: (f) => {
       const lack = [!f.a.득령 && "월령", !f.a.득지 && "일지", !f.a.득세 && "천간"].filter(Boolean) as string[];
-      return `${f.who}${eun(f.who)} 여덟 글자를 재 보면 일간 ${STEMS[f.a.dayStem]}${ELEMENTS[f.a.dayEl]}${eul(ELEMENTS[f.a.dayEl])} 받쳐 주는 글자가 적은 쪽입니다(신약, ${f.a.strengthScore}점). ${
+      return `${f.who}${eun(f.who)} ${opener(f)} 일간 ${STEMS[f.a.dayStem]}${ELEMENTS[f.a.dayEl]}${eul(ELEMENTS[f.a.dayEl])} 받쳐 주는 글자가 적은 쪽입니다(신약, ${f.a.strengthScore}점). ${
         lack.length ? `${lack.join("·")}에서 힘을 못 얻었습니다. ` : ""
       }혼자 밀어붙이는 방식보다 사람과 환경을 빌려 쓰는 방식이 훨씬 잘 맞습니다. 버티는 힘이 약한 게 아니라, 혼자 다 감당하려 할 때만 무너지는 구조입니다.`;
     },
@@ -238,7 +247,7 @@ export const timingRules: Rule[] = [
         .map((r) => r.text)
         .join(", ")}${best[0].reasons.some((r) => r.delta > 0) ? " — 이 조건들이 겹치는 해입니다. " : ""}반대로 ${worst.year}년(${worst.ganji}, ${worst.score}점)은 ${
         worst.reasons.filter((r) => r.delta < 0).slice(0, 2).map((r) => r.text).join(", ") || "부담이 겹치는 구간"
-      }이라, 큰 결정을 이 해에 몰아 두지 않는 편이 낫습니다.`;
+      }입니다. 큰 결정을 이 해에 몰아 두지 않는 편이 낫습니다.`;
     },
   },
   {
@@ -249,7 +258,7 @@ export const timingRules: Rule[] = [
     tag: "세운-충",
     text: (f) => {
       const y = f.years.find((x) => x.clashes.length > 0)!;
-      return `${f.who}의 경우 ${y.year}년(${y.ganji})에 원국의 ${y.clashes.join("·")}가 충을 맞습니다. 자리가 흔들리는 해라 이동·이직·관계 변화가 겹치기 쉬운데, 미리 알고 맞으면 흔들림의 크기가 확 줄어듭니다.`;
+      return `${f.who}의 경우 ${y.year}년(${y.ganji})에 원국의 ${y.clashes.join("·")}${ga(y.clashes[y.clashes.length - 1])} 충을 맞습니다. 자리가 흔들리는 해라 이동·이직·관계 변화가 겹치기 쉬운데, 미리 알고 맞으면 흔들림의 크기가 확 줄어듭니다.`;
     },
   },
   {

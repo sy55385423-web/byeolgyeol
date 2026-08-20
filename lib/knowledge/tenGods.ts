@@ -15,7 +15,7 @@
 
 import { ELEMENTS } from "../core/ganji";
 import type { Rule, Facts } from "./types";
-import { ga, jong } from "./types";
+import { ga, jong, eun } from "./types";
 
 type Group = "비겁" | "식상" | "재성" | "관성" | "인성";
 const w = (f: Facts, g: Group) => f.a.groupWeight[g];
@@ -82,7 +82,7 @@ export const tenGodRules: Rule[] = [
     weight: 76,
     tag: "재성",
     text: (f) =>
-      `${f.who}는 재성이 뚜렷합니다(${seatText(f, "재성") || "천간·지지 여러 자리"}). 숫자와 현실을 보는 눈이 밝아서, 감정보다 조건을 먼저 계산하는 편입니다. 그 판단이 대체로 맞는 대신, 계산이 서는 자리에서만 마음을 여는 습관이 붙습니다.`,
+      `${f.who}${eun(f.who)} 재성이 뚜렷합니다(${seatText(f, "재성") || "천간·지지 여러 자리"}). 숫자와 현실을 보는 눈이 밝아서, 감정보다 조건을 먼저 계산하는 편입니다. 그 판단이 대체로 맞는 대신, 계산이 서는 자리에서만 마음을 여는 습관이 붙습니다.`,
   },
 
   /* ───────── 관성 ───────── */
@@ -115,7 +115,7 @@ export const tenGodRules: Rule[] = [
     weight: 74,
     tag: "관성",
     text: (f) =>
-      `${f.who}는 관성이 제법 잡혀 있습니다(${seatText(f, "관성") || "천간·지지"}). 틀이 있는 자리에서 힘이 붙고, 맡은 일을 마무리하는 힘이 강합니다. 대신 규칙이 흔들리는 환경에서는 능률이 크게 떨어집니다.`,
+      `${f.who}${eun(f.who)} 관성이 제법 잡혀 있습니다(${seatText(f, "관성") || "천간·지지"}). 틀이 있는 자리에서 힘이 붙고, 맡은 일을 마무리하는 힘이 강합니다. 대신 규칙이 흔들리는 환경에서는 능률이 크게 떨어집니다.`,
   },
 
   /* ───────── 식상 ───────── */
@@ -195,7 +195,7 @@ export const tenGodRules: Rule[] = [
         관성: "기댈 만한 사람, 기준이 분명한 사람에게 끌립니다. 다만 그 기준이 나를 향할 때는 답답해집니다",
         인성: "나를 이해해 주고 품어 주는 쪽에 편안함을 느낍니다. 대신 관계가 보호자-피보호자로 기울기 쉽습니다",
       };
-      return `${f.who}의 배우자 자리인 일지에는 ${dayBranchGod}이 앉아 있습니다. ${desc[g]}.`;
+      return `${f.who}의 배우자 자리인 일지에는 ${dayBranchGod}${ga(dayBranchGod)} 앉아 있습니다. ${desc[g]}.`;
     },
   },
 ];

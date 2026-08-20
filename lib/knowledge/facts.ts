@@ -6,7 +6,12 @@ import { analyze } from "../core/analyze";
 import { scoreYears } from "../core/luck";
 import type { Facts } from "./types";
 
-export function buildFacts(chart: Chart, name?: string, now = new Date()): Facts {
+export function buildFacts(
+  chart: Chart,
+  name?: string,
+  now = new Date(),
+  other?: { chart: Chart; name?: string },
+): Facts {
   const a = analyze(
     {
       year: { stem: chart.pillars.year.stem, branch: chart.pillars.year.branch },
@@ -36,6 +41,23 @@ export function buildFacts(chart: Chart, name?: string, now = new Date()): Facts
     isMale: chart.isMale,
     genderKnown: chart.genderKnown,
     who: name ? `${name}님` : "당신",
+    other: other
+      ? {
+          a: analyze(
+            {
+              year: { stem: other.chart.pillars.year.stem, branch: other.chart.pillars.year.branch },
+              month: { stem: other.chart.pillars.month.stem, branch: other.chart.pillars.month.branch },
+              day: { stem: other.chart.pillars.day.stem, branch: other.chart.pillars.day.branch },
+              hour: other.chart.pillars.hour
+                ? { stem: other.chart.pillars.hour.stem, branch: other.chart.pillars.hour.branch }
+                : null,
+            },
+            other.chart.voidBranches,
+          ),
+          who: other.name ? `${other.name}님` : "상대방",
+          isMale: other.chart.isMale,
+        }
+      : undefined,
   };
 }
 

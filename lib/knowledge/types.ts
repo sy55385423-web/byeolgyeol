@@ -39,6 +39,12 @@ export type Facts = {
   genderKnown: boolean;
   /** 이름 — 문장에서 부를 때 쓴다. 없으면 "당신" */
   who: string;
+  /** 궁합·재회에서 상대방. 두 사람의 관계를 보는 규칙은 이게 있을 때만 걸린다. */
+  other?: {
+    a: Analysis;
+    who: string;
+    isMale: boolean;
+  };
 };
 
 export type Rule = {
@@ -65,6 +71,7 @@ export function jong(w: string): boolean {
 export const ga = (w: string) => (jong(w) ? "이" : "가");
 export const eun = (w: string) => (jong(w) ? "은" : "는");
 export const eul = (w: string) => (jong(w) ? "을" : "를");
+export const wa = (w: string) => (jong(w) ? "과" : "와");
 export const ro = (w: string) => {
   for (let i = w.length - 1; i >= 0; i--) {
     const c = w.charCodeAt(i);

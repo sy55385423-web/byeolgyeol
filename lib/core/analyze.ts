@@ -63,6 +63,12 @@ export type Analysis = {
   /** 없는 오행 / 가장 두꺼운 오행 */
   missing: ElIdx[];
   dominant: ElIdx;
+
+  /** 격국(格局) — 월지가 일간에게 어떤 십신인지로 정한다.
+   *  월령은 사주에서 가장 무거운 자리라, 그 자리의 성격이 곧 이 사람이 사는 방식이 된다.
+   *  ⚠️ 유파에 따라 투출·변격까지 따져 다르게 잡기도 한다. 여기서는 월지 정기 기준의
+   *  기본격만 낸다(내격 10종). 외격·특수격은 다루지 않는다. */
+  gyeok: { name: string; god: TenGod; note: string };
 };
 
 const POS: PillarPos[] = ["년", "월", "일", "시"];
@@ -203,6 +209,18 @@ export function analyze(
   const vm = voidMeaning(voidBranches, branchesOrNull);
   if (vm) sinsal.push(vm);
 
+  // 격국 — 월지 정기가 일간에게 어떤 십신인가.
+  // 비견이면 건록격(월지가 일간의 록), 겁재면 양간은 양인격·음간은 월겁격으로 부른다.
+  const monthGod = tenGod(dayStem, mainStem(pillars.month.branch));
+  const gyeok = (() => {
+    if (monthGod === "비견") return { name: "건록격", god: monthGod, note: "월지가 일간의 록이 되는 자리" };
+    if (monthGod === "겁재")
+      return dayStem % 2 === 0
+        ? { name: "양인격", god: monthGod, note: "양간이 월지에서 날이 선 자리" }
+        : { name: "월겁격", god: monthGod, note: "월지가 같은 편으로 채워진 자리" };
+    return { name: `${monthGod}격`, god: monthGod, note: `월지 정기가 ${monthGod}인 자리` };
+  })();
+
   const missing = ([0, 1, 2, 3, 4] as ElIdx[]).filter((e) => elementWeight[e] < 0.35);
   const dominant = elementWeight.indexOf(Math.max(...elementWeight)) as ElIdx;
 
@@ -210,6 +228,6 @@ export function analyze(
     pillars: P, dayStem, dayEl, tenGods, groupWeight, elementWeight,
     득령, 득지, 득세, strong, strengthScore,
     useEl, helpEl, avoidEl, useReason,
-    twelve, relations, sinsal, missing, dominant,
+    twelve, relations, sinsal, missing, dominant, gyeok,
   };
 }

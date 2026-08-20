@@ -24,7 +24,7 @@ import { analyzeTiming, timingReason } from "./timing";
 import { buildFacts } from "./knowledge/facts";
 import { compose, newLedger, type ComposeLedger } from "./knowledge/compose";
 import { topicOf } from "./knowledge/topicMap";
-import type { Facts } from "./knowledge/types";
+import type { Facts, Topic } from "./knowledge/types";
 import { marriageAgeFromSeed } from "./top1";
 import { categories, type Category } from "@/data/categories";
 
@@ -51,6 +51,41 @@ export type Report = {
 };
 
 export const joinParas = (paras: Para[]) => paras.map((p) => p.text).join("\n\n");
+
+/** 한 섹션 안에서 같은 말을 두 번 하지 않게 거른다.
+ *
+ *  규칙 엔진과 템플릿이 같은 자리(용신·일지·부족한 오행 등)를 짚으면, 태그가 달라도
+ *  결론이 같은 문장이 나란히 설 수 있다. tag는 "같은 규칙"만 막지 "같은 말"은 못 막는다.
+ *  그래서 마지막에 문장 단위로 한 번 더 본다. 앞에서 이미 쓴 어구가 다시 나오면 그
+ *  문장만 빼고, 문단이 통째로 비면 그 문단을 버린다. 문단 수를 채우려고 같은 말을
+ *  반복하느니 문단이 하나 줄어드는 편이 낫다. */
+const SHINGLE = 14;
+export function dedupeParas(paras: Para[]): Para[] {
+  const seen = new Set<string>();
+  const out: Para[] = [];
+  for (const p of paras) {
+    if (!p?.text) continue;
+    const kept: string[] = [];
+    for (const raw of p.text.split(/(?<=[.!?])\s+/)) {
+      const t = raw.trim();
+      if (!t) continue;
+      // 조사·숫자·이름을 걷어낸 한글만 비교한다. 값만 다르고 뼈대가 같은 문장도 잡힌다.
+      const plain = t.replace(/[^가-힣]/g, "");
+      const grams: string[] = [];
+      let dup = false;
+      for (let i = 0; i + SHINGLE <= plain.length; i++) {
+        const g = plain.slice(i, i + SHINGLE);
+        if (seen.has(g)) { dup = true; break; }
+        grams.push(g);
+      }
+      if (dup) continue;
+      for (const g of grams) seen.add(g);
+      kept.push(t);
+    }
+    if (kept.length) out.push({ label: p.label, text: kept.join(" ") });
+  }
+  return out;
+}
 
 /* ───────────────────────── 유틸 ───────────────────────── */
 
@@ -912,6 +947,10 @@ function ruleStateFor(ledger?: Set<number>): RuleState | undefined {
 
 /** 규칙 엔진이 만든 문단. 조건에 걸리는 규칙이 없으면 빈 배열이 나오고, 그때는 문단을
  *  억지로 만들지 않는다 — 근거 없는 문장을 채우느니 짧은 편이 낫다. */
+/** 상대를 혼자 놓고 읽을 때의 주제. 궁합·재회는 두 사람이 있어야 성립하는 주제라
+ *  한 명식만으로는 걸리는 규칙이 없다. 사람 자체를 보는 쪽으로 바꿔 준다. */
+const soloTopic = (t: Topic): Topic => (t === "궁합" || t === "재회" ? "연애패턴" : t);
+
 function rulePassages(
   chart: Chart,
   q: string,
@@ -920,14 +959,21 @@ function rulePassages(
   ledger?: Set<number>,
   name?: string,
   side: "me" | "pt" = "me",
+  // 궁합·재회는 두 명식을 대조하는 규칙이 있어서, 상대 쪽 명식을 같이 넘긴다.
+  other?: { chart: Chart; name?: string },
 ): string[] {
   const st = ruleStateFor(ledger);
   if (!st) return [];
   try {
-    if (side === "me" && !st.me) st.me = buildFacts(chart, name);
-    if (side === "pt" && !st.pt) st.pt = buildFacts(chart, name);
+    // 두 명식을 대조하는 규칙(궁합·재회)은 이미 양쪽을 한 문장에 담는다. 상대 쪽에서
+    // 한 번 더 돌리면 같은 말을 주어만 바꿔 되풀이하게 된다. 그래서 상대 차례에는
+    // other를 넘기지 않고 — 그러면 pair 규칙의 when이 전부 거짓이 된다 — 대신 상대를
+    // 한 사람으로 읽는다. "상대는 이런 사람이다"는 대조 문단과 겹치지 않는 정보다.
+    if (side === "me" && !st.me) st.me = buildFacts(chart, name, new Date(), other);
+    if (side === "pt" && !st.pt) st.pt = buildFacts(chart, name, new Date());
     const f = side === "me" ? st.me! : st.pt!;
-    return compose(f, topicOf(q, categoryId), count, st.led).map((c) => c.text);
+    const topic = side === "pt" ? soloTopic(topicOf(q, categoryId)) : topicOf(q, categoryId);
+    return compose(f, topic, count, st.led).map((c) => c.text);
   } catch {
     // 규칙 엔진이 실패해도 리포트 전체가 죽으면 안 된다.
     return [];
@@ -1163,7 +1209,7 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
       paras.push(P(i === 0 ? "명식에서 보면" : "덧붙이면", t)),
     );
   }
-  return paras;
+  return dedupeParas(paras);
 }
 
 /* ───────────────────── 연애 궁합 총론 ───────────────────── */
@@ -1207,7 +1253,11 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
   switch (q) {
     case "나와 상대방의 타고난 특징":
       return [
-        P("두 사람", `${meWord}은 ${em.fromLabel}${ro(em.fromLabel)} 끌어당기는 사람이고, ${pWord}은 ${ep.fromLabel}${eul(ep.fromLabel)} 가진 사람입니다. 결이 ${rel === "比" ? "비슷해서 부딪힐 일이 적은 대신 새로움도 적습니다" : "달라서 서로에게 없는 걸 채워주지만, 그 차이가 갈등의 씨앗이기도 합니다"}.`),
+        // 두 사람의 매력이 같은 유형으로 나오는 경우가 있다. 그때 각자 따로 적으면
+        // 한 문장 안에서 같은 말을 두 번 하게 되므로 하나로 묶어 말한다.
+        P("두 사람", em.fromLabel === ep.fromLabel
+          ? `${meWord}과 ${pWord}은 둘 다 ${em.fromLabel}${ro(em.fromLabel)} 끌어당기는 쪽입니다. 매력의 종류가 같아서 서로를 빨리 알아보는 대신, 같은 자리에서 같은 방식으로 인정받고 싶어할 때 부딪힙니다. 결이 ${rel === "比" ? "비슷해서 편한 만큼 새로움은 적습니다" : "달라서 서로에게 없는 걸 채워주지만, 그 차이가 갈등의 씨앗이기도 합니다"}.`
+          : `${meWord}은 ${em.fromLabel}${ro(em.fromLabel)} 끌어당기는 사람이고, ${pWord}은 ${ep.fromLabel}${eul(ep.fromLabel)} 가진 사람입니다. 결이 ${rel === "比" ? "비슷해서 부딪힐 일이 적은 대신 새로움도 적습니다" : "달라서 서로에게 없는 걸 채워주지만, 그 차이가 갈등의 씨앗이기도 합니다"}.`),
         P("명반 근거", `${relGround(strHash(q))} ${relText[rel]}`),
         P("자미두수로 보면", `${meWord} 명궁의 ${gm.myungStar}성은 ${gm.myungWhy}. ${pWord} 명궁의 ${gp.myungStar}성은 ${gp.myungWhy}. 이 두 기질이 만나면 ${rel.startsWith("剋") ? "끌리면서도 주도권에서 자주 부딪힙니다" : rel === "比" ? "너무 비슷해 편한 대신 서로를 자극하진 못합니다" : `${leadWord}이 이끌고 ${followWord}이 받아주는 균형이 자연스럽게 잡힙니다`}.`),
       ];
@@ -1302,7 +1352,7 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
     // 나오는 식으로 어긋나서 전부 걷어냈다.
     if (!onlyP) {
       // 규칙 엔진이 먼저다. 조건에 걸리는 게 있으면 그걸 쓰고, 없을 때만 명반 축 해석으로 채운다.
-      const rp = rulePassages(me, q, "love-compatibility", 2, ledger, name, "me");
+      const rp = rulePassages(me, q, "love-compatibility", 2, ledger, name, "me", { chart: pt, name: partnerName });
       (rp.length ? rp : chartReading(gm, q, qt, "compat", 2, ledger, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${meWord} 명반으로 보면` : "짚고 갈 자리", t)),
       );
@@ -1311,13 +1361,13 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
       // 상대 쪽으로 넘어가는 첫 문단은 화자가 바뀌는 지점이라 라벨을 고정해 둔다.
       // 상대 쪽도 같은 규칙 원장을 쓴다. 따로 두면 두 사람이 같은 판정일 때(둘 다 신약 등)
       // 설명 문장이 글자 그대로 두 번 나온다.
-      const rpP = rulePassages(pt, q, "love-compatibility", 2, ledger, partnerName, "pt");
+      const rpP = rulePassages(pt, q, "love-compatibility", 2, ledger, partnerName, "pt", { chart: me, name });
       (rpP.length ? rpP : chartReading(gp, q, qt, "compat", 2, ledgerP, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${pWord} 명반으로 보면` : "상대 쪽에서 짚을 자리", t)),
       );
     }
   }
-  return paras;
+  return dedupeParas(paras);
 }
 
 /* ───────────────────── 재회운 총론 ───────────────────── */
@@ -1433,7 +1483,7 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
     // 문단을 섞어 분량을 채웠는데, "몰래 좋아한 사람 수"를 물었는데 업무 마감 얘기가
     // 나오는 식으로 어긋나서 전부 걷어냈다.
     if (!onlyP) {
-      const rp = rulePassages(me, q, "love-reunion", 2, ledger, name, "me");
+      const rp = rulePassages(me, q, "love-reunion", 2, ledger, name, "me", { chart: pt, name: partnerName });
       (rp.length ? rp : chartReading(gm, q, qt, "reunion", 2, ledger, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${meWord} 명반으로 보면` : "짚고 갈 자리", t)),
       );
@@ -1442,13 +1492,13 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
       // 상대 쪽으로 넘어가는 첫 문단은 화자가 바뀌는 지점이라 라벨을 고정해 둔다.
       // 상대 쪽도 같은 규칙 원장을 쓴다. 따로 두면 두 사람이 같은 판정일 때(둘 다 신약 등)
       // 설명 문장이 글자 그대로 두 번 나온다.
-      const rpP = rulePassages(pt, q, "love-reunion", 2, ledger, partnerName, "pt");
+      const rpP = rulePassages(pt, q, "love-reunion", 2, ledger, partnerName, "pt", { chart: me, name });
       (rpP.length ? rpP : chartReading(gp, q, qt, "reunion", 2, ledgerP, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${pWord} 명반으로 보면` : "상대 쪽에서 짚을 자리", t)),
       );
     }
   }
-  return paras;
+  return dedupeParas(paras);
 }
 
 /* ───────────────────── 평생 총론 ───────────────────── */
@@ -1459,7 +1509,23 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
   const who = `${whoBase}은`;
   const P = (label: string, text: string): Para => ({ label, text });
   const g = grounding(me);
-  const astro = (seed: number) => g.ascLove
+  // 태양궁·달궁·상승궁이 겹치는 사람이 있다. 겹치는데도 "간극이 있습니다"라고 쓰면
+  // 명반과 어긋나는 말이 되고, 같은 기질 설명이 한 문장 안에서 두 번 나온다.
+  // 겹치는 경우를 먼저 갈라 낸다.
+  const astro = (seed: number): string => {
+    const sameAsc = !!g.asc && g.asc === g.sun;
+    const sameMoon = g.moon === g.sun;
+    if (g.ascLove && sameAsc && sameMoon)
+      return `태양궁·달궁·상승궁이 모두 ${g.sun}입니다. 본질과 감정과 첫인상이 한 방향으로 몰린 배치라, ${whoBase}는 보이는 대로의 사람입니다. ${g.sunLove} 결이 겉과 속에 똑같이 걸려 있어 이해받기는 쉬운데, 그 결이 안 맞는 자리에서는 물러설 여지도 없습니다.`;
+    if (g.ascLove && sameAsc)
+      return `태양궁과 상승궁이 둘 다 ${g.sun}입니다. 첫인상과 실제 본질이 같은 방향이라, 처음 본 사람이 ${whoBase}를 오해할 일이 적습니다. 다만 달궁은 ${g.moon}${ira(g.moon)}, 속으로 감정을 다루는 방식은 ${g.moonLove} 쪽으로 따로 움직입니다. 겉과 속이 아니라 표현과 감정 사이에서 시차가 생기는 구조입니다.`;
+    if (g.ascLove && sameMoon)
+      return `태양궁과 달궁이 둘 다 ${g.sun}이고, 상승궁만 ${g.asc}입니다. 본질과 감정은 같은 온도인데 남에게 비치는 인상만 ${g.ascLove} 쪽으로 한 겹 덧씌워집니다. 속은 흔들림이 적은데 첫인상 때문에 다르게 읽히는 일이 반복됩니다.`;
+    if (g.ascLove && g.asc === g.moon)
+      return `달궁과 상승궁이 둘 다 ${g.moon}입니다. 감정이 움직이는 방식이 그대로 인상에 드러나는 배치라, 기분이 겉으로 잘 숨겨지지 않습니다. 본질인 태양궁 ${g.sun}의 ${g.sunLove} 결은 그보다 안쪽에 있어서, 오래 겪은 사람만 그쪽을 봅니다.`;
+    if (!g.ascLove && sameMoon)
+      return `태양궁과 달궁이 둘 다 ${g.sun}입니다. 본질과 감정선이 같은 자리에 놓여, 마음먹은 것과 실제로 느끼는 것이 잘 어긋나지 않습니다. 대신 한번 방향이 정해지면 스스로 뒤집기가 어려워, ${g.sunLove} 결이 불리하게 작동하는 자리에서도 그대로 밀고 갑니다.`;
+    return g.ascLove
     ? pick([
         `태양궁은 ${g.sun}, 상승궁은 ${g.asc}${ira(g.asc!)}. 본질은 ${g.sunLove} 쪽인데 첫인상은 ${g.ascLove} 쪽이라, 사람들이 처음 본 ${whoBase}와 오래 겪은 ${whoBase}를 서로 다르게 기억합니다. 첫 만남에서 오해를 사고 시간이 지나서야 진가를 인정받는 흐름이 반복될 확률이 높습니다.`,
         `상승궁 ${g.asc}${ga(g.asc!)} 씌우는 ${g.ascLove} 인상과 태양궁 ${g.sun}의 ${g.sunLove} 본질 사이에 간극이 있습니다. 스스로 생각하는 나와 남이 말하는 내가 어긋난다면 이 구조 때문입니다.`,
@@ -1470,6 +1536,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
         `점성술로는 태양궁 ${g.sun}${wa(g.sun)} 달궁 ${g.moon}${ga(g.moon)} 두 축을 이룹니다. ${g.sunLove} 본질 위에 ${g.moonLove} 감정 처리 방식이 얹혀서, 판단은 빠른데 정리는 느린 식의 시차가 생깁니다.`,
         `달궁 ${g.moon}${ga(g.moon)} 감정을 ${g.moonLove} 방식으로 다루고, 태양궁 ${g.sun}${ga(g.sun)} 겉으로 드러나는 ${g.sunLove} 결을 만듭니다. 이 둘의 온도차가 ${whoBase}만의 결을 만드는 지점입니다.`,
       ], seed);
+  };
   // 명궁 주성 한 문장을 일곱 문항에 그대로 돌려 쓰던 자리 — 사실은 같아도 어느 각도에서
   // 인용하는지는 문항마다 달라야 한다.
   const starGround = (seed: number) => pick([
@@ -1602,7 +1669,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
     // 남아서, 문단 풀만 축내고 뒤 문항들이 쓸 후보를 줄이는 손해가 있었다.
 
   }
-  return paras;
+  return dedupeParas(paras);
 }
 
 /* ───────────────────── 커리어/재물/건강 (컴팩트) ───────────────────── */
@@ -1773,7 +1840,7 @@ function light(cat: Category, q: string, me: Chart, v: string, ledger?: Set<numb
     // lifeOverview와 같은 문제 — 6개를 뽑아 2개만 쓰고 나머지는 ledger만 소모했다.
 
   }
-  return paras;
+  return dedupeParas(paras);
 }
 
 /* ───────────────────── 값 계산 (기존 유지) ───────────────────── */

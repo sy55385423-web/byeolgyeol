@@ -14,8 +14,13 @@ import type { Facts, Rule, Topic } from "./types";
 import { tenGodRules } from "./tenGods";
 import { structureRules, timingRules } from "./structure";
 import { loveRules } from "./love";
+import { gyeokRules } from "./gyeokguk";
+import { domainRules } from "./domains";
+import { pairRules } from "./pair";
 
-export const ALL_RULES: Rule[] = [...structureRules, ...tenGodRules, ...loveRules, ...timingRules];
+export const ALL_RULES: Rule[] = [
+  ...structureRules, ...gyeokRules, ...tenGodRules, ...loveRules, ...domainRules, ...pairRules, ...timingRules,
+];
 
 /** 리포트 한 부 동안 어떤 규칙을 이미 썼는지 기억한다.
  *  같은 규칙이 문항마다 반복되면 "엔진이 돌려막는다"는 인상을 준다. */
