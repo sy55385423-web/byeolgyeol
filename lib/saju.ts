@@ -9,6 +9,7 @@ import { astro } from "iztro";
 import { getVoidBranches, getLuckPillars, calculateFourPillars } from "manseryeok";
 import { Origin, Horoscope } from "circular-natal-horoscope-js";
 import { analyze } from "./core/analyze";
+import { yearFortunes, type YearFortune } from "./core/ziwei";
 
 export const STEMS = ["갑", "을", "병", "정", "무", "기", "경", "신", "임", "계"];
 export const STEMS_HANJA = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
@@ -77,6 +78,9 @@ export type Chart = {
   // 사주 대운 — 절입 시각까지 계산해 시작 나이를 정한다(manseryeok).
   // 자미두수 대한(decadals)과는 다른 체계라 따로 싣는다.
   luck: { startAge: number; forward: boolean; list: { age: number; stem: number; branch: number; ko: string }[] };
+  /** 자미두수 유년(流年) — 올해부터 10년. 그해 명궁이 어느 궁 자리에 앉고
+   *  화록·화기가 어느 궁에 드는지. 대한(10년)만으로는 "올해"를 못 말한다. */
+  yearly: YearFortune[];
 };
 
 const ZODIAC_KO_FROM_EN: Record<string, string> = {
@@ -171,6 +175,7 @@ function computeChartUncached(b: Birth): Chart {
   const dateStr = `${y}-${m}-${d}`;
   const timeIndex = toIztroTimeIndex(b.hourBranch);
 
+  let yearlyCache: YearFortune[] | undefined;
   const astrolabe = astro.bySolar(dateStr, timeIndex, gender, true, "ko-KR");
 
   // 사주 네 기둥은 만세력(manseryeok)에서 받는다.
@@ -329,6 +334,12 @@ function computeChartUncached(b: Birth): Chart {
     isMale,
     genderKnown,
     luck,
+    // 유년은 열 해를 iztro로 각각 세워야 해서 명식 하나에 100ms 넘게 든다.
+    // 쓰는 규칙이 걸릴 때만 계산하고, 한 번 계산하면 그 값을 붙들어 둔다.
+    get yearly() {
+      if (!yearlyCache) yearlyCache = yearFortunes(dateStr, timeIndex, gender, new Date().getFullYear(), 10);
+      return yearlyCache;
+    },
   };
 }
 

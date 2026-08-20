@@ -23,10 +23,11 @@ import { genderRules } from "./gender";
 import { domain2Rules } from "./domains2";
 import { timing2Rules } from "./timing2";
 import { domain3Rules } from "./domains3";
+import { ziweiYearRules } from "./ziweiYear";
 
 export const ALL_RULES: Rule[] = [
   ...structureRules, ...gyeokRules, ...tenGodRules, ...loveRules, ...attractionRules,
-  ...domainRules, ...domain2Rules, ...domain3Rules, ...pairRules, ...primeRules, ...genderRules, ...timing2Rules, ...timingRules,
+  ...domainRules, ...domain2Rules, ...domain3Rules, ...pairRules, ...primeRules, ...genderRules, ...ziweiYearRules, ...timing2Rules, ...timingRules,
 ];
 
 /** 리포트 한 부 동안 어떤 규칙을 이미 썼는지 기억한다.
