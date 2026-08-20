@@ -14,7 +14,8 @@
 | `check-crossrepeat.mjs` | **리포트 전체**에서 같은 문장이 여러 섹션에 반복되는지 (0이어야 한다) |
 | `check-coverage.mjs` | 200명 × 17주제 — 주제별로 걸리는 규칙이 몇 개인지 (최소 3 미만이면 구멍) |
 | `check-consistency.mjs` | 한 리포트가 "필요한 기운"을 용신 하나로만 말하는지 (lacking과 섞이면 모순) |
-| `check-radar.mjs` | 레이더 5축이 명식에서 갈리는지 (seed 해시였다) |
+| `check-radar.mjs` | 레이더 5축이 명식에서 갈리는지 · 축마다 10종으로 고르게 퍼지는지 |
+| `calibrate-radar.mjs` | 레이더 축의 10분위 기준점을 다시 잰다. **AXIS_FN을 고치면 반드시 돌려서 `AXIS_DECILES`를 갱신할 것** |
 | `check-values-audit.mjs` | **전수 감사** — 71문항의 답이 모두 명식에서 갈리는지. "한 값 고정"이 0이어야 한다 |
 | `check-values.mjs` | 제목에 쓰는 답이 명식에서 갈리는지 · 한 값으로 쏠리지 않는지 |
 | `check-preview.mjs` | 결제 전 미리보기 카드 한 줄이 어떤 값과 붙어도 말이 되는지 |
