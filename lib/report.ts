@@ -2262,10 +2262,11 @@ type AxisCtx = {
   avoidEl: number;
 };
 
-/** 십신 무게(대개 0~4)를 0~100 눈금으로. 0이면 30, 4면 90 언저리. */
-const gScale = (v: number) => Math.max(20, Math.min(96, Math.round(30 + v * 15)));
-/** 개수(0~4개)를 눈금으로 */
-const cScale = (n: number, base = 40, step = 13) => Math.max(20, Math.min(96, base + n * step));
+/** 십신 무게(대개 0~4)를 원점수로. 클램프하지 않는다 —
+ *  잘라 버리면 아래 백분위 변환이 위아래 끝을 구분하지 못한다. */
+const gScale = (v: number) => 30 + v * 15;
+/** 개수(0~4개)를 원점수로 */
+const cScale = (n: number, base = 40, step = 13) => base + n * step;
 
 const AXIS_FN: Record<string, ((c: AxisCtx) => number)[]> = {
   // 연애 총론 — 사람을 만나고 유지하는 힘
@@ -2273,16 +2274,16 @@ const AXIS_FN: Record<string, ((c: AxisCtx) => number)[]> = {
     (c) => gScale(c.g.식상 + c.g.재성 * 0.6) + (c.sinsal.includes("도화") ? 8 : 0), // 사교성
     (c) => gScale(c.g.식상 * 1.3),                                                   // 감정표현
     (c) => Math.round(gScale(c.g.비겁) * 0.5 + c.strength * 0.5),                    // 독립성
-    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정재").length, 45, 12), // 신뢰감
+    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정재").length, 45, 12) + (c.g.관성 + c.g.재성) * 3, // 신뢰감
     (c) => gScale(c.g.관성 * 1.2),                                                   // 책임감
   ],
   // 궁합 — 두 명식 대조 점수를 축마다 다른 각도로 쪼갠다
   "love-compatibility": [
     (c) => Math.round((c.pairScore ?? 55) * 0.9 + gScale(c.g.식상) * 0.1),           // 케미
-    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정재").length, 42, 12), // 신뢰
+    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정재").length, 42, 12) + (c.g.관성 + c.g.재성) * 3, // 신뢰
     (c) => gScale(c.g.식상 + c.g.인성 * 0.4),                                        // 소통
     (c) => Math.round((c.pairScore ?? 55) * 0.5 + (c.strong ? 60 : 45) * 0.5),        // 안정감
-    (c) => cScale(c.gods.filter((x) => x === "편관" || x === "편재").length, 40, 13) + (c.sinsal.includes("도화") ? 8 : 0), // 설렘
+    (c) => cScale(c.gods.filter((x) => x === "편관" || x === "편재").length, 40, 13) + (c.sinsal.includes("도화") ? 8 : 0) + c.g.식상 * 3, // 설렘
   ],
   // 재회 — 미련은 인성·비겁(붙드는 힘), 회복력은 강약
   "love-reunion": [
@@ -2296,12 +2297,12 @@ const AXIS_FN: Record<string, ((c: AxisCtx) => number)[]> = {
     (c) => gScale(c.g.관성 + c.g.비겁 * 0.4),                                        // 리더십
     (c) => gScale(c.g.인성 * 1.2),                                                   // 전문성
     (c) => gScale(c.g.식상) + (c.sinsal.includes("역마") ? 8 : 0),                    // 적응력
-    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정인").length, 42, 12), // 협업력
+    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정인").length, 42, 12) + (c.g.관성 + c.g.인성) * 3, // 협업력
     (c) => Math.round(gScale(c.g.재성) * 0.5 + c.strength * 0.5),                    // 실행력
   ],
   wealth: [
-    (c) => cScale(c.gods.filter((x) => x === "정재").length, 42, 15),                 // 저축력
-    (c) => cScale(c.gods.filter((x) => x === "편재").length, 40, 15),                 // 투자 감각
+    (c) => cScale(c.gods.filter((x) => x === "정재").length, 42, 15) + c.g.재성 * 6 + (c.strong ? 6 : 0), // 저축력
+    (c) => cScale(c.gods.filter((x) => x === "편재").length, 40, 15) + c.g.재성 * 4 + c.g.식상 * 4, // 투자 감각
     (c) => Math.max(20, Math.min(96, 90 - Math.round(c.g.비겁 * 14))),                // 소비 관리(비겁이 크면 샌다)
     (c) => gScale(c.g.식상 + c.g.재성 * 0.5),                                        // 수입 다각화
     (c) => Math.round(gScale(c.g.재성) * 0.6 + c.strength * 0.4),                    // 재물 그릇
@@ -2311,7 +2312,7 @@ const AXIS_FN: Record<string, ((c: AxisCtx) => number)[]> = {
     (c) => Math.round(c.strength * 0.5 + gScale(c.g.인성) * 0.5),                    // 회복력
     (c) => Math.max(20, Math.min(96, 92 - Math.round(Math.abs(c.el[c.avoidEl] - c.el[c.useEl]) * 12))), // 면역력(편중이 크면 낮다)
     (c) => Math.max(20, Math.min(96, 92 - Math.round(c.g.관성 * 12))),                // 스트레스 관리(관성 압박)
-    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정인" || x === "정재").length, 40, 11), // 생활 리듬
+    (c) => cScale(c.gods.filter((x) => x === "정관" || x === "정인" || x === "정재").length, 40, 11) + c.g.인성 * 4 + (c.strong ? 5 : 0), // 생활 리듬
   ],
   "life-overview": [
     (c) => Math.round(c.strength * 0.6 + gScale(c.g.비겁) * 0.4),                    // 본성
@@ -2321,6 +2322,42 @@ const AXIS_FN: Record<string, ((c: AxisCtx) => number)[]> = {
     (c) => Math.round(gScale(c.g.식상) * 0.5 + c.strength * 0.5),                    // 성장력
   ],
 };
+
+/** 축별 원점수의 10분위 기준점 — 400명 표본으로 미리 잰 값.
+ *
+ *  원점수를 그대로 눈금에 올리면 한 사람 안에서 20 대 96까지 벌어져 그림이
+ *  찌그러진다. 명식이 실제로 치우친 것은 맞지만, 다섯 축이 서로 다른 재료(십신
+ *  무게·개수·강약 점수)로 만들어져 눈금이 애초에 같지 않다. 그래서 축마다 모집단
+ *  안에서 몇 등인지로 환산한다. 이러면 "사교성 84"가 "이 항목에서 상위권"이라는
+ *  뜻이 되고, 축끼리 비교도 성립한다.
+ *
+ *  ⚠️ 축 계산식(AXIS_FN)을 고치면 이 표도 다시 재야 한다. scripts/check-radar.mjs가
+ *  분포가 무너지면 잡아 준다. */
+const AXIS_DECILES: Record<string, number[][]> = {
+  "love-life": [[49.1, 54.9, 59.5, 64.5, 68.9, 73.7, 77.8, 85, 92.5], [34.6, 40.4, 49.5, 54.1, 59.9, 67.7, 71, 77.5, 88.5], [30.3, 35, 39.5, 44.3, 47.3, 50.5, 54.5, 58.5, 64.8], [51.5, 57.3, 63.5, 65.5, 67.5, 71.7, 78.2, 81.5, 93.1], [35.4, 43.2, 48, 52.2, 57.6, 61.8, 67.8, 73.2, 84]],
+  "love-compatibility": [[40, 43.9, 46.9, 51, 53.8, 56.9, 61.5, 66, 74.1], [48.5, 54.3, 60.5, 62.5, 64.5, 68.7, 75.2, 78.5, 90.1], [45.4, 50.1, 54.9, 60, 64.1, 67.6, 72, 76, 83.7], [42.5, 47.5, 49.5, 50.5, 52.5, 55, 58.5, 60, 62.5], [46.3, 53.7, 56.9, 59.9, 64.6, 68.6, 71.4, 75.1, 82.3]],
+  "love-reunion": [[45, 49.5, 54, 58.5, 63.8, 67.3, 72.5, 78.5, 86.3], [34.2, 39.6, 48, 52.2, 57.6, 64.8, 67.8, 73.8, 84], [33.6, 39, 42.1, 46.1, 48.8, 51.3, 55.1, 57.6, 62.3], [52, 53.6, 56, 60, 64, 65.6, 68.8, 72, 80], [28.8, 34.2, 39.2, 43.8, 47.2, 51, 54.6, 58.8, 64.8]],
+  "life-overview": [[28.8, 34.2, 39.2, 43.8, 47.2, 51, 54.6, 58.8, 64.8], [33.9, 39.9, 46.5, 50.4, 53.7, 63, 66.9, 71.8, 82.3], [47.8, 53.3, 57.8, 62, 65.3, 69, 72.5, 77.5, 83.8], [45.4, 50.1, 54.9, 60, 64.1, 67.6, 72, 76, 83.7], [39.3, 42.5, 45.3, 47.8, 50.3, 52, 55, 57.8, 60.5]],
+  "career": [[43.4, 49, 52.9, 56.7, 60.7, 64.4, 67.7, 73.4, 82.2], [34.2, 40.8, 48, 52.2, 55.8, 66, 70.2, 75.6, 87], [33.5, 40.5, 46.5, 50.5, 55, 60, 64, 69, 76], [48.5, 53.4, 60, 61.8, 64.4, 68.1, 75.9, 79.2, 90.4], [37.8, 42.5, 44.5, 47.5, 50, 52.5, 54.5, 58, 61.8]],
+  "wealth": [[48, 49.4, 52, 55.8, 63.4, 69, 70.8, 75.2, 85.6], [46.9, 49.5, 52.7, 55.9, 63, 66.9, 69.7, 73.7, 84.8], [54.5, 61.5, 65.7, 70.9, 74.1, 76, 81.6, 85.8, 88.6], [45.3, 51.3, 56.5, 61, 65.5, 69.3, 74.5, 78.8, 86.3], [39.2, 43.3, 45.8, 48, 50.4, 52.8, 55, 58.1, 62.4]],
+  "health": [[32.6, 39, 43.8, 48.6, 52.6, 55.8, 59, 63, 68.6], [31.8, 36.8, 40.5, 45.5, 50, 53.8, 58.5, 64.3, 71.3], [56.8, 62.4, 66.8, 70.4, 74, 77.6, 81.2, 84.4, 88.4], [56, 63.2, 66.8, 70.8, 73.6, 77.2, 80, 83.6, 88.4], [52.2, 56.2, 62, 66, 69.4, 73.1, 77.9, 82.7, 91.5]],
+};
+
+
+/** 원점수 → 백분위 → 눈금(41~94).
+ *
+ *  상위권은 상위권답게 보여야 하므로 위쪽을 94까지 올린다. 아래쪽은 그대로 둔다 —
+ *  바닥을 같이 올리면 얇은 자리도 높아 보여서, 어느 자리가 실제로 얇은지가 안 보인다.
+ *  백분위 자체는 손대지 않으므로 사람의 등수는 그대로다. */
+function toPercentileScale(cid: string, axis: number, raw: number): number {
+  const d = AXIS_DECILES[cid]?.[axis];
+  if (!d) return Math.max(41, Math.min(94, Math.round(raw)));
+  let below = 0;
+  for (const b of d) if (raw >= b) below++;
+  // 같은 값이 여러 분위에 걸치면(정수 눈금인 축) 가운데로 보낸다
+  const pct = (below + 0.5) / (d.length + 1);
+  return Math.round(38 + pct * 59);
+}
 
 export function radarStats(ctx: Ctx): RadarStats {
   const { me, pt, c: category } = ctx;
@@ -2342,7 +2379,7 @@ export function radarStats(ctx: Ctx): RadarStats {
   const fns = AXIS_FN[category.id];
   const axes = axesLabels.map((label, i) => ({
     label,
-    value: fns?.[i] ? Math.max(20, Math.min(96, Math.round(fns[i](axisCtx)))) : 55,
+    value: fns?.[i] ? toPercentileScale(category.id, i, fns[i](axisCtx)) : 55,
   }));
 
   const v = values(ctx);
