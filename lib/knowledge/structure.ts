@@ -155,7 +155,7 @@ export const structureRules: Rule[] = [
     topics: ["매력", "인기", "연애패턴"],
     when: (f) => f.a.sinsal.some((s) => s.name === "도화"),
     weight: 76,
-    tag: "신살-도화",
+    tag: "매력-도화",
     text: (f) => {
       const s = f.a.sinsal.find((x) => x.name === "도화")!;
       return `${s.where.join("·")}지에 도화가 붙었습니다. ${s.meaning}`;

@@ -19,10 +19,11 @@ import { domainRules } from "./domains";
 import { pairRules } from "./pair";
 import { attractionRules } from "./attraction";
 import { primeRules } from "./prime";
+import { genderRules } from "./gender";
 
 export const ALL_RULES: Rule[] = [
   ...structureRules, ...gyeokRules, ...tenGodRules, ...loveRules, ...attractionRules,
-  ...domainRules, ...pairRules, ...primeRules, ...timingRules,
+  ...domainRules, ...pairRules, ...primeRules, ...genderRules, ...timingRules,
 ];
 
 /** 리포트 한 부 동안 어떤 규칙을 이미 썼는지 기억한다.

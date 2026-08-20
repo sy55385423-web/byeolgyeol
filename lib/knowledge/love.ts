@@ -111,7 +111,7 @@ export const loveRules: Rule[] = [
     topics: ["끌림", "연애패턴"],
     when: (f) => f.a.relations.some((r) => r.between.includes("일") && (r.kind === "육합" || r.kind === "삼합")),
     weight: 72,
-    tag: "끌림-합",
+    tag: "일지관계",
     text: (f) => {
       const r = f.a.relations.find((x) => x.between.includes("일") && (x.kind === "육합" || x.kind === "삼합"))!;
       return `일지가 ${r.chars} ${r.kind}${eul(r.kind)} 이룹니다. 한번 가까워지면 잘 안 놓는 배치라, 끌림보다 붙잡는 힘이 더 강하게 작동합니다.`;
@@ -166,7 +166,7 @@ export const loveRules: Rule[] = [
     topics: ["연애주의", "배우자"],
     when: (f) => f.a.sinsal.some((s) => s.name === "공망" && s.where.includes("일")),
     weight: 76,
-    tag: "연애-공망",
+    tag: "신살-공망",
     text: () =>
       `배우자 자리인 일지가 공망에 듭니다. 관계에 기대를 크게 걸수록 허전함이 남기 쉬운 배치로 봅니다. 상대에게 채워 달라고 하기보다 각자의 자리를 지키는 방식이 이 명식에는 훨씬 편합니다.`,
   },
@@ -198,7 +198,7 @@ export const loveRules: Rule[] = [
     tag: "연애-충년",
     text: (f) => {
       const y = f.years.find((x) => x.clashes.some((c) => c.startsWith("일지")))!;
-      return `${y.year}년(${y.ganji})에는 배우자 자리인 일지가 충을 맞습니다. 관계가 한 번 정리되거나 크게 방향이 바뀌는 해로 보는데, 만남이든 이별이든 흐지부지 넘어가지 않고 결론이 분명해지는 구간입니다.`;
+      return `${y.year}년(${y.ganji})에는 배우자 자리인 일지가 충을 맞습니다. 이 해에는 미뤄 두었던 이야기가 밖으로 나옵니다. 원국에 없던 일이 생기는 게 아니라, 이미 있던 균열이 표면으로 올라오는 시기라고 보는 편이 맞습니다. 미리 알고 맞으면 충격이 절반으로 줄어드는 자리입니다.`;
     },
   },
 ];

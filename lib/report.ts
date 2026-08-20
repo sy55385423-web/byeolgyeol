@@ -485,7 +485,7 @@ const DOM_BEHAVIOR = {
   "관심이 생기면 주저 없이 다가갑니다. 재보는 시간이 짧아서 상대가 준비되기 전에 먼저 마음을 열어 두는 편입니다",
   "좋으면 바로 티가 납니다. 표현이 크고 빨라서 상대가 부담을 느낄 만큼 온도가 먼저 올라갑니다",
   "한번 마음에 들이면 좀처럼 안 놓습니다. 상대가 흔들려도 자리를 지키는 쪽이라, 기다리는 시간이 남들보다 깁니다",
-  "기준이 분명합니다. 아니라고 판단하면 정이 있어도 정리가 빠르고, 애매한 상태를 오래 못 견딥니다",
+  "선을 먼저 긋습니다. 어디까지가 편한 거리인지 상대에게 은근히 알려 두는 편이라, 그 선을 넘어오는 사람에게만 마음이 열립니다",
   "상대를 오래 봅니다. 바로 마음을 주지 않고 지켜보다가, 확신이 서면 한 번에 깊어집니다",
   ],
   life: [
@@ -1207,7 +1207,7 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
   })();
   {
     // 명식에서 실제로 걸리는 근거를 덧붙인다. 조건에 걸리는 규칙이 없으면 아무것도 안 붙는다.
-    rulePassages(me, q, "love-life", qi === 0 ? 2 : 1, ledger, name, "me").forEach((t, i) =>
+    rulePassages(me, q, "love-life", qi === 0 ? 5 : 4, ledger, name, "me").forEach((t, i) =>
       paras.push(P(i === 0 ? "명식에서 보면" : "덧붙이면", t)),
     );
   }
@@ -1362,7 +1362,7 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
     // 나오는 식으로 어긋나서 전부 걷어냈다.
     if (!onlyP) {
       // 규칙 엔진이 먼저다. 조건에 걸리는 게 있으면 그걸 쓰고, 없을 때만 명반 축 해석으로 채운다.
-      const rp = rulePassages(me, q, "love-compatibility", 2, ledger, name, "me", { chart: pt, name: partnerName });
+      const rp = rulePassages(me, q, "love-compatibility", 3, ledger, name, "me", { chart: pt, name: partnerName });
       (rp.length ? rp : chartReading(gm, q, qt, "compat", 2, ledger, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${meWord} 명반으로 보면` : "짚고 갈 자리", t)),
       );
@@ -1371,7 +1371,7 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
       // 상대 쪽으로 넘어가는 첫 문단은 화자가 바뀌는 지점이라 라벨을 고정해 둔다.
       // 상대 쪽도 같은 규칙 원장을 쓴다. 따로 두면 두 사람이 같은 판정일 때(둘 다 신약 등)
       // 설명 문장이 글자 그대로 두 번 나온다.
-      const rpP = rulePassages(pt, q, "love-compatibility", 2, ledger, partnerName, "pt", { chart: me, name });
+      const rpP = rulePassages(pt, q, "love-compatibility", 3, ledger, partnerName, "pt", { chart: me, name });
       (rpP.length ? rpP : chartReading(gp, q, qt, "compat", 2, ledgerP, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${pWord} 명반으로 보면` : "상대 쪽에서 짚을 자리", t)),
       );
@@ -1493,7 +1493,7 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
     // 문단을 섞어 분량을 채웠는데, "몰래 좋아한 사람 수"를 물었는데 업무 마감 얘기가
     // 나오는 식으로 어긋나서 전부 걷어냈다.
     if (!onlyP) {
-      const rp = rulePassages(me, q, "love-reunion", 2, ledger, name, "me", { chart: pt, name: partnerName });
+      const rp = rulePassages(me, q, "love-reunion", 3, ledger, name, "me", { chart: pt, name: partnerName });
       (rp.length ? rp : chartReading(gm, q, qt, "reunion", 2, ledger, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${meWord} 명반으로 보면` : "짚고 갈 자리", t)),
       );
@@ -1502,7 +1502,7 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
       // 상대 쪽으로 넘어가는 첫 문단은 화자가 바뀌는 지점이라 라벨을 고정해 둔다.
       // 상대 쪽도 같은 규칙 원장을 쓴다. 따로 두면 두 사람이 같은 판정일 때(둘 다 신약 등)
       // 설명 문장이 글자 그대로 두 번 나온다.
-      const rpP = rulePassages(pt, q, "love-reunion", 2, ledger, partnerName, "pt", { chart: me, name });
+      const rpP = rulePassages(pt, q, "love-reunion", 3, ledger, partnerName, "pt", { chart: me, name });
       (rpP.length ? rpP : chartReading(gp, q, qt, "reunion", 2, ledgerP, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${pWord} 명반으로 보면` : "상대 쪽에서 짚을 자리", t)),
       );
@@ -1671,7 +1671,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
   {
     const qt = qTopic(q, "이 흐름");
     // 명반 지표 해석을 본문의 축으로 쓰고, 범용 문단은 결을 채우는 정도로만 남긴다.
-    const rp = rulePassages(me, q, "life-overview", qi === 0 ? 3 : 2, ledger, name, "me");
+    const rp = rulePassages(me, q, "life-overview", qi === 0 ? 5 : 4, ledger, name, "me");
     (rp.length ? rp : chartReading(g, q, qt, "life", qi === 0 ? 3 : 2, ledger, joinParas(paras), v)).forEach((t, i) =>
       paras.push(P(i === 0 ? "명반으로 보면" : "짚고 갈 자리", t)),
     );
@@ -1843,7 +1843,7 @@ function light(cat: Category, q: string, me: Chart, v: string, ledger?: Set<numb
   {
     // 명반 지표 해석을 본문의 축으로 쓴다. 커리어·재물·건강은 명궁/관록·재백·질액궁을
     // 그 영역 기준으로 읽어야 해서 domainOf로 카테고리에 맞는 렌즈를 고른다.
-    const rp = rulePassages(me, q, cat.id, qi === 0 ? 3 : 2, ledger, undefined, "me");
+    const rp = rulePassages(me, q, cat.id, qi === 0 ? 5 : 4, ledger, undefined, "me");
     (rp.length ? rp : chartReading(g, q, qt, domainOf(cat.id), qi === 0 ? 3 : 2, ledger, joinParas(paras), v)).forEach((t, i) =>
       paras.push(P(i === 0 ? "명반으로 보면" : "짚고 갈 자리", t)),
     );
