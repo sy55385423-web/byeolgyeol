@@ -30,7 +30,16 @@ import type { Facts, Topic } from "./knowledge/types";
 import { marriageAgeFromSeed } from "./top1";
 import { categories, type Category } from "@/data/categories";
 
-export type PersonInput = { y: number; m: number; d: number; hourBranch?: number; gender?: "male" | "female" | "none" };
+export type PersonInput = {
+  y: number; m: number; d: number;
+  hourBranch?: number;
+  /** 정확한 출생 시각 — 있으면 진태양시로 보정한다 */
+  hour?: number;
+  minute?: number;
+  /** 출생지 경도 */
+  lon?: number;
+  gender?: "male" | "female" | "none";
+};
 
 export type ReportInput = {
   categoryId: string;

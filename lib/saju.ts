@@ -6,7 +6,7 @@
  *    이 사실은 Chart 자체가 아니라 리포트 생성 프롬프트 쪽에서 "시간 미상"으로 별도 처리한다. */
 
 import { astro } from "iztro";
-import { getVoidBranches, getLuckPillars } from "manseryeok";
+import { getVoidBranches, getLuckPillars, calculateFourPillars } from "manseryeok";
 import { Origin, Horoscope } from "circular-natal-horoscope-js";
 import { analyze } from "./core/analyze";
 
@@ -38,6 +38,11 @@ export type Birth = {
   m: number;
   d: number;
   hourBranch?: number; // 0(자)~11(해), 모르면 undefined
+  /** 정확한 출생 시각(24시간제). 알면 진태양시 보정에 쓴다. 모르면 hourBranch만 쓴다. */
+  hour?: number;
+  minute?: number;
+  /** 출생지 경도(동경). 서울 126.978, 부산 129.075. 모르면 한반도 평균 127.5 */
+  lon?: number;
   // 대운의 순역과 자미두수 대한이 성별에 따라 달라진다. 밝히지 않으면 남성 기준으로 계산하고,
   // Chart.genderKnown이 false가 되어 리포트가 그 한계를 밝힐 수 있게 한다.
   gender?: "male" | "female" | "none";
@@ -100,6 +105,7 @@ const ZODIAC = [
 
 // 서울 — 앱이 출생지를 받지 않으므로 기본 좌표로 사용. 상승궁·행성 정밀도에만 영향.
 const DEFAULT_LATITUDE = 37.5665;
+/** 기본 출생 경도 — 서울. 사주의 진태양시 보정과 점성술 계산이 같은 기준을 쓴다. */
 const DEFAULT_LONGITUDE = 126.978;
 
 export function sunSign(m: number, d: number) {
@@ -115,6 +121,10 @@ function mkPillarFromKo(ko: string): Pillar {
   const b = BRANCHES.indexOf(ko[1]);
   return { stem: s, branch: b, ko, hanja: STEMS_HANJA[s] + BRANCHES_HANJA[b] };
 }
+
+/** 시진 한가운데 시각 — 정확한 시각을 모를 때 그 시진의 대표값으로 쓴다.
+ *  자시는 23~01시라 한가운데가 자정이므로 0시를 쓴다. */
+const MID_HOUR = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22];
 
 /** 이 앱의 hourBranch(0~11)를 iztro의 시진 index(0~12, 자시가 조/야로 분리됨)로 변환.
  * 두 인덱스는 인(2)~해(11) 구간에서 그대로 대응하고, 자시(0)는 iztro idx 0을 쓰면 된다
@@ -139,7 +149,7 @@ const chartCache = new Map<string, Chart>();
 const CHART_CACHE_MAX = 500;
 
 export function computeChart(b: Birth): Chart {
-  const key = `${b.y}-${b.m}-${b.d}-${b.hourBranch ?? "x"}-${b.gender ?? "x"}`;
+  const key = `${b.y}-${b.m}-${b.d}-${b.hourBranch ?? "x"}-${b.hour ?? "x"}:${b.minute ?? "x"}-${b.lon ?? "x"}-${b.gender ?? "x"}`;
   const hit = chartCache.get(key);
   if (hit) return hit;
   const chart = computeChartUncached(b);
@@ -162,12 +172,28 @@ function computeChartUncached(b: Birth): Chart {
   const timeIndex = toIztroTimeIndex(b.hourBranch);
 
   const astrolabe = astro.bySolar(dateStr, timeIndex, gender, true, "ko-KR");
-  const [yearKo, monthKo, dayKo, hourKo] = astrolabe.chineseDate.split(" ");
 
-  const year = mkPillarFromKo(yearKo);
-  const month = mkPillarFromKo(monthKo);
-  const day = mkPillarFromKo(dayKo);
-  const hour = timeKnown ? mkPillarFromKo(hourKo) : null;
+  // 사주 네 기둥은 만세력(manseryeok)에서 받는다.
+  //
+  //  예전에는 iztro의 chineseDate를 그대로 썼는데, 절기 경계 판정이 며칠씩 어긋났다.
+  //  300건을 대조하니 19%에서 월주가 달랐고, 절입 시각으로 확인해 보면 전부 iztro가
+  //  틀렸다(1982-07-11은 소서(7/7 19:55 KST) 이후라 미월인데 오월로 나왔다).
+  //  월주는 사주에서 가장 무거운 자리라 격국·용신·강약이 전부 여기서 나온다.
+  //
+  //  manseryeok은 KASI 절기 데이터를 쓰고, 진태양시·과거 표준시·서머타임까지 다룬다.
+  //  자미두수는 음력과 시진으로 따로 계산되므로 iztro를 그대로 쓴다.
+  const ms = calculateFourPillars({
+    year: y, month: m, day: d,
+    hour: b.hour ?? MID_HOUR[b.hourBranch ?? 6],
+    minute: b.minute ?? 0,
+    trueSolarTime: { longitude: b.lon ?? DEFAULT_LONGITUDE },
+  });
+  const mkP = (x: { heavenlyStem: string; earthlyBranch: string }) => mkPillarFromKo(x.heavenlyStem + x.earthlyBranch);
+
+  const year = mkP(ms.year);
+  const month = mkP(ms.month);
+  const day = mkP(ms.day);
+  const hour = timeKnown ? mkP(ms.hour) : null;
 
   const chars = [year, month, day, ...(hour ? [hour] : [])];
   const elementCount = [0, 0, 0, 0, 0];

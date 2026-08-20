@@ -22,6 +22,11 @@ type Person = {
   d: string;
   knowsTime: boolean;
   time: string;
+  /** 정확한 시각을 알 때 — 진태양시 보정에 쓴다 */
+  hh: string;
+  mm: string;
+  /** 출생지(경도) — 같은 시각이라도 지역에 따라 시주가 갈릴 수 있다 */
+  city: string;
   gender: "" | "male" | "female" | "none";
 };
 
@@ -32,10 +37,23 @@ const emptyPerson = (): Person => ({
   d: "",
   knowsTime: false,
   time: "",
+  hh: "",
+  mm: "",
+  city: "서울",
   gender: "",
 });
 
 type Phase = "form" | "loading" | "preview";
+
+/** 출생지 경도 — 진태양시 보정에 쓴다. 한국 표준시는 동경 135도 기준인데
+ *  실제 한반도는 126~130도라, 지역에 따라 실제 태양시가 20~35분 어긋난다. */
+const CITIES: { name: string; lon: number }[] = [
+  { name: "서울", lon: 126.978 }, { name: "인천", lon: 126.705 }, { name: "수원", lon: 127.029 },
+  { name: "춘천", lon: 127.734 }, { name: "강릉", lon: 128.876 }, { name: "대전", lon: 127.385 },
+  { name: "청주", lon: 127.489 }, { name: "전주", lon: 127.148 }, { name: "광주", lon: 126.852 },
+  { name: "대구", lon: 128.601 }, { name: "울산", lon: 129.311 }, { name: "부산", lon: 129.075 },
+  { name: "제주", lon: 126.532 }, { name: "해외·모름", lon: 127.5 },
+];
 
 const HOURS = [
   "자시 (23:30~01:29)", "축시 (01:30~03:29)", "인시 (03:30~05:29)", "묘시 (05:30~07:29)",
@@ -43,11 +61,40 @@ const HOURS = [
   "신시 (15:30~17:29)", "유시 (17:30~19:29)", "술시 (19:30~21:29)", "해시 (21:30~23:29)",
 ];
 
+/** 입력한 사람 정보를 명반 계산 입력으로 바꾼다.
+ *
+ *  정확한 시각을 넣었으면 그 시각과 출생지 경도를 넘겨 진태양시로 보정하고,
+ *  시진만 골랐으면 그 시진의 한가운데 시각으로 계산한다. */
+const birthOf = (p: Person) => {
+  const exact = p.hh !== "" && p.hh !== undefined;
+  const h = exact ? Math.min(23, Math.max(0, +p.hh || 0)) : undefined;
+  const mi = exact ? Math.min(59, Math.max(0, +p.mm || 0)) : undefined;
+  return {
+    y: +p.y, m: +p.m, d: +p.d,
+    hourBranch: exact ? Math.floor(((h! + 1) % 24) / 2) : p.knowsTime ? hourBranchFromLabel(p.time) : undefined,
+    hour: h,
+    minute: mi,
+    lon: exact ? CITIES.find((c) => c.name === p.city)?.lon : undefined,
+    gender: p.gender || undefined,
+  };
+};
+
+/** 공유 링크에 실을 형태. birthOf와 같은 값을 짧은 키로 담는다. */
+const orderPersonOf = (p: Person) => {
+  const b = birthOf(p);
+  return { y: b.y, m: b.m, d: b.d, h: b.hourBranch, hh: b.hour, mi: b.minute, lo: b.lon, g: b.gender };
+};
+
 const formatBirth = (p: Person) => {
   if (!(+p.y >= 1900 && +p.y <= 2030 && +p.m >= 1 && +p.m <= 12 && +p.d >= 1 && +p.d <= 31)) return "입력 안 됨";
   return `${p.y}년 ${p.m}월 ${p.d}일 (${p.calendar === "solar" ? "양력" : "음력"})`;
 };
-const formatTime = (p: Person) => (p.knowsTime ? p.time || "선택 안 됨" : "모름");
+const formatTime = (p: Person) =>
+  p.hh !== ""
+    ? `${p.hh.padStart(2, "0")}:${(p.mm || "0").padStart(2, "0")} · ${p.city}`
+    : p.knowsTime
+      ? p.time || "선택 안 됨"
+      : "모름";
 const formatGender = (g: Person["gender"]) =>
   g === "male" ? "남성" : g === "female" ? "여성" : g === "none" ? "밝히지 않음" : "입력 안 됨";
 
@@ -151,13 +198,74 @@ function TimeInputs({ p, set }: { p: Person; set: (patch: Partial<Person>) => vo
     <div className="space-y-4">
       <Toggle
         options={[
-          { v: "yes", label: "시간을 알아요" },
+          { v: "exact", label: "정확히 알아요" },
+          { v: "approx", label: "대략 알아요" },
           { v: "no", label: "몰라요" },
         ]}
-        value={p.knowsTime ? "yes" : "no"}
-        onChange={(v) => set({ knowsTime: v === "yes", time: v === "no" ? "" : p.time })}
+        value={p.hh !== "" ? "exact" : p.knowsTime ? "approx" : "no"}
+        onChange={(v) =>
+          set(
+            v === "exact"
+              ? { knowsTime: true, time: "", hh: p.hh || "12", mm: p.mm || "00" }
+              : v === "approx"
+                ? { knowsTime: true, hh: "", mm: "" }
+                : { knowsTime: false, time: "", hh: "", mm: "" },
+          )
+        }
       />
-      {p.knowsTime && (
+
+      {p.hh !== "" && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <input
+              value={p.hh}
+              onChange={(e) => set({ hh: e.target.value.replace(/\D/g, "").slice(0, 2) })}
+              inputMode="numeric"
+              maxLength={2}
+              placeholder="14"
+              aria-label="태어난 시"
+              className="w-20 rounded-lg border border-line bg-white px-3 py-2.5 text-center text-[15px] outline-none focus:border-ink"
+            />
+            <span className="text-ink-soft">시</span>
+            <input
+              value={p.mm}
+              onChange={(e) => set({ mm: e.target.value.replace(/\D/g, "").slice(0, 2) })}
+              inputMode="numeric"
+              maxLength={2}
+              placeholder="30"
+              aria-label="태어난 분"
+              className="w-20 rounded-lg border border-line bg-white px-3 py-2.5 text-center text-[15px] outline-none focus:border-ink"
+            />
+            <span className="text-ink-soft">분</span>
+          </div>
+          <div>
+            <p className="mb-1.5 text-[13px] text-ink-soft">태어난 지역</p>
+            <div className="flex flex-wrap gap-1.5">
+              {CITIES.map((c) => (
+                <button
+                  key={c.name}
+                  type="button"
+                  onClick={() => set({ city: c.name })}
+                  className={`rounded-full border px-3 py-1.5 text-[12.5px] transition-all active:scale-[0.98] ${
+                    p.city === c.name
+                      ? "border-ink bg-ink text-paper"
+                      : "border-line bg-white text-ink-soft hover:border-ink-faint"
+                  }`}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-[12.5px] leading-relaxed text-ink-faint">
+            한국 표준시는 동경 135도를 기준으로 하는데 한반도는 126~130도에 있습니다. 그래서 시계
+            시각과 실제 태양의 위치가 20~35분 어긋나고, 지역마다 그 차이가 다릅니다. 시주 경계에
+            걸친 시각일수록 이 보정이 결과를 바꿉니다.
+          </p>
+        </div>
+      )}
+
+      {p.knowsTime && p.hh === "" && (
         <div className="grid grid-cols-2 gap-2">
           {HOURS.map((h) => (
             <button
@@ -246,7 +354,7 @@ export default function Flow({ category }: { category: Category }) {
         key: "time",
         title: "태어난 시간을 아시나요?",
         sub: "알면 더 정밀해지고, 몰라도 진행할 수 있어요.",
-        valid: !me.knowsTime || me.time !== "",
+        valid: !me.knowsTime || me.hh !== "" || me.time !== "",
         body: <TimeInputs p={me} set={setMeP} />,
       },
       {
@@ -293,7 +401,7 @@ export default function Flow({ category }: { category: Category }) {
         {
           key: "p-time",
           title: "그 사람이 태어난 시간은요?",
-          valid: !partner.knowsTime || partner.time !== "",
+          valid: !partner.knowsTime || partner.hh !== "" || partner.time !== "",
           body: <TimeInputs p={partner} set={setPartnerP} />,
         },
         {
@@ -357,25 +465,13 @@ export default function Flow({ category }: { category: Category }) {
   const chartCtx: Ctx | null = useMemo(() => {
     if (!validBirth(me)) return null;
     if (category.needsPartner && !validBirth(partner)) return null;
-    const meChart = computeChart({
-      y: +me.y, m: +me.m, d: +me.d,
-      hourBranch: me.knowsTime ? hourBranchFromLabel(me.time) : undefined,
-      gender: me.gender || undefined,
-    });
-    const ptChart = category.needsPartner
-      ? computeChart({
-          y: +partner.y, m: +partner.m, d: +partner.d,
-          hourBranch: partner.knowsTime ? hourBranchFromLabel(partner.time) : undefined,
-          gender: partner.gender || undefined,
-        })
-      : undefined;
+    const meChart = computeChart(birthOf(me));
+    const ptChart = category.needsPartner ? computeChart(birthOf(partner)) : undefined;
     const input: ReportInput = {
       categoryId: category.id,
       name: name || undefined,
-      me: { y: +me.y, m: +me.m, d: +me.d, hourBranch: me.knowsTime ? hourBranchFromLabel(me.time) : undefined, gender: me.gender || undefined },
-      partner: category.needsPartner
-        ? { y: +partner.y, m: +partner.m, d: +partner.d, hourBranch: partner.knowsTime ? hourBranchFromLabel(partner.time) : undefined, gender: partner.gender || undefined }
-        : undefined,
+      me: birthOf(me),
+      partner: category.needsPartner ? birthOf(partner) : undefined,
       partnerName: category.needsPartner ? partnerName || undefined : undefined,
       tier: "basic",
     };
@@ -427,10 +523,8 @@ export default function Flow({ category }: { category: Category }) {
   const orderOf = (): Order => ({
     c: category.id,
     n: name || undefined,
-    me: { y: +me.y, m: +me.m, d: +me.d, h: me.knowsTime ? hourBranchFromLabel(me.time) : undefined, g: me.gender || undefined },
-    pt: category.needsPartner
-      ? { y: +partner.y, m: +partner.m, d: +partner.d, h: partner.knowsTime ? hourBranchFromLabel(partner.time) : undefined, g: partner.gender || undefined }
-      : undefined,
+    me: orderPersonOf(me),
+    pt: category.needsPartner ? orderPersonOf(partner) : undefined,
     pn: category.needsPartner ? partnerName || undefined : undefined,
     t: "basic",
   });
@@ -689,6 +783,10 @@ export default function Flow({ category }: { category: Category }) {
                   d: +me.d,
                   knowsTime: me.knowsTime,
                   timeLabel: me.time || undefined,
+                  hour: birthOf(me).hour,
+                  minute: birthOf(me).minute,
+                  lon: birthOf(me).lon,
+                  gender: me.gender || undefined,
                 }}
                 name={name || undefined}
               />
