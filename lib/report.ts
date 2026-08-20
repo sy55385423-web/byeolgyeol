@@ -62,7 +62,19 @@ export const joinParas = (paras: Para[]) => paras.map((p) => p.text).join("\n\n"
  *  문장만 빼고, 문단이 통째로 비면 그 문단을 버린다. 문단 수를 채우려고 같은 말을
  *  반복하느니 문단이 하나 줄어드는 편이 낫다. */
 const SHINGLE = 14;
-export function dedupeParas(paras: Para[]): Para[] {
+/** 리포트 한 부 동안 이미 나간 문장. ledger(문항 간 공유되는 Set)에 매달아 둔다.
+ *
+ *  섹션 안에서만 중복을 막고 있었더니, "재물을 보는 재백궁에 무곡성이 자리합니다"
+ *  같은 문장이 아홉 문항 전부에 그대로 나갔다. 커리어·재물·건강은 리포트 글자의
+ *  4분의 1이 같은 문장의 되풀이였다. 명반의 사실은 한 번만 말하면 된다. */
+const sentLedger = new WeakMap<Set<number>, Set<string>>();
+
+export function dedupeParas(paras: Para[], ledger?: Set<number>): Para[] {
+  let across: Set<string> | undefined;
+  if (ledger) {
+    across = sentLedger.get(ledger);
+    if (!across) { across = new Set(); sentLedger.set(ledger, across); }
+  }
   const seen = new Set<string>();
   const out: Para[] = [];
   for (const p of paras) {
@@ -73,6 +85,9 @@ export function dedupeParas(paras: Para[]): Para[] {
       if (!t) continue;
       // 조사·숫자·이름을 걷어낸 한글만 비교한다. 값만 다르고 뼈대가 같은 문장도 잡힌다.
       const plain = t.replace(/[^가-힣]/g, "");
+      // 다른 섹션에서 이미 쓴 문장이면 뺀다. 여기서는 통째로 같은 문장만 본다 —
+      // 어구 단위로 잘라 보면 리포트 전체에서 정당한 반복까지 지워진다.
+      if (across?.has(plain)) continue;
       const grams: string[] = [];
       let dup = false;
       for (let i = 0; i + SHINGLE <= plain.length; i++) {
@@ -82,6 +97,7 @@ export function dedupeParas(paras: Para[]): Para[] {
       }
       if (dup) continue;
       for (const g of grams) seen.add(g);
+      across?.add(plain);
       kept.push(t);
     }
     if (kept.length) out.push({ label: p.label, text: kept.join(" ") });
@@ -1195,7 +1211,7 @@ function loveLife(q: string, me: Chart, name: string, v: string, ledger?: Set<nu
       paras.push(P(i === 0 ? "명식에서 보면" : "덧붙이면", t)),
     );
   }
-  return dedupeParas(paras);
+  return dedupeParas(paras, ledger);
 }
 
 /* ───────────────────── 연애 궁합 총론 ───────────────────── */
@@ -1361,7 +1377,7 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
       );
     }
   }
-  return dedupeParas(paras);
+  return dedupeParas(paras, ledger);
 }
 
 /* ───────────────────── 재회운 총론 ───────────────────── */
@@ -1492,7 +1508,7 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
       );
     }
   }
-  return dedupeParas(paras);
+  return dedupeParas(paras, ledger);
 }
 
 /* ───────────────────── 평생 총론 ───────────────────── */
@@ -1663,7 +1679,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
     // 남아서, 문단 풀만 축내고 뒤 문항들이 쓸 후보를 줄이는 손해가 있었다.
 
   }
-  return dedupeParas(paras);
+  return dedupeParas(paras, ledger);
 }
 
 /* ───────────────────── 커리어/재물/건강 (컴팩트) ───────────────────── */
@@ -1834,7 +1850,7 @@ function light(cat: Category, q: string, me: Chart, v: string, ledger?: Set<numb
     // lifeOverview와 같은 문제 — 6개를 뽑아 2개만 쓰고 나머지는 ledger만 소모했다.
 
   }
-  return dedupeParas(paras);
+  return dedupeParas(paras, ledger);
 }
 
 /* ───────────────────── 값 계산 (기존 유지) ───────────────────── */
