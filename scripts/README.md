@@ -14,6 +14,7 @@
 | `check-crossrepeat.mjs` | **리포트 전체**에서 같은 문장이 여러 섹션에 반복되는지 (0이어야 한다) |
 | `check-coverage.mjs` | 200명 × 17주제 — 주제별로 걸리는 규칙이 몇 개인지 (최소 3 미만이면 구멍) |
 | `check-consistency.mjs` | 한 리포트가 "필요한 기운"을 용신 하나로만 말하는지 (lacking과 섞이면 모순) |
+| `check-observed.mjs` | **실제 사람 네 명의 체감과 대조** — 정반대로 나오는 항목이 없어야 한다 |
 | `check-profile.mjs` | **능력 프로파일 엔진** — 재료↔능력 대응 · 잠재/발현 분리 · 종합≠백분위 · 분포 |
 | `calibrate-profile.mjs` | 프로파일 기준분포를 다시 잰다. **RECIPES나 features.ts를 고치면 반드시 실행** |
 | `check-axis-logic.mjs` | 축 계산이 명리 원리(억부·태과불급)를 따르는지 대조 검증 |
