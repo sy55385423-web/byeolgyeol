@@ -1,4 +1,5 @@
 import { generateReport } from "../lib/report.ts";
+import { buOf } from "./_bu.js";
 import { categories } from "../data/categories.ts";
 import { ELEMENTS, STEMS, BRANCHES } from "../lib/core/ganji.ts";
 const mk=n=>{const a=[];for(let i=0;i<n;i++)a.push({y:1960+(i%50),m:1+((i*7)%12),d:1+((i*13)%28),hourBranch:i%12,gender:i%2?"male":"female"});return a;};
@@ -24,7 +25,7 @@ const OK={은:1,는:0,이:1,가:0,을:1,를:0,과:1,와:0,이라:1,라:0};
 const STOP=new Set(["사이","사이라","자라","오라","미라","해라","신라","술과","진과"]);
 const hits={}; const ALLTEXT=[];
 for(const c of categories) for(const [i,p] of people.entries()){
-  let r; try{ r=generateReport({categoryId:c.id,name:"수연",me:p,partner:c.needsPartner?people[(i+37)%people.length]:undefined,partnerName:"준호",tier:"basic"});}catch{continue;}
+  let r; try{ r=generateReport({categoryId:c.id,breakup:buOf(c.id,i),name:"수연",me:p,partner:c.needsPartner?people[(i+37)%people.length]:undefined,partnerName:"준호",tier:"basic"});}catch{continue;}
   if(!r)continue;
   const txt=[...r.sections.map(s=>s.content),...r.sections.map(s=>s.headline),r.closingAdvice||"",r.freeSummary||""].join("\n");
   ALLTEXT.push(txt);

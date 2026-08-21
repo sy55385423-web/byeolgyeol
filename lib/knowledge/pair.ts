@@ -159,6 +159,14 @@ export const pairRules: Rule[] = [
     weight: 86,
     tag: "재회-시기",
     text: (f) => {
+      // 재회 시기는 오늘 이후만 답한다. 지나간 달을 알려 주면 쓸모가 없다.
+      if (f.breakup?.reunion || f.breakup?.contact) {
+        const b = f.breakup!;
+        const c = b.contact ? `${b.contact.year}년 ${b.contact.month}월` : "";
+        const r = b.reunion ? `${b.reunion.year}년 ${b.reunion.month}월` : "";
+        const dayB = f.a.pillars.일!.branch;
+        return `${b.y}년 ${b.m}월 이별을 기준으로 잡으면, 먼저 연락을 넣기 나은 자리는 ${c}입니다(이별 후 ${b.heal}개월의 회복 구간을 지나고 오는 달 중 흐름이 트이는 달). 실제로 다시 이어질 자리는 ${r}입니다 — 배우자궁인 일지 ${BRANCHES[dayB]}${eul(BRANCHES[dayB])} 묶어 주는 달이라 이때 관계가 형태를 갖춥니다. 두 시점 사이에는 결론을 재촉하지 않는 편이 낫습니다.`;
+      }
       const best = [...f.years].sort((a, b) => b.score - a.score)[0];
       const clash = f.years.find((y) => y.clashes.some((c) => c.startsWith("일지")));
       return `흐름으로 보면 ${best.year}년(${best.ganji}, ${best.score}점)에 관계 쪽 운신의 폭이 가장 넓어집니다. ${

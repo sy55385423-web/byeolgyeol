@@ -160,6 +160,19 @@ export const timing2Rules: Rule[] = [
     tag: "시기-정리",
     prefer: ["마음이 정리되는", "연락 타이밍"],
     text: (f) => {
+      // 이별 시점을 알면 거기서부터 잰다. 명식마다 회복에 걸리는 기간이 다르다 —
+      // 인성이 두꺼우면 품고 곱씹어 오래 가고, 식상이 두꺼우면 털어내 빠르다.
+      if (f.breakup) {
+        const b = f.breakup;
+        const g = f.a.groupWeight;
+        const why =
+          g.인성 >= 2 ? `인성이 두꺼워(무게 ${g.인성.toFixed(1)}) 안으로 품고 되새기는 명식이라 남들보다 오래 걸립니다`
+          : g.식상 >= 2 ? `식상이 두꺼워(무게 ${g.식상.toFixed(1)}) 밖으로 풀어내는 명식이라 회복이 빠른 편입니다`
+          : !f.a.strong ? `신약(${f.a.strengthScore}점)이라 마음이 제자리를 찾는 데 시간이 더 듭니다`
+          : `기운이 버텨 주는 명식이라 회복은 평균 속도입니다`;
+        const settle = b.settle ? `${b.settle.year}년 ${b.settle.month}월` : "앞으로 1년 안";
+        return `${b.y}년 ${b.m}월에 헤어졌으니 지금까지 ${b.monthsSince}개월이 지났습니다. 이 명식은 ${why}. 이별에서 마음이 실제로 가라앉기까지 ${b.heal}개월 정도로 보고, 그 뒤 용신이 드는 달을 짚으면 ${settle}입니다.${b.monthsSince >= b.heal ? " 이미 그 구간은 지났습니다. 아직 무겁다면 시간이 부족해서가 아니라 정리할 계기가 없었던 쪽입니다." : ` 아직 ${Math.max(1, b.heal - b.monthsSince)}개월 남았습니다. 그 전까지는 정리된 척해도 속으로는 남아 있는 게 정상입니다.`}`;
+      }
       const clash = f.years.find((y) => y.clashes.some((c) => c.startsWith("일지")));
       const combo = f.years.find((y) => y.combos.length > 0);
       const good = f.years.slice().sort((a, b) => b.score - a.score)[0];

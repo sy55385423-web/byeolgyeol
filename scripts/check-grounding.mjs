@@ -13,6 +13,7 @@
  *
  *  목표: 근거 0개인 섹션 0개, 섹션당 중앙값 8개 이상, 수치 인용이 있는 섹션 90% 이상. */
 import { generateReport } from "../lib/report.ts";
+import { buOf } from "./_bu.js";
 import { categories } from "../data/categories.ts";
 const mk=n=>{const a=[];for(let i=0;i<n;i++)a.push({y:1955+(i*7)%60+1,m:1+((i*5)%12),d:1+((i*11)%28),hourBranch:i%12,gender:i%2?"male":"female"});return a;};
 const P=mk(40);
@@ -26,7 +27,7 @@ const ZI=/자미|천기|태양|무곡|천동|염정|천부|태음|탐랑|거문|
 const cnt=(t,re)=>((t.match(re)||[]).length);
 let zero=0, tot=0, withNum=0; const dens=[]; const worst=[];
 for(const c of categories) for(const [i,p] of P.entries()){
-  let r; try{r=generateReport({categoryId:c.id,name:"테",me:p,partner:c.needsPartner?P[(i+23)%P.length]:undefined,partnerName:"상",tier:"basic"});}catch{continue}
+  let r; try{r=generateReport({categoryId:c.id,breakup:buOf(c.id,i),name:"테",me:p,partner:c.needsPartner?P[(i+23)%P.length]:undefined,partnerName:"상",tier:"basic"});}catch{continue}
   if(!r)continue;
   for(const s of r.sections){
     const t=s.content;
