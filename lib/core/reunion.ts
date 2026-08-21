@@ -31,6 +31,8 @@ export type ReunionTiming = {
   contact?: MonthScore;
   /** 다시 이어질 자리가 열리는 달 — 반드시 오늘 이후 */
   reunion?: MonthScore;
+  /** 새 인연이 들어오는 달 — 마음이 정리된 뒤라야 눈에 들어온다 */
+  newLove?: MonthScore;
   /** 회복에 걸리는 것으로 본 개월 수 */
   healMonths: number;
 };
@@ -92,9 +94,19 @@ export function reunionTiming(
     ahead.find((m) => TRIPLE.some((t) => t.members.includes(day) && t.members.includes(m.branch)) && m.score >= 52) ??
     ahead.slice().sort((x, y2) => y2.score - x.score)[0];
 
+  // 새 인연은 마음이 정리된 다음이라야 실제로 눈에 들어온다. 정리 시점과 오늘 중
+  // 늦은 쪽을 지나고, 도화(자·묘·오·유)가 드는 달을 짚는다.
+  const settleIdx = idx(settle.year, settle.month);
+  const openFrom = months.filter((m) => idx(m.year, m.month) > Math.max(nowIdx, settleIdx));
+  const newLove =
+    openFrom.find((m) => [0, 3, 6, 9].includes(m.branch) && m.score >= 50) ??
+    openFrom.find((m) => [0, 3, 6, 9].includes(m.branch)) ??
+    openFrom.slice().sort((x, y2) => y2.score - x.score)[0];
+
   return {
     monthsSince,
     settle,
+    newLove,
     settlePassed: idx(settle.year, settle.month) <= nowIdx,
     contact,
     reunion,
@@ -107,11 +119,12 @@ export function reunionTimingFallback(
   a: Analysis,
   yearScore: (y: number) => number,
   now = new Date(),
-): Pick<ReunionTiming, "contact" | "reunion" | "healMonths"> {
+): Pick<ReunionTiming, "contact" | "reunion" | "newLove" | "healMonths"> {
   const ms = comingMonths(a, 24, yearScore, now);
   const day = a.pillars.일!.branch;
   return {
     healMonths: healingSpan(a),
+    newLove: ms.find((m) => [0, 3, 6, 9].includes(m.branch)) ?? ms[0],
     contact: ms.find((m) => m.score >= 58) ?? ms[0],
     reunion: ms.find((m) => branchSix(day, m.branch)) ?? ms.slice().sort((x, y) => y.score - x.score)[0],
   };

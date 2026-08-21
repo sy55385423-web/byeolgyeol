@@ -1568,7 +1568,7 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
     case "나에게 새로운 인연이 들어오는 시기":
       return [
         P("결론", `${meWord}에게 새로운 인연이 들어올 가능성이 커지는 시기는 ${v} 무렵입니다.`),
-        P("명반 근거", `${meWord} 부처궁의 ${gm.buchoStar}성이 다시 활성화되는 시점과 겹칩니다. 그 전까지는 새 인연이 들어와도 눈에 잘 안 들어올 확률이 높습니다.`),
+        P("명반 근거", `${bu ? `마음이 가라앉는 자리를 먼저 지나야 새 인연이 눈에 들어옵니다. 그 뒤로 도화(자·묘·오·유)가 드는 첫 달을 짚으면 ${v}입니다. ` : ""}${meWord} 부처궁의 ${gm.buchoStar}성이 다시 활성화되는 시점과 겹칩니다. 그 전까지는 새 인연이 들어와도 눈에 잘 안 들어올 확률이 높습니다.`),
         P("실제로는", `${openerFor(gm, me.seed + strHash(q) + 28)} 이 시기 전에 스치는 인연이 있어도, 아직 이전 관계의 자리가 다 정리되지 않아서 마음에 잘 들어오지 않을 수 있습니다. 그렇다고 그 사람이 나쁜 인연인 건 아닙니다.`),
         P("지금 할 것", `${openerFor(gm, me.seed + strHash(q) + 42)} 이 시기를 기다리기만 하지 말고, 그 전부터 사람 만나는 자리에 자연스럽게 나가보세요. 준비된 사람에게 이 시기의 인연이 더 선명하게 보입니다.`),
       ];
@@ -2276,7 +2276,7 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
         : undefined;
       return t ? ym(t.settle) : ym(mons.find((x) => x.score >= 52) ?? bestMon);
     })() },
-    "나에게 새로운 인연이 들어오는 시기": { v: ym(byScore.filter((x) => [0, 3, 6, 9].includes(x.branch))[0] ?? bestMon) },
+    "나에게 새로운 인연이 들어오는 시기": { v: rt.newLove ? ym(rt.newLove) : ym(byScore.filter((x) => [0, 3, 6, 9].includes(x.branch))[0] ?? bestMon) },
     "타고난 직업 적성과 일의 그릇": { v: EL[me.dayMaster].fromLabel.replace(/[은는]$/, "") },
     "나에게 맞는 일의 방식": { v: me.dominant % 2 === 0 ? "주도형" : "조율형" },
     "커리어 전환에 유리한 시기": { v: ym(bestMon) },

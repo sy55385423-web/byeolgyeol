@@ -11,7 +11,6 @@
         "-p",
         "3100"
       ],
-      "cwd": "/Users/sy050803/Downloads/byeolgyeol",
       "port": 3100
     }
   ]
