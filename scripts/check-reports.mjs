@@ -1,11 +1,12 @@
 import { generateReport } from "../lib/report.ts";
+import { buOf } from "./_bu.js";
 import { categories } from "../data/categories.ts";
 const mk=n=>{const a=[];for(let i=0;i<n;i++)a.push({y:1960+(i%50),m:1+((i*7)%12),d:1+((i*13)%28),hourBranch:i%12,gender:i%2?"male":"female"});return a;};
 const people=mk(150);
 let N=0,err=0,CH=0,E=0,rep=0,miss=0,broken=0,bad=0,frag=0;const PC=[];
 const BAN=[/무조건\s*(?!적)[^.]{0,12}(됩니다|할 것입니다)/,/100\s*%/,/이혼|파산|사망|불치/,/(^|[^내외일부])부적(을|이|은)/,/굿을|유료 상담/];
 for(const c of categories) for(const [i,p] of people.entries()){
-  let r; try{ r=generateReport({categoryId:c.id,name:"테",me:p,partner:c.needsPartner?people[(i+37)%people.length]:undefined,partnerName:"상",tier:"basic"}); }catch(e){err++;if(err<3)console.log("ERR:",e.message);continue;}
+  let r; try{ r=generateReport({categoryId:c.id,breakup:buOf(c.id,i),name:"테",me:p,partner:c.needsPartner?people[(i+37)%people.length]:undefined,partnerName:"상",tier:"basic"}); }catch(e){err++;if(err<3)console.log("ERR:",e.message);continue;}
   if(!r)continue; N++; CH+=r.sections.reduce((a,s)=>a+s.content.length,0);
   const all=r.sections.map(s=>s.content+"\n"+s.headline).join("\n");
   for(const re of BAN) if(re.test(all+"\n"+r.closingAdvice)) bad++;

@@ -56,6 +56,7 @@ function Body({ order, id }: { order: Order; id: string }) {
         ? personOf(order.pt) : undefined,
       partnerName: order.pn,
       extraQuestion: order.q,
+      breakup: order.bu,
       tier: order.t,
     };
     fetch("/api/report", {
@@ -96,6 +97,7 @@ function Body({ order, id }: { order: Order; id: string }) {
       partner: order.pt
         ? personOf(order.pt) : undefined,
       partnerName: order.pn,
+      breakup: order.bu,
       tier: order.t,
     };
     return { me: myChart, pt: ptChart, c: category, input };

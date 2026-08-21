@@ -20,6 +20,7 @@ export type Order = {
   me: OrderPerson;
   pt?: OrderPerson;       // 궁합·재회 상대방
   pn?: string;            // 상대방 이름/애칭
+  bu?: { y: number; m: number };  // 헤어진 시기 (재회 카테고리)
   q?: string;             // 추가 질문 (deep, 1개 무료)
   t: "basic" | "unlimited";
 };

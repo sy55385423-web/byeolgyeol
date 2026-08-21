@@ -5,6 +5,7 @@ import { computeChart, type Chart } from "../saju";
 import { analyze } from "../core/analyze";
 import { scoreYears } from "../core/luck";
 import { comingMonths } from "../core/month";
+import { reunionTiming } from "../core/reunion";
 import type { Facts } from "./types";
 
 export function buildFacts(
@@ -12,6 +13,7 @@ export function buildFacts(
   name?: string,
   now = new Date(),
   other?: { chart: Chart; name?: string },
+  breakup?: { y: number; m: number },
 ): Facts {
   const a = analyze(
     {
@@ -44,6 +46,19 @@ export function buildFacts(
     months,
     isMale: chart.isMale,
     genderKnown: chart.genderKnown,
+    breakup: breakup
+      ? (() => {
+          const t = reunionTiming(a, breakup, (y) => years.find((x) => x.year === y)?.score ?? 50, now);
+          return {
+            ...breakup,
+            monthsSince: t.monthsSince,
+            heal: t.healMonths,
+            settle: t.settle && { year: t.settle.year, month: t.settle.month },
+            contact: t.contact && { year: t.contact.year, month: t.contact.month },
+            reunion: t.reunion && { year: t.reunion.year, month: t.reunion.month },
+          };
+        })()
+      : undefined,
     who: name ? `${name}님` : "당신",
     other: other
       ? {

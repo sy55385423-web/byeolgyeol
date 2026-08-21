@@ -303,6 +303,18 @@ export default function Flow({ category }: { category: Category }) {
   const [partnerName, setPartnerName] = useState("");
   const [me, setMe] = useState<Person>(emptyPerson());
   const [partner, setPartner] = useState<Person>(emptyPerson());
+  // 재회 카테고리는 언제 헤어졌는지를 알아야 마음 정리·연락·재회 시기를 잴 수 있다.
+  // 이별은 사건이고, 그 뒤로 몇 달이 지났느냐가 답을 완전히 바꾼다.
+  const [buY, setBuY] = useState("");
+  const [buM, setBuM] = useState("");
+  const needsBreakup = category.id === "love-reunion";
+  const buValid = (() => {
+    const y = +buY, m = +buM;
+    if (!(y >= 1980 && y <= 2100 && m >= 1 && m <= 12)) return false;
+    const now = new Date();
+    return y * 12 + m <= now.getFullYear() * 12 + (now.getMonth() + 1); // 미래는 이별일 수 없다
+  })();
+  const breakup = needsBreakup && buValid ? { y: +buY, m: +buM } : undefined;
 
   const setMeP = (patch: Partial<Person>) => setMe((p) => ({ ...p, ...patch }));
   const setPartnerP = (patch: Partial<Person>) => setPartner((p) => ({ ...p, ...patch }));
@@ -422,8 +434,42 @@ export default function Flow({ category }: { category: Category }) {
         }
       );
     }
+    if (needsBreakup) {
+      s.push({
+        key: "breakup",
+        title: "두 분은 언제 헤어졌나요?",
+        sub: "이별 시점을 기준으로 마음이 정리되는 시기와 연락 타이밍을 계산해요.",
+        valid: buValid,
+        body: (
+          <div className="space-y-2.5">
+            <div className="grid grid-cols-[1.4fr_1fr] gap-2">
+              <input
+                className="w-full rounded-xl border border-line bg-white px-4 py-3.5 text-center text-[16px] outline-none transition-colors focus:border-brass"
+                placeholder="2024"
+                inputMode="numeric"
+                maxLength={4}
+                value={buY}
+                onChange={(e) => setBuY(e.target.value.replace(/\D/g, ""))}
+              />
+              <input
+                className="w-full rounded-xl border border-line bg-white px-4 py-3.5 text-center text-[16px] outline-none transition-colors focus:border-brass"
+                placeholder="03"
+                inputMode="numeric"
+                maxLength={2}
+                value={buM}
+                onChange={(e) => setBuM(e.target.value.replace(/\D/g, ""))}
+              />
+            </div>
+            <p className="text-xs text-ink-soft">
+              정확한 날짜까지는 몰라도 괜찮아요. 그달 즈음이면 충분합니다.
+            </p>
+          </div>
+        ),
+      });
+    }
     const nameIdx = 0, birthIdx = 1, timeIdx = 2, genderIdx = 3;
     const pNameIdx = 4, pBirthIdx = 5, pTimeIdx = 6, pGenderIdx = 7;
+    const buIdx = 8;
     s.push({
       key: "confirm",
       title: "입력하신 정보가 맞나요?",
@@ -443,12 +489,15 @@ export default function Flow({ category }: { category: Category }) {
               <SummaryRow label="상대방 성별" value={formatGender(partner.gender)} onEdit={() => goTo(pGenderIdx)} />
             </>
           )}
+          {needsBreakup && (
+            <SummaryRow label="헤어진 시기" value={buValid ? `${buY}년 ${buM}월` : "입력 안 함"} onEdit={() => goTo(buIdx)} />
+          )}
         </div>
       ),
     });
     return s;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, partnerName, me, partner, category.needsPartner]);
+  }, [name, partnerName, me, partner, category.needsPartner, needsBreakup, buY, buM, buValid]);
 
   // 외부에서 "?goto=birth"로 들어오면 이름 입력을 건너뛰고 생년월일 단계로 바로 이동
   // (예: 우리중 TOP1에서 "내 연애와 관련된 모든 것 보러가기" 버튼)
@@ -473,11 +522,12 @@ export default function Flow({ category }: { category: Category }) {
       me: birthOf(me),
       partner: category.needsPartner ? birthOf(partner) : undefined,
       partnerName: category.needsPartner ? partnerName || undefined : undefined,
+      breakup,
       tier: "basic",
     };
     return { me: meChart, pt: ptChart, c: category, input };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me, partner, partnerName, category, name]);
+  }, [me, partner, partnerName, category, name, breakup?.y, breakup?.m]);
 
   // 미리보기 값 — 전부 실제 명반 엔진(values())에서 가져온다.
   //
@@ -525,6 +575,7 @@ export default function Flow({ category }: { category: Category }) {
     n: name || undefined,
     me: orderPersonOf(me),
     pt: category.needsPartner ? orderPersonOf(partner) : undefined,
+    bu: breakup,
     pn: category.needsPartner ? partnerName || undefined : undefined,
     t: "basic",
   });

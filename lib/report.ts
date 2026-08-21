@@ -26,6 +26,7 @@ import { compose, newLedger, type ComposeLedger } from "./knowledge/compose";
 import { scoreDecadals, spanScore, scoreYears } from "./core/luck";
 import { buildProfile, type AbilitySet } from "./core/profile";
 import { comingMonths } from "./core/month";
+import { reunionTiming, reunionTimingFallback, type ReunionTiming } from "./core/reunion";
 import { branchSix, branchClash, branchHarm, branchBreak, stemCombo, STEM_EL, BRANCH_EL, TRIPLE } from "./core/ganji";
 import { topicOf } from "./knowledge/topicMap";
 import type { Facts, Topic } from "./knowledge/types";
@@ -43,8 +44,15 @@ export type PersonInput = {
   gender?: "male" | "female" | "none";
 };
 
+/** 헤어진 시기 — 재회 리포트에서 시기를 재는 기준점.
+ *  이게 없으면 "마음이 정리되는 시기"를 오늘 기준으로 잴 수밖에 없는데,
+ *  10년 전에 헤어진 사람과 지난달에 헤어진 사람에게 같은 답이 나간다. */
+export type BreakupDate = { y: number; m: number };
+
 export type ReportInput = {
   categoryId: string;
+  /** 재회 카테고리에서만 쓴다 */
+  breakup?: BreakupDate;
   name?: string;
   me: PersonInput;
   partner?: PersonInput;
@@ -990,6 +998,8 @@ function rulePassages(
   side: "me" | "pt" = "me",
   // 궁합·재회는 두 명식을 대조하는 규칙이 있어서, 상대 쪽 명식을 같이 넘긴다.
   other?: { chart: Chart; name?: string },
+  // 재회는 이별 시점을 알아야 시기를 잰다. 다른 카테고리는 넘기지 않는다.
+  breakup?: { y: number; m: number },
 ): string[] {
   const st = ruleStateFor(ledger);
   if (!st) return [];
@@ -998,8 +1008,8 @@ function rulePassages(
     // 한 번 더 돌리면 같은 말을 주어만 바꿔 되풀이하게 된다. 그래서 상대 차례에는
     // other를 넘기지 않고 — 그러면 pair 규칙의 when이 전부 거짓이 된다 — 대신 상대를
     // 한 사람으로 읽는다. "상대는 이런 사람이다"는 대조 문단과 겹치지 않는 정보다.
-    if (side === "me" && !st.me) st.me = buildFacts(chart, name, new Date(), other);
-    if (side === "pt" && !st.pt) st.pt = buildFacts(chart, name, new Date());
+    if (side === "me" && !st.me) st.me = buildFacts(chart, name, new Date(), other, breakup);
+    if (side === "pt" && !st.pt) st.pt = buildFacts(chart, name, new Date(), undefined, breakup);
     const f = side === "me" ? st.me! : st.pt!;
     const topic = side === "pt" ? soloTopic(topicOf(q, categoryId)) : topicOf(q, categoryId);
     const sib = categories.find((c) => c.id === categoryId)?.questions;
@@ -1400,7 +1410,38 @@ function compat(q: string, me: Chart, pt: Chart, name: string, partnerName: stri
 
 /* ───────────────────── 재회운 총론 ───────────────────── */
 
-function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: string, v: string, ledger?: Set<number>, qi: number = 0, ledgerP?: Set<number>): Para[] {
+function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: string, v: string, ledger?: Set<number>, qi: number = 0, ledgerP?: Set<number>, bu?: BreakupDate): Para[] {
+  // 이별 시점을 알면 모든 시기 문항이 거기서부터 계산된다. "대운이 바뀌어서"처럼
+  // 누구에게나 쓸 수 있는 말 대신, 몇 달이 지났고 이 명식은 얼마가 걸리는지를 댄다.
+  // 문항 값이 이미 지나간 달인가 — 지난 시점을 미래형으로 말하면 안 된다.
+  const buPassed = (val: string) => {
+    const m = /(\d{4})년\s*(\d{1,2})월/.exec(val);
+    if (!m) return false;
+    const now = new Date();
+    return +m[1] * 12 + +m[2] < now.getFullYear() * 12 + (now.getMonth() + 1);
+  };
+  const healOf = (c: Chart) => {
+    const A1 = analyzeTiming(c).analysis;
+    const g1 = A1.groupWeight;
+    return Math.max(3, Math.min(30, Math.round(9 + g1.인성 * 2.2 - g1.식상 * 1.6 + (60 - A1.strengthScore) / 12
+      + (A1.relations.some((r) => r.kind === "충" && r.between.includes("일")) ? -3 : 0)
+      + (A1.relations.some((r) => r.kind === "육합" && r.between.includes("일")) ? 3 : 0))));
+  };
+  const buLine = (() => {
+    if (!bu) return "";
+    const A0 = analyzeTiming(me).analysis;
+    const now = new Date();
+    const since = Math.max(0, (now.getFullYear() - bu.y) * 12 + (now.getMonth() + 1 - bu.m));
+    const g0 = A0.groupWeight;
+    const heal = Math.max(3, Math.min(30, Math.round(9 + g0.인성 * 2.2 - g0.식상 * 1.6 + (60 - A0.strengthScore) / 12
+      + (A0.relations.some((r) => r.kind === "충" && r.between.includes("일")) ? -3 : 0)
+      + (A0.relations.some((r) => r.kind === "육합" && r.between.includes("일")) ? 3 : 0))));
+    const why = g0.인성 >= 2 ? `받는 기운(인성 ${g0.인성.toFixed(1)})이 두터운 배치라 혼자 삭이는 시간이 깁니다`
+      : g0.식상 >= 2 ? `내보내는 기운(식상 ${g0.식상.toFixed(1)})이 두터운 배치라 감정이 오래 고이지 않습니다`
+      : !A0.strong ? `일간을 받쳐 주는 힘이 약해(${A0.strengthScore}점) 제자리를 찾는 데 품이 더 듭니다`
+      : `일간이 제 힘으로 버티는 배치라 회복은 무난한 편입니다`;
+    return `기준점은 ${bu.y}년 ${bu.m}월, 오늘까지 ${since}개월째입니다. ${why}. 이 배치에서 마음이 가라앉기까지는 ${heal}개월로 잡습니다.`;
+  })();
   const rel = relation(me.dayMaster, pt.dayMaster);
   const ep = EL[pt.dayMaster];
   const gm = grounding(me), gp = grounding(pt);
@@ -1416,7 +1457,14 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
   switch (q) {
     case "둘의 연애가 어땠는지":
       return [
-        P("결론", `이 관계는 ${v} 정도로 한쪽이 더 기울어 있던 사이입니다. 좋았던 기억이 강렬한 만큼, 끝이 아쉽게 남았을 겁니다.`),
+        P("결론", (() => {
+          const lean = favorGapOf(me, pt);
+          const heavy = lean >= 0 ? meWord : pWord;
+          const light = lean >= 0 ? pWord : meWord;
+          return Math.abs(lean) < 3
+            ? `마음의 무게는 ${v}${ro(v)}, 거의 반반이었습니다. 한쪽이 더 좋아하고 덜 좋아하는 구조가 아니라, 서로에게서 얻는 것이 비슷했던 사이입니다.`
+            : `마음의 무게는 ${v}${ira(v)} 나뉘어 있었습니다. ${heavy}${ga(heavy)} 더 기울어 있던 쪽이고, ${light}${neun(light)} 그만큼 여유가 있던 쪽입니다. 좋았던 기억이 강렬한 만큼 끝이 아쉽게 남았을 겁니다.`;
+        })()),
         P("명반 근거", `${meWord}의 일간 ${gm.ilgan}${wa(gm.ilgan)} ${pWord}의 일간 ${gp.ilgan}${neun(gp.ilgan)} ${relName} 관계였습니다. ${rel.startsWith("剋") ? `끌림은 강했지만 ${followWord}${ga(followWord)} 계속 맞춰야 하는 구조라, 좋을 땐 뜨겁고 틀어질 땐 급격했습니다.` : rel === "比" ? "너무 비슷해 편했던 만큼, 설렘이 빨리 익숙함으로 바뀌었습니다." : `한쪽이 더 내어주는 관계라, ${leadWord}${ga(leadWord)} 지칠 때 균형이 흔들렸습니다.`}`),
         P("실제로는", `${openerFor(gm, me.seed + strHash(q) + 28)} 평소에는 잘 맞다가도 결정적인 순간에 어긋나는 패턴이 반복됐을 겁니다. 서로를 안 좋아한 게 아니라, 좋아하는 방식이 달라서 자꾸 엇갈린 관계였습니다.`),
       ];
@@ -1455,13 +1503,13 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
     case "연락 타이밍":
       return [
         P("결론", `연락의 창은 ${v}에 열립니다. 지금 당장은 아닙니다.`),
-        P("명반 근거", `${pWord} 명궁의 ${gp.myungStar}성 기질(${gp.myungWhy})상, 감정이 정리되기 전의 연락은 부담으로 받아들여지기 쉽습니다. 흐름이 바뀌는 그 시점 전에 먼저 움직이면 아쉬운 쪽으로 읽혀 균형이 무너집니다.`),
+        P("명반 근거", `${bu ? `${bu.y}년 ${bu.m}월 이별 이후 ${healOf(me)}개월의 회복 구간을 지나고, 그다음 흐름이 트이는 첫 달로 잡은 것이 ${v}입니다. ` : ""}${pWord} 명궁의 ${gp.myungStar}성 기질(${gp.myungWhy})상, 감정이 정리되기 전의 연락은 부담으로 받아들여지기 쉽습니다. 그 시점 전에 먼저 움직이면 아쉬운 쪽으로 읽혀 균형이 무너집니다.`),
         P("지금 할 것", `그 시기까지는 ${pWord}의 근황을 확인하는 걸 줄이세요. 평소의 ${meWord}${ga(meWord)}라면 참기 어렵겠지만, SNS를 자꾸 들여다보는 것부터 멈추는 게 첫걸음입니다.`),
       ];
     case "재회 시기":
       return [
         P("결론", `다시 이어질 흐름이 보이는 시기는 ${v} 전후입니다. 그 전까지는 관계보다 각자의 시간이 필요한 구간입니다.`),
-        P("명반 근거", `그 무렵 ${meWord} 대운의 흐름이 한 번 바뀌면서 부처궁 ${gm.buchoStar}성이 다시 활성화됩니다. 단순히 시간이 지나서가 아니라, 서로의 상황이 바뀌며 다시 볼 여지가 생기는 시점입니다.`),
+        P("명반 근거", `${buLine ? buLine + " " : ""}${v}${neun(v)} 이별 이후로 짚었을 때 배우자궁인 일지가 묶이면서 세운 흐름도 함께 올라오는 달입니다. 단순히 시간이 지나서가 아니라, 서로의 상황이 바뀌며 다시 볼 여지가 생기는 시점입니다.`),
         P("그때의 조건", `억지로 앞당기려 하지 마세요. 시기가 안 맞을 때의 재회는 대개 두 번째 이별로 이어집니다.`),
       ];
     case "새로운 사람의 존재":
@@ -1496,22 +1544,31 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
       ];
     case "나의 마음이 정리되는 시기":
       return [
-        P("결론", `${meWord}의 마음이 실제로 정리되는 시점은 ${v}입니다. 그 전까지는 정리된 척해도 속으로는 미련이 남아 있을 확률이 높습니다.`),
-        P("명반 근거", `${meWord} 대운의 흐름이 바뀌는 시점과 겹칩니다. 그 전까지는 일간 ${gm.ilgan}${wa(gm.ilgan)} 명궁 ${gm.myungStar}성이 계속 그 자리를 맴돌게 만듭니다.`),
+        P("결론", buPassed(v)
+          ? `${meWord}의 마음이 가라앉는 자리로 계산된 시점은 ${v}입니다. 이미 지나온 구간입니다. 그런데도 아직 무겁다면, 감정이 남아서라기보다 그때 매듭짓지 못한 자리가 그대로 있는 쪽입니다.`
+          : `${meWord}의 마음이 실제로 정리되는 시점은 ${v}입니다. 그 전까지는 정리된 척해도 속으로는 미련이 남아 있을 확률이 높습니다.`),
+        P("명반 근거", buLine ? `${buLine} 그 구간을 지나 용신이 드는 첫 달이 ${v}입니다. 일간 ${gm.ilgan}${wa(gm.ilgan)} 명궁 ${gm.myungStar}성이 그 전까지는 계속 그 자리를 맴돌게 만듭니다.` : `${meWord} 대운의 흐름이 바뀌는 시점과 겹칩니다. 그 전까지는 일간 ${gm.ilgan}${wa(gm.ilgan)} 명궁 ${gm.myungStar}성이 계속 그 자리를 맴돌게 만듭니다.`),
         P("실제로는", `${openerFor(gm, me.seed + strHash(q) + 28)} 억지로 빨리 잊으려 할수록 오히려 더 오래갑니다. 이 시기 전까지는 정리하려고 애쓰기보다, 그냥 그리운 채로 지내는 편이 결과적으로 더 빨리 지나갑니다.`),
         P("지금 할 것", `${openerFor(gm, me.seed + strHash(q) + 42)} 이 시기가 오기 전에 새로운 인연을 억지로 만들지 마세요. 정리되지 않은 채 시작한 관계는 비교 대상이 되기 쉽습니다.`),
       ];
     case "상대방의 마음이 정리되는 시기":
+      if (buPassed(v))
+        return [
+          P("결론", `${pWord}의 마음이 가라앉는 자리로 계산된 시점은 ${v}입니다. 이미 지나온 구간이라, ${pWord}${neun(pWord)} 이 관계를 지금 감정의 중심에 두고 있지 않을 확률이 높습니다.`),
+          P("명반 근거", `${bu ? `${bu.y}년 ${bu.m}월을 기준으로 ${pWord}의 명식으로 다시 계산한 값입니다. 회복 속도는 명식마다 달라서 두 사람의 시점이 어긋나는 게 보통이고, 여기서는 ${pWord} 쪽이 먼저 지나갔습니다. ` : ""}${pWord} 명궁의 ${gp.myungStar}성(${gp.myungWhy})이 그 시기를 기점으로 다른 국면에 들어갔습니다.`),
+          P("실제로는", `${openerFor(gm, me.seed + strHash(q) + 28)} 상대가 먼저 정리된 상태에서 오는 연락은 그리움이 아니라 안부일 때가 많습니다. 그 온도차를 감안하지 않으면 혼자 앞서 나가게 됩니다.`),
+          P("지금 할 것", `${pWord}의 정리가 끝났다고 해서 문이 닫힌 건 아닙니다. 다만 예전의 관계를 되살리는 방식이 아니라, 지금의 두 사람으로 다시 만나는 방식이어야 합니다.`),
+        ];
       return [
         P("결론", `${pWord}의 마음이 정리되는 시점은 ${v}${ro(v)} 보입니다.`),
-        P("명반 근거", `${pWord} 명궁의 ${gp.myungStar}성(${gp.myungWhy})이 이 시기를 기점으로 다른 국면에 들어갑니다. 그 전까지는 ${pWord}도 완전히 정리된 상태는 아닐 확률이 높습니다.`),
+        P("명반 근거", `${bu ? `같은 ${bu.y}년 ${bu.m}월을 기준으로 ${pWord}의 명식으로 다시 계산한 값이 ${v}입니다. 회복 속도는 사람마다 달라서 두 사람의 시점이 어긋나는 게 보통입니다. ` : ""}${pWord} 명궁의 ${gp.myungStar}성(${gp.myungWhy})이 이 시기를 기점으로 다른 국면에 들어갑니다. 그 전까지는 ${pWord}도 완전히 정리된 상태는 아닐 확률이 높습니다.`),
         P("실제로는", `${openerFor(gm, me.seed + strHash(q) + 28)} 이 시기 전에 오는 연락은 정리되지 않은 상태에서 오는 신호일 가능성이 큽니다. 반갑다고 바로 무너지면, 정리도 안 된 상태로 다시 시작하게 됩니다.`),
         P("지금 할 것", `${pWord}의 타이밍을 재촉하지 마세요. 먼저 다가가서 확인하려 들수록, ${pWord}${neun(pWord)} 오히려 정리할 시간을 더 필요로 하게 됩니다.`),
       ];
     case "나에게 새로운 인연이 들어오는 시기":
       return [
         P("결론", `${meWord}에게 새로운 인연이 들어올 가능성이 커지는 시기는 ${v} 무렵입니다.`),
-        P("명반 근거", `${meWord} 부처궁의 ${gm.buchoStar}성이 다시 활성화되는 시점과 겹칩니다. 그 전까지는 새 인연이 들어와도 눈에 잘 안 들어올 확률이 높습니다.`),
+        P("명반 근거", `${bu ? `마음이 가라앉는 자리를 먼저 지나야 새 인연이 눈에 들어옵니다. 그 뒤로 도화(자·묘·오·유)가 드는 첫 달을 짚으면 ${v}입니다. ` : ""}${meWord} 부처궁의 ${gm.buchoStar}성이 다시 활성화되는 시점과 겹칩니다. 그 전까지는 새 인연이 들어와도 눈에 잘 안 들어올 확률이 높습니다.`),
         P("실제로는", `${openerFor(gm, me.seed + strHash(q) + 28)} 이 시기 전에 스치는 인연이 있어도, 아직 이전 관계의 자리가 다 정리되지 않아서 마음에 잘 들어오지 않을 수 있습니다. 그렇다고 그 사람이 나쁜 인연인 건 아닙니다.`),
         P("지금 할 것", `${openerFor(gm, me.seed + strHash(q) + 42)} 이 시기를 기다리기만 하지 말고, 그 전부터 사람 만나는 자리에 자연스럽게 나가보세요. 준비된 사람에게 이 시기의 인연이 더 선명하게 보입니다.`),
       ];
@@ -1529,7 +1586,7 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
     // 문단을 섞어 분량을 채웠는데, "몰래 좋아한 사람 수"를 물었는데 업무 마감 얘기가
     // 나오는 식으로 어긋나서 전부 걷어냈다.
     if (!onlyP) {
-      const rp = rulePassages(me, q, "love-reunion", 3, ledger, name, "me", { chart: pt, name: partnerName });
+      const rp = rulePassages(me, q, "love-reunion", 3, ledger, name, "me", { chart: pt, name: partnerName }, bu);
       (rp.length ? rp : chartReading(gm, q, qt, "reunion", 2, ledger, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${meWord} 명반으로 보면` : "짚고 갈 자리", t)),
       );
@@ -1538,7 +1595,7 @@ function reunion(q: string, me: Chart, pt: Chart, name: string, partnerName: str
       // 상대 쪽으로 넘어가는 첫 문단은 화자가 바뀌는 지점이라 라벨을 고정해 둔다.
       // 상대 쪽도 같은 규칙 원장을 쓴다. 따로 두면 두 사람이 같은 판정일 때(둘 다 신약 등)
       // 설명 문장이 글자 그대로 두 번 나온다.
-      const rpP = rulePassages(pt, q, "love-reunion", 3, ledger, partnerName, "pt", { chart: me, name });
+      const rpP = rulePassages(pt, q, "love-reunion", 3, ledger, partnerName, "pt", { chart: me, name }, bu);
       (rpP.length ? rpP : chartReading(gp, q, qt, "reunion", 2, ledgerP, joinParas(paras), v)).forEach((t, i) =>
         paras.push(P(i === 0 ? `${pWord} 명반으로 보면` : "상대 쪽에서 짚을 자리", t)),
       );
@@ -2027,6 +2084,20 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     const gaps = months.map((m) => ((m - now + 12) % 12) || 12).sort((a, b) => a - b);
     return gaps[offset % gaps.length];
   };
+  /** 재회 가능성 — 궁합 점수에 배우자궁 관계를 얹는다. 50~100 눈금. */
+  // 재회 시기 — 헤어진 시점을 기준으로 잰다. 입력이 없으면 오늘 기준으로 떨어진다.
+  const rt = ctx.input.breakup
+    ? reunionTiming(A, ctx.input.breakup, (y) => yrs.find((x) => x.year === y)?.score ?? 50)
+    : reunionTimingFallback(A, (y) => yrs.find((x) => x.year === y)?.score ?? 50);
+  const rtFull = ctx.input.breakup ? (rt as ReunionTiming) : undefined;
+
+  const reunionPct = () => {
+    if (!pairScore) return 62;
+    const base = pairScore.six ? pairScore.score + 12 : pairScore.clash ? pairScore.score - 14 : pairScore.score - 4;
+    // 궁합 총점은 100까지 열어 두지만 재회 가능성은 92에서 끊는다.
+    // "다시 만날 가능성 100%"는 명식으로 낼 수 있는 말이 아니다.
+    return Math.max(38, Math.min(92, Math.round(base)));
+  };
   /** 두 사람 중 어느 쪽이 더 기우는가. */
   const favorGap = () => favorGapOf(me, pt);
   /** 결혼 나이 — 배우자성(남명 재성·여명 관성)이 대운으로 들어오는 첫 구간에서 잡는다.
@@ -2093,7 +2164,12 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     if (branchSix(mb, ob)) sc += 12;                           // 일지 육합
     if (branchClash(mb, ob)) sc -= 8;                          // 일지 충
     if (A.strong !== B.strong) sc += 5;                        // 강약이 갈리면 역할이 잡힌다
-    return { score: Math.max(12, Math.min(96, Math.round(sc))), clash: branchClash(mb, ob), six: branchSix(mb, ob) };
+    // 궁합 점수는 50~100으로 낸다. 원점수는 30~96 언저리에 뭉치는데, 그대로
+    // 화면에 올리면 대부분이 40~50점대라 "우리 궁합이 나쁘다"로만 읽힌다.
+    // 궁합은 좋고 나쁨을 끊는 자리가 아니라 어느 자리가 맞고 어긋나는지를
+    // 보는 자리이므로, 눈금을 옮겨 순위는 그대로 두고 폭만 넓힌다.
+    const raw = Math.max(12, Math.min(96, Math.round(sc)));
+    return { score: Math.round(50 + ((raw - 12) / 84) * 50), clash: branchClash(mb, ob), six: branchSix(mb, ob) };
   })();
   return {
     "나의 타고난 매력은?": { v: EL[me.dayMaster].fromLabel },
@@ -2125,14 +2201,22 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
     "상대방의 바람기 지수": { v: (() => { if (!pt) return "중간"; const B = analyzeTiming(pt).analysis; const k = B.tenGods.flatMap((t) => [t.stem, t.branch]).filter((g) => g === "편재" || g === "상관").length + (B.sinsal.some((x) => x.name === "도화") ? 2 : 0); return k >= 4 ? "주의" : k >= 2 ? "중간" : "낮음"; })() },
     "서로에게 주는 영향": { v: pt ? (relation(me.dayMaster, pt.dayMaster).startsWith("生") ? "회복" : "긴장") : "" },
     "얼마나 오래 만날지": { v: pairScore ? (pairScore.six ? "오래" : pairScore.clash ? "짧고 굵게" : pairScore.score >= 62 ? "길게" : "중간") : "중간" },
-    "결혼 가능성": { v: `${pairScore ? Math.max(20, pairScore.score - 6) : 60}`, gauge: pairScore ? Math.max(20, pairScore.score - 6) : 60 },
+    "결혼 가능성": { v: `${pairScore ? Math.max(50, pairScore.score - 5) : 68}`, gauge: pairScore ? Math.max(50, pairScore.score - 5) : 68 },
     "결혼 시 주의점": { v: (() => { const w = [...yrs].sort((x, y2) => x.score - y2.score)[0]; return `${w.year}년 전후`; })() },
     "궁합 총점수": { v: `${pairScore?.score ?? 70}`, gauge: pairScore?.score ?? 70 },
     "나의 가치관": { v: VALUE_BY_GROUP[topGroup(A)] },
     "상대방의 가치관": { v: pt ? VALUE_BY_GROUP[topGroup(analyzeTiming(pt).analysis)] : "신뢰" },
     "스킨십·애정표현 궁합": { v: (() => { if (!pt) return "보통"; const B = analyzeTiming(pt).analysis; const t = gw.식상 + B.groupWeight.식상; return t >= 4 ? "잘 맞음" : t >= 2.2 ? "보통" : "노력 필요"; })() },
-    "둘의 연애가 어땠는지": { v: (() => { const g = favorGap(); const a2 = Math.max(3, Math.min(8, 5 + Math.round(g / 4))); return `${a2}:${10 - a2}`; })() },
-    "궁합과 인연": { v: `상위 ${pairScore ? Math.max(3, Math.round(100 - pairScore.score)) : 25}%` },
+    // "4:6"만 쓰면 누가 4이고 누가 6인지 알 수 없다. 이름을 붙여 방향을 밝힌다.
+    // favorGap이 양수면 이 사람이 더 기울어 있다는 뜻이다.
+    "둘의 연애가 어땠는지": { v: (() => {
+      const g = favorGap();
+      const mine = Math.max(3, Math.min(8, 5 + Math.round(g / 4)));
+      const meN = ctx.input.name ?? "나";
+      const ptN = ctx.input.partnerName ?? "상대";
+      return `${meN} ${mine} : ${ptN} ${10 - mine}`;
+    })() },
+    "궁합과 인연": { v: `상위 ${pairScore ? Math.max(3, Math.round((100 - pairScore.score) * 1.8)) : 30}%` },
     "상대방의 현재 마음": { v: pairScore?.six ? "미련 남음" : pairScore?.clash ? "정리 중" : (pairScore?.score ?? 50) >= 60 ? "그리움 잠복" : "정리 중" },
     "상대방이 나를 기억하는 방식": { v: (() => {
       // 상대 입장에서 이 관계가 무엇이었는지는 상대의 명식 기준으로 봐야 한다.
@@ -2147,11 +2231,11 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
       return "그리운 한때";
     })() },
     "헤어진 진짜 이유": { v: breakupReason() },
-    "재회 가능성": { v: `${pairScore ? (pairScore.six ? Math.min(88, pairScore.score + 10) : pairScore.clash ? Math.max(15, pairScore.score - 18) : pairScore.score - 6) : 45}`, gauge: pairScore ? (pairScore.six ? Math.min(88, pairScore.score + 10) : pairScore.clash ? Math.max(15, pairScore.score - 18) : pairScore.score - 6) : 45 },
-    "연락 타이밍": { v: `${Math.max(1, Math.min(8, monthsToGood(tm.goodMonths) * 2))}주 뒤` },
+    "재회 가능성": { v: `${reunionPct()}`, gauge: reunionPct() },
+    "연락 타이밍": { v: rt.contact ? ym(rt.contact) : `${Math.max(1, Math.min(8, monthsToGood(tm.goodMonths) * 2))}주 뒤` },
     // 재회도 내 용신이 들어오는 달로 본다. 용신 달이 여럿이면(토는 넷) 상대 명반으로 갈라
     // 같은 사람이라도 상대에 따라 다른 달이 나오게 한다.
-    "재회 시기": { v: ym(byScore.find((x) => x.score >= 55) ?? bestMon) },
+    "재회 시기": { v: rt.reunion ? ym(rt.reunion) : ym(byScore.find((x) => x.score >= 55) ?? bestMon) },
     // 앞으로 3년 안에 도화나 배우자성이 드는 해가 있는지로 본다.
     // 예전 식은 올해 지지 하나만 봐서 모든 사람에게 같은 답이 나왔다.
     "새로운 사람의 존재": { v: (() => {
@@ -2182,9 +2266,17 @@ export function values(ctx: Ctx): Record<string, { v: string; gauge?: number }> 
         : pairScore.score >= 65 ? "천천히 회복돼요"
         : pairScore.score >= 48 ? "속도를 다시 맞춰야 해요" : "같은 자리에서 반복돼요"
       : "천천히 회복돼요" },
-    "나의 마음이 정리되는 시기": { v: ym(mons.find((x) => x.score >= 55) ?? bestMon) },
-    "상대방의 마음이 정리되는 시기": { v: `${pt ? monthsToGood(analyzeTiming(pt).goodMonths) : monthsToGood(tm.goodMonths, 1)}개월 후` },
-    "나에게 새로운 인연이 들어오는 시기": { v: ym(byScore.filter((x) => [0, 3, 6, 9].includes(x.branch))[0] ?? bestMon) },
+    "나의 마음이 정리되는 시기": { v: rtFull ? ym(rtFull.settle) : ym(mons.find((x) => x.score >= 55) ?? bestMon) },
+    "상대방의 마음이 정리되는 시기": { v: (() => {
+      if (!pt) return "—";
+      const B = analyzeTiming(pt).analysis;
+      const ys = scoreYears(B, pt.birthYear, thisYear, 10, pt.luck?.list ?? []);
+      const t = ctx.input.breakup
+        ? reunionTiming(B, ctx.input.breakup, (y) => ys.find((x) => x.year === y)?.score ?? 50)
+        : undefined;
+      return t ? ym(t.settle) : ym(mons.find((x) => x.score >= 52) ?? bestMon);
+    })() },
+    "나에게 새로운 인연이 들어오는 시기": { v: rt.newLove ? ym(rt.newLove) : ym(byScore.filter((x) => [0, 3, 6, 9].includes(x.branch))[0] ?? bestMon) },
     "타고난 직업 적성과 일의 그릇": { v: EL[me.dayMaster].fromLabel.replace(/[은는]$/, "") },
     "나에게 맞는 일의 방식": { v: me.dominant % 2 === 0 ? "주도형" : "조율형" },
     "커리어 전환에 유리한 시기": { v: ym(bestMon) },
@@ -2773,7 +2865,7 @@ export function sectionFallback(ctx: Ctx, q: string, v: string): string {
   const { me, pt, c: category, input } = ctx;
   if (category.id === "love-life") return joinParas(loveLife(q, me, input.name ?? "", v));
   if (category.id === "love-compatibility" && pt) return joinParas(compat(q, me, pt, input.name ?? "", input.partnerName ?? "", v));
-  if (category.id === "love-reunion" && pt) return joinParas(reunion(q, me, pt, input.name ?? "", input.partnerName ?? "", v));
+  if (category.id === "love-reunion" && pt) return joinParas(reunion(q, me, pt, input.name ?? "", input.partnerName ?? "", v, undefined, 0, undefined, input.breakup));
   if (category.id === "life-overview") return joinParas(lifeOverview(q, me, input.name ?? "", v));
   return joinParas(light(category, q, me, v));
 }
@@ -2813,7 +2905,7 @@ export function generateReport(input: ReportInput): Report | null {
     let paragraphs: Para[];
     if (category.id === "love-life") paragraphs = loveLife(q, me, input.name ?? "", val.v, ledger, qi);
     else if (category.id === "love-compatibility" && pt) paragraphs = compat(q, me, pt, input.name ?? "", input.partnerName ?? "", val.v, ledger, qi, ledgerP);
-    else if (category.id === "love-reunion" && pt) paragraphs = reunion(q, me, pt, input.name ?? "", input.partnerName ?? "", val.v, ledger, qi, ledgerP);
+    else if (category.id === "love-reunion" && pt) paragraphs = reunion(q, me, pt, input.name ?? "", input.partnerName ?? "", val.v, ledger, qi, ledgerP, input.breakup);
     else if (category.id === "life-overview") paragraphs = lifeOverview(q, me, input.name ?? "", val.v, ledger, qi);
     else paragraphs = light(category, q, me, val.v, ledger, qi);
 

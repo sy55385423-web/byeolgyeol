@@ -7,6 +7,7 @@
  *
  *  목표: 고정문장 20% 이하, 변별력 70% 이상. */
 import { generateReport } from "../lib/report.ts";
+import { buOf } from "./_bu.js";
 import { categories } from "../data/categories.ts";
 const mk=n=>{const a=[];for(let i=0;i<n;i++)a.push({y:1955+(i*7)%60+1,m:1+((i*5)%12),d:1+((i*11)%28),hourBranch:i%12,gender:i%2?"male":"female"});return a;};
 const P=mk(50);
@@ -16,7 +17,7 @@ console.log("카테고리            고정문장   변별력   worst 고정문�
 for(const c of categories){
   const rs=[];
   for(const [i,p] of P.entries()){
-    let r; try{r=generateReport({categoryId:c.id,name:"테",me:p,partner:c.needsPartner?P[(i+23)%P.length]:undefined,partnerName:"상",tier:"basic"});}catch{continue}
+    let r; try{r=generateReport({categoryId:c.id,breakup:buOf(c.id,i),name:"테",me:p,partner:c.needsPartner?P[(i+23)%P.length]:undefined,partnerName:"상",tier:"basic"});}catch{continue}
     if(r)rs.push(r);
   }
   const N=rs.length, cnt={};

@@ -27,12 +27,15 @@ const hiP=rows.filter(r=>r.ax["감정표현"].potential>=50);
 const s2=hiP.filter(r=>r.str>=55), w2=hiP.filter(r=>r.str<35);
 console.log(`  잠재 50+ 중 신강(${s2.length}) 발현 ${avg(s2,"감정표현",x=>x.ax["감정표현"].expression)} · 신약(${w2.length}) ${avg(w2,"감정표현",x=>x.ax["감정표현"].expression)}  ${ok(avg(s2,"감정표현",x=>x.ax["감정표현"].expression)>avg(w2,"감정표현",x=>x.ax["감정표현"].expression))}`);
 console.log("\n2-2) 감당 민감도 — 설기 계열 능력만 감당력에 눌려야 한다");
-const wk=rows.filter(r=>r.str<35), st=rows.filter(r=>r.str>=55);
-for(const [k,sens] of [["감정표현","민감 1.0"],["사교성","민감 1.0"],["독립성","둔감 0.3"],["신뢰감","중간 0.6"]]){
-  const d=avg(st,k)-avg(wk,k);
-  console.log(`  ${k.padEnd(5)}(${sens}) 신강 ${avg(st,k)} · 신약 ${avg(wk,k)} · 차이 ${d}점`);
+// ⚠️ 식상이 많으면 그 자체로 신약해진다(설기). 십신을 통제하지 않고 강약만
+//    비교하면 "신약한 쪽이 식상이 많아서" 결과가 뒤집힌다. 식상 무게가
+//    비슷한 사람끼리 묶어서 비교해야 감당력의 순수한 효과가 보인다.
+const bandSik = rows.filter(r => r.g.식상 >= 1.5 && r.g.식상 <= 2.5);
+const bS = bandSik.filter(r => r.str >= 50), bW = bandSik.filter(r => r.str < 40);
+for (const [k, sens] of [["감정표현","민감 1.0"],["사교성","민감 1.0"],["독립성","둔감 0.3"],["신뢰감","중간 0.6"]]) {
+  console.log(`  ${k.padEnd(5)}(${sens}) 식상 1.5~2.5 중 신강(${bS.length}) ${avg(bS,k)} · 신약(${bW.length}) ${avg(bW,k)} · 차이 ${avg(bS,k)-avg(bW,k)}점`);
 }
-console.log("  → 민감한 축은 차이가 크고, 둔감한 축(독립성)은 작아야 한다");
+console.log("  → 민감한 축(감정표현·사교성)은 차이가 크고, 둔감한 축(독립성)은 작아야 한다");
 
 console.log("\n3) 종합 점수와 백분위가 다른 값인가");
 const same=rows.filter(r=>r.comp===100-r.pct).length;

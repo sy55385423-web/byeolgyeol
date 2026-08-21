@@ -299,9 +299,9 @@ export const categories: Category[] = [
     previewStats: [
       {
         label: "둘의 연애가 어땠는지",
-        prefix: "두 사람의 연애는 ",
-        value: "7:3",
-        suffix: "의 관계였어요",
+        prefix: "마음의 무게는 ",
+        value: "나 7 : 상대 3",
+        suffix: "이었어요",
         subject: "shared",
       },
       {

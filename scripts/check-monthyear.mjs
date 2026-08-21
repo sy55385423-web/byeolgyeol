@@ -4,6 +4,7 @@
  *  읽는 사람은 올해 5월로 받아들이는데, 실제로는 어느 해인지 정해지지 않은 값이다.
  *  월운 엔진이 그해 그달의 실제 간지로 점수를 내므로 연도를 함께 적어야 한다. */
 import { generateReport } from "../lib/report.ts";
+import { buOf } from "./_bu.js";
 import { categories } from "../data/categories.ts";
 const mk=n=>{const a=[];for(let i=0;i<n;i++)a.push({y:1955+(i*7)%60+1,m:1+((i*5)%12),d:1+((i*11)%28),hourBranch:i%12,gender:i%2?"male":"female"});return a;};
 const P=mk(30);
@@ -11,7 +12,7 @@ const P=mk(30);
 const BARE=/(?<!\d{4}년\s?)(?<![\d])([1-9]|1[0-2])월/g;
 const hit={}; let tot=0;
 for(const c of categories) for(const [i,p] of P.entries()){
-  let r; try{r=generateReport({categoryId:c.id,name:"테",me:p,partner:c.needsPartner?P[(i+13)%P.length]:undefined,partnerName:"상",tier:"basic"});}catch{continue}
+  let r; try{r=generateReport({categoryId:c.id,breakup:buOf(c.id,i),name:"테",me:p,partner:c.needsPartner?P[(i+13)%P.length]:undefined,partnerName:"상",tier:"basic"});}catch{continue}
   if(!r)continue;
   for(const s of r.sections) for(const line of s.content.split(/(?<=다\.)\s+/)){
     let m; BARE.lastIndex=0;

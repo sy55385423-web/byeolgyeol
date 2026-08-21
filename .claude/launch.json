@@ -2,11 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "byeolgyeol-dev",
+      "name": "byeolgyeol",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "cwd": "/Users/sy050803/Downloads/byeolgyeol",
-      "port": 3000
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "-p",
+        "3100"
+      ],
+      "port": 3100
     }
   ]
 }

@@ -34,7 +34,7 @@ export type Features = Record<FeatureKey, number>;
 /** 어떤 명리 자리에서 나온 특성인지 — 화면에 근거를 밝힐 때 쓴다. */
 export const FEATURE_SOURCE: Record<FeatureKey, string> = {
   표현성: "식상(인성이 극한다)",
-  대인접근성: "비겁·재성·도화",
+  대인접근성: "식상·재성·도화",
   자기주도: "비겁",
   관계확장: "재성·역마·천을귀인",
   정서개방: "식상·상관과 식신의 비중·일간 음양",
@@ -53,6 +53,7 @@ export const FEATURE_SOURCE: Record<FeatureKey, string> = {
   감당력: "강약 점수",
   균형도: "오행 편차",
   구조안정: "격국의 성패",
+  // 공망은 위 특성 전반에 반영된다 — 그 자리의 십신 무게를 깎는다
   통로개방: "식상·관성이 막히지 않았는가",
 };
 
@@ -68,7 +69,13 @@ const ALIVE = ["장생", "관대", "건록", "제왕"];
  *  양만 보면 이 둘이 같은 점수를 받는다. 사주 앱들이 십신을 용신·기신 렌즈로
  *  읽는 것이 이 때문이다.
  *
- *  용신 1.25 · 희신 1.1 · 한신 0.85 · 기신 0.5 를 곱해 "실제로 쓸 수 있는 양"을 만든다. */
+ *  다만 세게 걸면 안 된다. 명리에서 기신 십신은 "그 성향이 없다"가 아니라
+ *  "그 방면에서 고생한다"는 뜻이다. 식상이 기신으로 3.4면 표현을 안 하는 게
+ *  아니라, 표현을 많이 하되 그게 자기를 소모시킨다. 레이더는 "어떤 사람인가"를
+ *  보여 주는 자리지 "그게 이로운가"를 보여 주는 자리가 아니다. 이로운지 아닌지는
+ *  본문 규칙이 "기신이라 시달린다"고 따로 말한다.
+ *
+ *  용신 1.15 · 희신 1.07 · 한신 0.95 · 기신 0.85. 방향만 주고 크기는 남긴다. */
 const GROUPS = ["비겁", "식상", "재성", "관성", "인성"] as const;
 type Group = (typeof GROUPS)[number];
 
@@ -76,17 +83,44 @@ type Group = (typeof GROUPS)[number];
 const groupEl = (dayEl: number, k: Group): number =>
   ({ 비겁: dayEl, 식상: (dayEl + 1) % 5, 재성: (dayEl + 2) % 5, 관성: (dayEl + 3) % 5, 인성: (dayEl + 4) % 5 })[k];
 
+/** 십신 이름 → 갈래 */
+const groupOfGod = (g: string): Group | null =>
+  g === "비견" || g === "겁재" ? "비겁"
+  : g === "식신" || g === "상관" ? "식상"
+  : g === "편재" || g === "정재" ? "재성"
+  : g === "편관" || g === "정관" ? "관성"
+  : g === "편인" || g === "정인" ? "인성"
+  : null;
+
 export function favorOf(a: Analysis, k: Group): number {
   const e = groupEl(a.dayEl, k);
-  if (e === a.useEl) return 1.25;
-  if (e === a.helpEl) return 1.1;
-  if (e === a.avoidEl) return 0.5;
-  return 0.85;
+  if (e === a.useEl) return 1.15;
+  if (e === a.helpEl) return 1.07;
+  if (e === a.avoidEl) return 0.85;
+  return 0.95;
 }
 
 export function extractFeatures(a: Analysis): Features {
-  const raw = a.groupWeight;
+  // 시간을 모르면 시주가 없어 여덟 글자 중 여섯 자만 잡힌다. 십신 무게가 통째로
+  // 작게 나와서, 개수나 무게를 재는 특성이 전부 낮은 쪽으로 쏠린다. 시간을 아는
+  // 사람과 같은 눈금에 놓으려면 빠진 만큼 되돌려 줘야 한다.
+  // (시주 자체의 정보는 복구할 수 없다 — 눈금만 맞추는 보정이다.)
+  const noHour = !a.pillars.시;
+  const lift = noHour ? 8 / 6 : 1;
+  const raw = Object.fromEntries(
+    (["비겁", "식상", "재성", "관성", "인성"] as const).map((k) => [k, a.groupWeight[k] * lift]),
+  ) as Record<Group, number>;
   // 효용 무게 — 그 십신을 실제로 쓸 수 있는 양. 아래 특성은 전부 이걸 쓴다.
+  // 공망(空亡) — 그 자리가 비어 있다고 보는 곳이다. 글자는 있는데 힘을 못 쓴다.
+  // 년지 정인이 공망이면 인성이 있어도 실제로는 덜 작동한다. 그 자리의 십신을 깎는다.
+  const voidPos = a.sinsal.find((x) => x.name === "공망")?.where ?? [];
+  for (const pos of voidPos) {
+    const t = a.tenGods.find((x) => x.pos === pos);
+    if (!t) continue;
+    const k = groupOfGod(t.branch as string);
+    if (k) raw[k] = Math.max(0, raw[k] - 0.55);
+  }
+
   const g = Object.fromEntries(GROUPS.map((k) => [k, raw[k] * favorOf(a, k)])) as Record<Group, number>;
   /** 인성이 기신일 때만 의존으로 본다. 용신이면 기대는 게 아니라 내 뿌리다. */
   const 인성기신 = favorOf(a, "인성") < 0.7;
@@ -130,7 +164,9 @@ export function extractFeatures(a: Analysis): Features {
 
   return {
     표현성: clamp(w100(g.식상) - 인극 + (has("문창귀인") ? 8 : 0) - (인다신왕 ? 12 : 0)),
-    대인접근성: clamp(w100(g.비겁) * 0.5 + w100(g.재성) * 0.35 + (has("도화") ? 15 : 0) - (has("화개") ? 10 : 0)),
+    // 사교의 핵심은 식상이다. 밖으로 내보내는 힘이 사람과 닿게 한다.
+    // 비겁을 넣었었는데, 비겁은 또래이자 경쟁이라 사교성으로 직결되지 않는다.
+    대인접근성: clamp(w100(g.식상) * 0.45 + w100(g.재성) * 0.35 + (has("도화") ? 15 : 0) - (has("화개") ? 10 : 0)),
     자기주도: clamp(w100(g.비겁) * 0.7 + n100(cnt("비견", "겁재"), 3) * 0.3),
     관계확장: clamp(w100(g.재성) * 0.6 + (has("역마") ? 14 : 0) + (has("천을귀인") ? 10 : 0) - (군겁쟁재 ? 12 : 0)),
     // 정서개방 — 식상에 화 기운을 더했었는데, 일간에 따라 화가 곧 식상인 경우가 있어

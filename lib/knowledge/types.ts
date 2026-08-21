@@ -43,6 +43,9 @@ export type Facts = {
   genderKnown: boolean;
   /** 이름 — 문장에서 부를 때 쓴다. 없으면 "당신" */
   who: string;
+  /** 재회 카테고리에서 사용자가 밝힌 이별 시점. 마음 정리·연락·재회 시기를
+   *  여기서부터 잰다. 없으면 규칙은 오늘 기준으로 답한다. */
+  breakup?: { y: number; m: number; monthsSince: number; heal: number; settle?: { year: number; month: number }; contact?: { year: number; month: number }; reunion?: { year: number; month: number } };
   /** 궁합·재회에서 상대방. 두 사람의 관계를 보는 규칙은 이게 있을 때만 걸린다. */
   other?: {
     a: Analysis;
