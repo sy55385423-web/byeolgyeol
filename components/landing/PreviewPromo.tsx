@@ -9,7 +9,7 @@ export default function PreviewPromo() {
     <section className="mx-auto max-w-5xl px-5 py-20 sm:py-28">
       <div className="grid items-center gap-10 sm:grid-cols-[1fr_1.1fr]">
         <Reveal>
-          <p className="text-sm font-medium tracking-widest text-brass-ink">PREVIEW</p>
+          <p className="text-sm font-medium tracking-widest text-brass">PREVIEW</p>
           <h2 className="mt-3 font-serif text-3xl font-semibold leading-snug tracking-tight sm:text-4xl">
             결과부터
             <br />
@@ -47,7 +47,7 @@ export default function PreviewPromo() {
                     {revealedStat ? (
                       <p className="mt-1.5 text-[13.5px] leading-relaxed text-ink-soft">
                         {revealedStat.prefix}
-                        <span className="font-serif text-lg font-bold text-brass-ink">
+                        <span className="font-serif text-lg font-bold text-brass">
                           {revealedStat.value}
                         </span>
                         {revealedStat.suffix}

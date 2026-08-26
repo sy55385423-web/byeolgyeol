@@ -10,7 +10,7 @@ export default function FAQ() {
     <section id="faq" className="border-t border-line bg-paper-warm/50">
       <div className="mx-auto max-w-3xl px-5 py-20 sm:py-24">
         <Reveal>
-          <p className="text-sm font-medium tracking-widest text-brass-ink">FAQ</p>
+          <p className="text-sm font-medium tracking-widest text-brass">FAQ</p>
           <h2 className="mt-3 font-serif text-3xl font-semibold tracking-tight">
             자주 묻는 질문
           </h2>

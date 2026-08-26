@@ -7,32 +7,31 @@ export default function Pricing() {
   const won = (n: number) => n.toLocaleString("ko-KR") + "원";
 
   const deepFeatures = [
-    "10~13개 항목, 문항당 1,000~1,500자",
+    "10~13개 항목 초상세 풀이",
     "요약 수치 전체 공개 (인기 % · 궁합 점수 · 재회 확률)",
     "리뷰 작성 시 추가 질문 1회",
-    "링크로 저장·공유, 언제든 다시 보기",
+    "링크 저장 · 공유 · 평생 다시 보기",
   ];
   const lightFeatures = [
-    "7~9개 항목, 문항당 800~900자",
+    "7~9개 핵심 항목 분석",
     "시기·행동 조언 포함",
     "리뷰 작성 시 추가 질문 1회",
-    "링크로 저장, 언제든 다시 보기",
+    "링크 저장 · 평생 다시 보기",
   ];
 
   return (
     <section id="pricing" className="border-t border-line bg-paper-warm/50">
       <div className="mx-auto max-w-3xl px-5 py-20 sm:py-28">
         <Reveal>
-          <p className="text-center text-sm font-medium tracking-widest text-brass-ink">PRICING</p>
+          <p className="text-center text-sm font-medium tracking-widest text-brass">PRICING</p>
           <h2 className="mt-3 text-center font-serif text-3xl font-semibold leading-snug tracking-tight sm:text-4xl">
-            커피 한 잔 값으로
+            대면 사주 상담의 1/10도 안 되는
             <br />
-            리포트 한 편
+            가격으로 더 정확하게
           </h2>
           <p className="mx-auto mt-5 max-w-md text-center text-[15px] leading-relaxed text-ink-soft">
-            사람이 앉아서 읽어 주는 상담이 아니라 계산으로 만드는 리포트라
-            이 값이 나옵니다. 연애·궁합·재회·평생 총론은 13,000자 안팎,
-            커리어·재물·건강은 7,000자 안팎입니다.
+            대면 상담 한 번이 5만 원. 별:결은 세 가지 기법의 교차 분석과
+            13,000자 안팎 분량의 리포트를 커피 한 잔 값에 드립니다.
           </p>
         </Reveal>
 
@@ -43,13 +42,13 @@ export default function Pricing() {
               <span className="absolute -top-3 left-6 rounded-full bg-brass px-3 py-1 text-[11px] font-bold text-night">
                 인기
               </span>
-              <p className="text-xs font-medium tracking-widest text-brass-ink">연애 · 궁합 · 재회 · 평생 총론</p>
+              <p className="text-xs font-medium tracking-widest text-brass">연애 · 궁합 · 재회 · 평생 총론</p>
               <h3 className="mt-2 font-serif text-xl font-semibold">초상세 리딩</h3>
               <p className="mt-4 font-serif text-4xl font-bold text-ink">{won(pricing.loveReadings)}</p>
               <ul className="mt-5 space-y-2">
                 {deepFeatures.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-[13px] text-ink-soft">
-                    <IconCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brass-ink" />
+                    <IconCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brass" />
                     {f}
                   </li>
                 ))}

@@ -26,28 +26,16 @@ export default function FinalCTA() {
           </Reveal>
         </div>
       </section>
-      <footer className="bg-night pb-10 text-paper/50">
+      <footer className="bg-night pb-10 text-paper/30">
         <div className="mx-auto flex max-w-5xl flex-col gap-2 border-t border-night-line px-5 pt-8 text-xs sm:flex-row sm:justify-between">
           <span className="flex items-baseline gap-2">
             <span className="font-serif text-sm text-paper/50">별:결</span>
-            <span className="text-[10px] uppercase tracking-[0.2em] text-paper/50">bazistar</span>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-paper/30">bazistar</span>
           </span>
-          <span className="flex flex-wrap items-center gap-x-1 gap-y-1">
-            <span className="mr-2">리딩 결과는 참고용이며, 중요한 결정은 스스로의 판단을 따르세요.</span>
-            {/* 손가락으로 누르는 자리는 44px를 확보한다. 글자만 작게 두면
-                옆 링크를 잘못 누르기 쉽다. */}
-            <Link
-              href="/privacy"
-              className="inline-flex min-h-11 items-center px-2 underline-offset-2 hover:underline"
-            >
-              개인정보처리방침
-            </Link>
-            <Link
-              href="/terms"
-              className="inline-flex min-h-11 items-center px-2 underline-offset-2 hover:underline"
-            >
-              이용약관
-            </Link>
+          <span className="flex flex-wrap gap-x-3 gap-y-1">
+            <span>리딩 결과는 참고용이며, 중요한 결정은 스스로의 판단을 따르세요.</span>
+            <Link href="/privacy" className="underline-offset-2 hover:underline">개인정보처리방침</Link>
+            <Link href="/terms" className="underline-offset-2 hover:underline">이용약관</Link>
           </span>
         </div>
       </footer>
