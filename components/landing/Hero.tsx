@@ -64,7 +64,7 @@ export default function Hero() {
           >
             연애의 방향, 관계의 온도, 일과 돈의 흐름.
             <br />
-            생년월일 하나면 1분 안에 확인할 수 있습니다.
+            생년월일을 넣으면 1분 안에, 수치마다 계산 근거까지.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 14 }}
@@ -96,11 +96,11 @@ export default function Hero() {
                 { label: "나의 타고난 인기", value: "상위 14%" },
                 { label: "결혼 예상 나이", value: "31세" },
                 { label: "운명의 상대의 특징과 외모", value: "말수 적은 실행형" },
-                { label: "나와 상대방의 바람기 지수", value: "낮음 / 중간" },
-                { label: "궁합 총점", value: "82 / 100" },
-                { label: "총 연애 횟수", value: "4회" },
+                { label: "궁합 총점", value: "76 / 100" },
+                { label: "마음의 무게", value: "4 : 6" },
+                { label: "연애운이 가장 좋은 달", value: "2027년 8월" },
                 { label: "헤어진 진짜 이유", value: "타이밍" },
-                { label: "재회 가능성", value: "61%" },
+                { label: "재회 가능성", value: "66%" },
               ].map((item) => (
                 <div
                   key={item.label}

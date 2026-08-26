@@ -15,9 +15,10 @@ export default function NightSection() {
             맞은 적이 없다면
           </h2>
           <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-paper/60">
-            누구에게나 맞는 말은 누구에게도 맞지 않는 말입니다. 별:결은 같은 질문을
-            자미두수·사주명리·서양점성술로 세 번 따로 계산하고, 세 결과가 겹치는
-            지점만 문장으로 만듭니다. 그래서 두루뭉술할 수가 없습니다.
+            누구에게나 맞는 말은 누구에게도 맞지 않는 말입니다. 두루뭉술한 문장은
+            대개 명식을 안 보고 썼기 때문에 나옵니다. 별:결의 문장은 규칙 183개가
+            각자 명식의 특정 조건을 확인한 뒤에야 나가고, 조건에 안 걸리면 그
+            문장은 아예 실리지 않습니다. 분량을 채우려고 넣는 말이 없습니다.
           </p>
         </Reveal>
         <div className="mt-10 space-y-3">
@@ -57,8 +58,9 @@ export default function NightSection() {
               무엇이 다른지, 표로 보여드릴게요
             </h3>
             <p className="mt-3 max-w-lg text-[14px] leading-relaxed text-paper/60">
-              많은 사주 서비스가 같은 만세력 차트 하나로 해석합니다. 그래서 보는
-              사람마다 말이 달라지죠. 별:결은 애초에 계산부터 세 번 합니다.
+              사주 서비스 대부분이 만세력 차트 하나를 세워 놓고 사람이 읽습니다.
+              그래서 같은 명식을 봐도 보는 사람마다 말이 달라집니다. 별:결은
+              읽는 자리까지 계산으로 정해 두었습니다.
             </p>
           </Reveal>
           <Reveal delay={0.08}>
@@ -86,16 +88,16 @@ export default function NightSection() {
         <div className="mt-24 grid gap-10 sm:grid-cols-3">
           {[
             {
-              t: "세 이론의 교차 검증",
-              d: "자미두수·사주명리·서양점성술이 같은 방향을 가리킬 때만 확신을 담아 말합니다. 한 이론에 기대지 않습니다.",
+              t: "근거를 같이 보여 줍니다",
+              d: "점수만 던지지 않습니다. 그 점수가 어느 항목 몇 점을 합친 값인지, 각 항목이 무엇 때문에 그렇게 나왔는지를 화면에서 펼쳐 볼 수 있습니다.",
             },
             {
-              t: "당신 명반만의 해석",
-              d: "같은 연도 태어난 사람도 월·일·시가 다르면 전혀 다른 결론이 나옵니다. 별:결의 모든 문장은 당신의 명식 하나하나에서 시작합니다.",
+              t: "시기를 연도와 달로 답합니다",
+              d: "\"올해 하반기\"가 아니라 대운·세운·월운을 짚어 \"2027년 8월\"이라고 답합니다. 그 달이 왜 그 달인지도 간지로 적습니다.",
             },
             {
-              t: "심리학적 언어",
-              d: "겁주는 표현 대신, 실제 선택에 쓸 수 있는 문장으로 씁니다. 읽고 나서 무엇을 하면 되는지가 남습니다.",
+              t: "다시 열어도 같은 답입니다",
+              d: "그때그때 지어내는 글이 아니라 명반에서 계산해 만드는 결과라, 저장해 둔 링크를 몇 달 뒤에 열어도 문장이 그대로입니다.",
             },
           ].map((item, i) => (
             <Reveal key={item.t} delay={i * 0.08}>
@@ -117,8 +119,8 @@ export default function NightSection() {
               리포트
             </h2>
             <p className="mt-5 max-w-sm text-[15px] leading-relaxed text-paper/60">
-              긴 풀이문 대신, 핵심 지표와 흐름 그래프로 먼저 보여드립니다.
-              깊이 읽고 싶은 항목만 펼쳐 보세요.
+              핵심 수치를 먼저 보여 주고, 그 밑에 계산 근거를 펼칠 수 있게 둡니다.
+              긴 풀이는 궁금한 항목만 열어서 읽으세요.
             </p>
           </Reveal>
           <Reveal delay={0.1}>
@@ -133,19 +135,20 @@ export default function NightSection() {
                 </span>
               </div>
               <div className="mt-5 flex items-end gap-3">
-                <span className="font-serif text-5xl font-semibold text-brass-soft">82</span>
+                <span className="font-serif text-5xl font-semibold text-brass-soft">76</span>
                 <span className="pb-1.5 text-sm text-paper/50">/ 100 · 궁합 총점</span>
               </div>
               <div className="mt-5 space-y-3">
                 {[
-                  ["서로에 대한 호감도", 78, 88],
-                  ["관계의 지속력", 84, 84],
-                  ["결혼 가능성", 72, 72],
+                  ["일간 관계", 60],
+                  ["배우자궁", 89],
+                  ["기운 교환", 74],
+                  ["힘의 균형", 50],
                 ].map(([label, a]) => (
                   <div key={label as string}>
                     <div className="mb-1.5 flex justify-between text-xs text-paper/50">
                       <span>{label}</span>
-                      <span>{a}%</span>
+                      <span>{a}점</span>
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-night-line">
                       <div
@@ -156,9 +159,9 @@ export default function NightSection() {
                   </div>
                 ))}
               </div>
-              <p className="mt-6 border-t border-night-line pt-4 font-serif text-sm leading-relaxed text-paper/70">
-                “두 사람은 속도가 다를 뿐, 향하는 방향은 같은 궁합입니다. 다만 올해
-                가을의 선택 하나가…”
+              <p className="mt-6 border-t border-night-line pt-4 text-[12px] leading-relaxed text-paper/50">
+                배우자궁 89점 — 배우자 자리끼리 직접 합충 없음 · 상대 일지가 중립<br />
+                힘의 균형 50점 — 강약 81점 대 37점 · 상보 2.6
               </p>
             </div>
           </Reveal>

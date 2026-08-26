@@ -54,7 +54,7 @@ export const timing2Rules: Rule[] = [
       const cand = yearsWith(f, E.재성);
       const best = (cand.length ? cand : f.years).slice().sort((a, b) => b.score - a.score)[0];
       const second = (cand.length ? cand : f.years).slice().sort((a, b) => b.score - a.score)[1];
-      return `앞으로 10년 세운을 재성 ${ELEMENTS[E.재성]} 기준으로 재면, 돈이 가장 크게 움직이는 해는 ${fmt(best)}입니다(${why(best, 1)}). ${
+      return `돈이 가장 크게 움직이는 해는 ${fmt(best)}입니다. 재성 ${ELEMENTS[E.재성]}${eul(ELEMENTS[E.재성])} 기준으로 세운을 재서 나온 값입니다(${why(best, 1)}). ${
         second ? `그다음이 ${fmt(second)}입니다. ` : ""
       }${cand.length ? "두 해 모두 재성이 직접 드는 해라, 벌이를 늘리거나 판을 키우는 결정은 여기에 맞추는 편이 유리합니다." : "앞으로 10년에 재성이 직접 드는 해는 없습니다. 큰 건을 노리기보다 이 해들의 전체 흐름을 이용해 쌓는 쪽이 맞습니다."}`;
     },

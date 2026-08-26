@@ -1,9 +1,9 @@
 import Reveal from "@/components/ui/Reveal";
 
 const items = [
-  { icon: "◎", text: "사주·자미두수·점성술 세 체계 교차 분석" },
-  { icon: "✦", text: "생년월일만으로 — 가입·설치 없이 바로" },
-  { icon: "◈", text: "리뷰 작성 시 추가 질문 1회 무료 제공" },
+  { icon: "◎", text: "모든 수치에 계산 근거를 같이 표시" },
+  { icon: "✦", text: "생년월일만으로, 가입·설치 없이 바로" },
+  { icon: "◈", text: "리뷰 작성 시 추가 질문 1회 무료" },
 ];
 
 export default function PromoBanner() {

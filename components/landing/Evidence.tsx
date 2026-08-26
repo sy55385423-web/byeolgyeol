@@ -1,22 +1,26 @@
 import Reveal from "@/components/ui/Reveal";
 
-/** 맨 앞 신뢰 근거 섹션 — 감이 아니라 계산이라는 것을 먼저 증명 */
+/** 맨 앞 신뢰 근거 섹션 — 감이 아니라 계산이라는 것을 먼저 증명한다.
+ *
+ *  예전에는 "세 기법이 같은 방향을 가리키는 지점만 골라 말합니다"라고 적어 뒀는데
+ *  엔진은 그렇게 동작하지 않는다. 세 체계는 교집합을 내는 게 아니라 각자 다른
+ *  질문에 답한다. 실제로 하는 일을 적는 편이 설명하기도 쉽다. */
 export default function Evidence() {
   const bases = [
     {
       t: "사주명리",
-      sub: "1,000년의 기록",
-      d: "수많은 출생과 삶의 궤적을 간지력으로 정리해 온 동아시아의 운명 기록 체계. 같은 입력이면 언제 어디서 계산해도 같은 명식이 나옵니다.",
+      role: "뼈대",
+      d: "여덟 글자에서 일간의 강약, 힘이 되는 오행과 부담이 되는 오행, 십신의 무게를 잽니다. 리포트에서 \"어떤 사람인가\"에 해당하는 부분이 여기서 나옵니다.",
     },
     {
       t: "자미두수",
-      sub: "송대 황실의 명반학",
-      d: "별의 위치를 12궁에 배치해 삶의 영역별 흐름을 읽는 정밀 체계. 궁과 별의 조합이 만들어내는 경우의 수로 개인을 구분합니다.",
+      role: "영역",
+      d: "열두 궁 중 어느 자리에 어떤 별이 앉았는지를 봅니다. 같은 기질도 연애에서 드러나는 사람과 일에서 드러나는 사람이 다른데, 그 갈림을 이쪽에서 읽습니다.",
     },
     {
       t: "서양점성술",
-      sub: "천문학에서 나온 언어",
-      d: "행성의 실제 좌표를 기반으로 하는 서양의 해석 체계. 태양·달·상승궁의 조합은 천문 계산 그 자체입니다.",
+      role: "기질",
+      d: "태양궁·달궁·상승궁의 좌표를 계산합니다. 본질과 감정과 첫인상이 서로 어긋나는 사람이 있고, 세 개가 한 방향인 사람이 있습니다.",
     },
   ];
   return (
@@ -24,24 +28,21 @@ export default function Evidence() {
       <Reveal>
         <p className="text-sm font-medium tracking-widest text-brass">METHOD</p>
         <h2 className="mt-3 font-serif text-3xl font-semibold leading-snug tracking-tight sm:text-4xl">
-          타고난 흐름을 읽는
+          세 체계가 각각
           <br />
-          가장 정교한 방법
+          다른 층을 맡습니다
         </h2>
-        <p className="mt-2 text-[13px] text-ink-faint">
-          전통적인 세 가지 기법으로 정밀하고 정확하게 풀어냅니다.
-        </p>
         <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-ink-soft">
-          세 체계는 모두 태어난 순간의 좌표를 정해진 규칙으로 계산하는 기록의
-          학문입니다. 별:결은 여기에 수천 개 명반의 패턴 데이터를 더해, 세 기법이
-          같은 방향을 가리키는 지점만 골라 말합니다. 감상이 아니라 교차 검증입니다.
+          셋을 평균 내거나 겹치는 말만 고르지 않습니다. 각 체계가 실제로 답할 수
+          있는 질문에만 그 체계를 씁니다. 어떤 문장이 어디서 나왔는지는 리포트
+          안에 그대로 적혀 있습니다.
         </p>
       </Reveal>
       <div className="mt-12 grid gap-4 sm:grid-cols-3">
         {bases.map((b, i) => (
           <Reveal key={b.t} delay={i * 0.07}>
             <div className="h-full rounded-2xl border border-line bg-white/70 p-6">
-              <p className="text-xs font-medium text-brass">{b.sub}</p>
+              <p className="text-xs font-medium text-brass">{b.role}</p>
               <h3 className="mt-1.5 font-serif text-xl font-semibold">{b.t}</h3>
               <p className="mt-3 text-[13.5px] leading-relaxed text-ink-soft">{b.d}</p>
             </div>
@@ -51,12 +52,13 @@ export default function Evidence() {
       <Reveal delay={0.15}>
         <div className="mt-4 rounded-2xl bg-night p-6 text-paper sm:p-7">
           <p className="font-serif text-lg font-semibold text-brass-soft">
-            세 기법이 겹치는 지점만 말합니다
+            숫자 옆에 계산 과정을 같이 띄웁니다
           </p>
           <p className="mt-2 max-w-2xl text-[14px] leading-relaxed text-paper/60">
-            하나의 기법으로는 해석이 갈릴 수 있습니다. 별:결은 사주·자미두수·점성술을
-            각각 따로 계산한 뒤, 세 결과가 일치하는 방향 하나만 문장으로 만듭니다.
-            그래서 리포트에 두루뭉술한 말이 들어갈 자리가 없습니다.
+            궁합 총점 76점이라고만 하면 믿을 근거가 없습니다. 별:결은 그 76점이
+            일간 관계 60점, 배우자궁 89점, 기운 교환 74점, 힘의 균형 50점,
+            시기 동조 65점을 합친 값이라는 것과, 각 점수가 무엇 때문에 그렇게
+            나왔는지를 화면에서 펼쳐 보여 줍니다.
           </p>
         </div>
       </Reveal>

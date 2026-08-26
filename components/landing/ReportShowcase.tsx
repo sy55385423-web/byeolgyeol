@@ -24,8 +24,9 @@ export default function ReportShowcase() {
             리포트 미리보기
           </h2>
           <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-ink-soft">
-            모든 리포트는 당신의 만세력·자미두수 명반·점성술 지표를 직접 세우는
-            것부터 시작합니다. 어디서 나온 해석인지 근거를 눈으로 확인하세요.
+            리포트는 만세력·자미두수 명반·점성술 지표를 세우는 것부터 시작합니다.
+            아래는 실제로 계산해서 그린 화면입니다. 예시 이미지가 아니라, 이
+            생년월일을 넣으면 나오는 그대로입니다.
           </p>
         </Reveal>
 
@@ -73,8 +74,8 @@ export default function ReportShowcase() {
                 항목마다 이만큼 깊게
               </h3>
               <p className="mt-2 text-[13.5px] leading-relaxed text-ink-soft">
-                수치 공개는 시작일 뿐 — 왜 그런지, 언제 조심해야 하는지까지
-                항목마다 상세 풀이가 붙습니다.
+                수치를 공개하는 데서 끝나지 않습니다. 왜 그런지, 언제 조심해야
+                하는지까지 항목마다 상세 풀이가 붙습니다.
               </p>
               <div className="mt-5 rounded-xl bg-paper-warm/60 p-5">
                 <p className="text-[11px] font-medium text-ink-faint">운명의 상대의 특징과 외모 · 상세 풀이 일부</p>
@@ -86,11 +87,10 @@ export default function ReportShowcase() {
                   가능성이 높아요. 오히려 처음엔 '이성으로는 아닌데' 했던 사람, 일이나 지인을 통해
                   자연스럽게 반복해서 보게 되는 사람일 확률이 큽니다…
                 </p>
-                <p className="mt-2 text-[11px] text-brass">— 이 뒤로 항목당 약 1,500자 이상 이어져요 (연애·궁합·재회 총 1만자+)</p>
+                <p className="mt-2 text-[11px] text-brass">이 뒤로 문항 하나당 1,400자 안팎이 이어집니다 (평생 연애 총론 전체 14,000자 안팎)</p>
               </div>
               <div className="mt-4 flex flex-wrap gap-2 text-[11.5px] text-ink-soft">
-                {/* ⚠️ 분량 수치는 실측치로 교체 */}
-                <span className="rounded-full border border-line bg-white px-3 py-1">연애·궁합·재회 1만자 이상</span>
+                <span className="rounded-full border border-line bg-white px-3 py-1">연애·궁합·재회 13,000자 안팎</span>
                 <span className="rounded-full border border-line bg-white px-3 py-1">리뷰 작성 시 추가 질문 1회</span>
                 <span className="rounded-full border border-line bg-white px-3 py-1">링크 저장 · 공유</span>
               </div>

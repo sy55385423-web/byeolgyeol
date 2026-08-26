@@ -87,7 +87,7 @@ export const domainRules: Rule[] = [
     text: (f) => {
       const cand = [...f.years].sort((a, b) => b.score + (b.group === "재성" ? 12 : 0) - (a.score + (a.group === "재성" ? 12 : 0)));
       const top = cand[0];
-      return `앞으로 10년 중 재물 쪽 흐름이 가장 좋은 해는 ${top.year}년(${top.ganji})입니다. ${
+      return `세운으로 재물 쪽을 재면 ${top.year}년(${top.ganji})이 가장 좋습니다. ${
         top.group === "재성"
           ? `이 해에 들어오는 ${top.tenGodStem}${eun(top.tenGodStem)} 재물을 직접 가리키는 기운이라, 수입 구조가 바뀔 수 있는 구간입니다.`
           : `재를 직접 가리키는 해는 아니지만 전체 흐름이 가장 트여(${top.score}점), 이 시기에 벌인 일이 뒤에 결과로 돌아옵니다.`
@@ -168,7 +168,7 @@ export const domainRules: Rule[] = [
     tag: "건강-시기",
     text: (f) => {
       const worst = [...f.years].sort((a, b) => a.score - b.score)[0];
-      return `앞으로 10년 중 몸이 가장 무거워지기 쉬운 해는 ${worst.year}년(${worst.ganji}, ${worst.score}점)입니다. ${
+      return `몸이 가장 무거워지기 쉬운 해로는 ${worst.year}년(${worst.ganji}, ${worst.score}점)이 걸립니다. ${
         worst.reasons.filter((r) => r.delta < 0).slice(0, 2).map((r) => r.text).join(", ") || "부담이 겹치는 구간"
       }입니다. 이 해에는 일정을 몰아 잡지 않는 것만으로 회복 속도가 달라집니다.`;
     },

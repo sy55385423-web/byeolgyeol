@@ -13,6 +13,7 @@ import { computeChart, BRANCHES } from "@/lib/saju";
 import { categories } from "@/data/categories";
 import SajuCharts from "@/components/ui/SajuCharts";
 import RadarCard from "@/components/ui/RadarCard";
+import ReportNav from "@/components/report/ReportNav";
 
 const TOPIC: Record<string, string> = {
   "love-life": "연애", "love-compatibility": "이 관계", "love-reunion": "재회",
@@ -178,20 +179,25 @@ function Body({ order, id }: { order: Order; id: string }) {
   }
   const { sections } = report;
   const who = order.n ? `${order.n} 님` : "당신";
+  // 한글은 분당 500자 안팎으로 읽는다고 본다. 목차에 미리 적어 두면
+  // 긴 리포트를 만났을 때 "이걸 다 읽어야 하나" 하는 부담이 줄어든다.
+  const chars = sections.reduce((a, s) => a + s.content.length, 0);
+  const minutes = Math.max(1, Math.round(chars / 500));
 
   return (
     <div className="min-h-dvh bg-paper">
       <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-sm">
-        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-5">
-          <Link href="/" className="flex items-baseline gap-2">
+        <div className="mx-auto flex h-14 max-w-2xl items-center gap-2 px-5">
+          <Link href="/" className="shrink-0" aria-label="별:결 홈으로">
             <span className="font-serif text-lg font-semibold">별:결</span>
-            <span className="text-[10px] uppercase tracking-[0.2em] text-ink-faint">bazistar</span>
           </Link>
+          {/* 진행률 · 현재 문항 · 목차 — 13,000자를 읽는 동안 길을 잃지 않게 */}
+          <ReportNav questions={sections.map((s) => s.question)} />
           <button
             onClick={share}
-            className="rounded-full border border-line bg-white px-4 py-1.5 text-xs text-ink-soft transition-colors hover:border-ink-faint"
+            className="shrink-0 rounded-full border border-line bg-white px-3.5 py-1.5 text-xs text-ink-soft transition-colors hover:border-ink-faint"
           >
-            {copied ? "복사됐어요" : "공유 · 저장"}
+            {copied ? "복사됐어요" : "공유"}
           </button>
         </div>
       </header>
@@ -256,7 +262,12 @@ function Body({ order, id }: { order: Order; id: string }) {
 
         {/* 목차 */}
         <div className="mt-6 rounded-2xl border border-line bg-white/70 p-5">
-          <p className="text-xs font-medium text-ink-faint">이 리포트가 답하는 {sections.length}개 질문</p>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <p className="text-xs font-medium text-ink-faint">이 리포트가 답하는 {sections.length}개 질문</p>
+            <p className="text-[11.5px] text-ink-faint">
+              {chars.toLocaleString("ko-KR")}자 · 다 읽는 데 {minutes}분쯤
+            </p>
+          </div>
           <ol className="mt-3 grid gap-1.5 text-[13.5px] sm:grid-cols-2">
             {sections.map((s, i) => (
               <li key={s.question}>
