@@ -6,14 +6,24 @@
   --color-paper-warm: #f4f1e9;
   --color-ink: #17181c;
   --color-ink-soft: #55565c;
-  --color-ink-faint: #8b8c92;
+  /* 작은 글씨에 쓰는 색은 밝은 배경(paper·paper-warm·white) 어디에 놓여도
+     대비 4.5를 넘게 잡았다. 예전 값 #8b8c92는 paper 위에서 3.18이라
+     캡션·라벨처럼 실제로 읽어야 하는 글씨가 기준에 못 미쳤다. */
+  --color-ink-faint: #6d6e74;
   --color-night: #131622;
   --color-night-soft: #1d2233;
   --color-night-line: #2c3348;
+  /* brass는 칠하는 자리(게이지·점·테두리)에 그대로 쓴다. 글씨로 쓰면
+     paper 위에서 2.97, brass-faint 배지 안에서는 2.52라 읽기 어렵다.
+     글씨용은 brass-ink를 따로 둔다 — 같은 색조에서 명도만 낮춘 값이다. */
   --color-brass: #b78a3c;
+  --color-brass-ink: #83622b;
   --color-brass-soft: #c9a45c;
   --color-brass-faint: #efe6d2;
   --color-line: #e7e4dc;
+
+  /* 밤 배경(night) 위 글씨는 paper/50 이상만 쓴다. paper/40은 대비 3.69,
+     paper/30은 2.62라 본문 기준 4.5에 못 미친다. paper/50이 5.07이다. */
 
   --font-serif: "Noto Serif KR", "Apple SD Gothic Neo", serif;
   --font-sans: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", sans-serif;
@@ -26,6 +36,10 @@ html {
 body {
   background: var(--color-paper);
   color: var(--color-ink);
+  /* 한국어는 어절 중간에서 끊으면 읽는 속도가 눈에 띄게 떨어진다.
+     긴 URL 같은 것만 예외로 아무 데서나 끊게 둔다. */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   letter-spacing: -0.01em;
@@ -37,4 +51,16 @@ body {
 
 ::selection {
   background: var(--color-brass-faint);
+}
+
+/* 움직임을 줄여 달라고 설정한 사람에게는 연출을 걷어낸다.
+   스크롤 이동도 즉시 점프로 바꾼다. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  [data-reveal] { opacity: 1 !important; transform: none !important; }
 }

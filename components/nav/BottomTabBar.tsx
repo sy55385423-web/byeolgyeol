@@ -27,7 +27,7 @@ export default function BottomTabBar() {
               href={href}
               className="flex flex-1 flex-col items-center gap-1 py-2.5 transition-colors"
             >
-              <Icon className={`h-5 w-5 ${active ? "text-brass" : "text-ink-faint"}`} />
+              <Icon className={`h-5 w-5 ${active ? "text-brass-ink" : "text-ink-faint"}`} />
               <span className={`text-[11px] ${active ? "font-semibold text-ink" : "text-ink-faint"}`}>
                 {label}
               </span>

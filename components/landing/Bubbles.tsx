@@ -8,7 +8,7 @@ export default function Bubbles() {
   return (
     <section className="border-y border-line bg-paper-warm/50">
       <div className="mx-auto max-w-2xl px-5 py-20 sm:py-24">
-        <p className="text-center text-sm font-medium tracking-widest text-brass">WORRIES</p>
+        <p className="text-center text-sm font-medium tracking-widest text-brass-ink">WORRIES</p>
         <h2 className="mt-3 text-center font-serif text-3xl font-semibold tracking-tight sm:text-4xl">
           당신의 고민,
           <br />

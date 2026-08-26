@@ -5,12 +5,12 @@ import AppChrome from "@/components/nav/AppChrome";
 export const metadata: Metadata = {
   title: "별:결 (bazistar) — 태어난 날에 새겨진 결을 읽다 | 사주 자미두수 점성술",
   description:
-    "자미두수·사주명리·서양점성술을 교차해 연애, 궁합, 재회, 커리어, 재물, 건강의 흐름을 읽습니다. 생년월일 하나로 1분 안에 나의 결을 확인하세요.",
+    "사주명리로 뼈대를, 자미두수로 영역을, 점성술로 기질을 세워 연애·궁합·재회·커리어·재물·건강의 흐름을 읽습니다. 모든 수치에 계산 근거를 함께 보여드립니다.",
   applicationName: "bazistar",
   keywords: ["별:결", "bazistar", "사주", "자미두수", "점성술", "궁합", "재회운", "연애운", "재물운"],
   openGraph: {
     title: "별:결 (bazistar) — 태어난 날에 새겨진 결을 읽다",
-    description: "자미두수·사주명리·점성술 교차 분석. 생년월일 하나로 1분 안에.",
+    description: "사주·자미두수·점성술로 세운 명반에서 계산합니다. 수치마다 근거까지, 생년월일 하나로 1분 안에.",
     siteName: "bazistar",
     type: "website",
     locale: "ko_KR",
@@ -35,6 +35,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
         />
+        {/* 자바스크립트가 없으면 스크롤 연출이 켜 주지 못한 것들을 그냥 보여 준다.
+            연출 때문에 페이지가 백지로 보이는 일은 없어야 한다. */}
+        <noscript>
+          <style>{`[data-reveal],[style*="opacity:0"]{opacity:1!important;transform:none!important}`}</style>
+        </noscript>
       </head>
       <body>
         <AppChrome>{children}</AppChrome>

@@ -88,7 +88,7 @@ export default function RadarCard({ stats }: { stats: RadarStats }) {
           많이 들어간다. 근거를 감추기보다 숫자를 그대로 보여 주고 판단을 맡긴다. */}
       {axes.some((a) => a.basis) && (
         <div className="mt-5 border-t border-line pt-4">
-          <p className="mb-2 text-[11px] font-medium text-brass">이 수치는 이렇게 나왔어요</p>
+          <p className="mb-2 text-[11px] font-medium text-brass-ink">이 수치는 이렇게 나왔어요</p>
           <ul className="space-y-1.5">
             {axes.map((a) => (
               <li key={a.label} className="flex items-baseline gap-2 text-[11.5px] leading-relaxed">

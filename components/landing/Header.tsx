@@ -4,9 +4,9 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-sm">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-5">
-        <Link href="/" className="flex items-baseline gap-2">
-          <span className="font-serif text-lg font-semibold tracking-tight">별:결</span>
-          <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-ink-faint">
+        <Link href="/" className="-mx-2 flex min-h-11 items-center gap-2 px-2">
+          <span className="font-serif text-lg font-semibold leading-none tracking-tight">별:결</span>
+          <span className="text-[10px] font-medium uppercase leading-none tracking-[0.2em] text-ink-faint">
             bazistar
           </span>
         </Link>

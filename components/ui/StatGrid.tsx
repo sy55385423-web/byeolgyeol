@@ -77,7 +77,7 @@ export default function StatGrid({
                 } ${
                   revealed
                     ? "text-brass-soft"
-                    : "select-none text-brass blur-[7px]"
+                    : "select-none text-brass-ink blur-[7px]"
                 }`}
               >
                 {s.value}

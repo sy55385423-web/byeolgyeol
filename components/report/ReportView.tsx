@@ -13,6 +13,7 @@ import { computeChart, BRANCHES } from "@/lib/saju";
 import { categories } from "@/data/categories";
 import SajuCharts from "@/components/ui/SajuCharts";
 import RadarCard from "@/components/ui/RadarCard";
+import ReportNav from "@/components/report/ReportNav";
 
 const TOPIC: Record<string, string> = {
   "love-life": "연애", "love-compatibility": "이 관계", "love-reunion": "재회",
@@ -178,27 +179,32 @@ function Body({ order, id }: { order: Order; id: string }) {
   }
   const { sections } = report;
   const who = order.n ? `${order.n} 님` : "당신";
+  // 한글은 분당 500자 안팎으로 읽는다고 본다. 목차에 미리 적어 두면
+  // 긴 리포트를 만났을 때 "이걸 다 읽어야 하나" 하는 부담이 줄어든다.
+  const chars = sections.reduce((a, s) => a + s.content.length, 0);
+  const minutes = Math.max(1, Math.round(chars / 500));
 
   return (
     <div className="min-h-dvh bg-paper">
       <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-sm">
-        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-5">
-          <Link href="/" className="flex items-baseline gap-2">
+        <div className="mx-auto flex h-14 max-w-2xl items-center gap-2 px-5">
+          <Link href="/" className="-mx-2 flex min-h-11 shrink-0 items-center px-2" aria-label="별:결 홈으로">
             <span className="font-serif text-lg font-semibold">별:결</span>
-            <span className="text-[10px] uppercase tracking-[0.2em] text-ink-faint">bazistar</span>
           </Link>
+          {/* 진행률 · 현재 문항 · 목차 — 13,000자를 읽는 동안 길을 잃지 않게 */}
+          <ReportNav questions={sections.map((s) => s.question)} />
           <button
             onClick={share}
-            className="rounded-full border border-line bg-white px-4 py-1.5 text-xs text-ink-soft transition-colors hover:border-ink-faint"
+            className="shrink-0 rounded-full border border-line bg-white px-3.5 py-1.5 text-xs text-ink-soft transition-colors hover:border-ink-faint"
           >
-            {copied ? "복사됐어요" : "공유 · 저장"}
+            {copied ? "복사됐어요" : "공유"}
           </button>
         </div>
       </header>
 
       <main className="mx-auto max-w-2xl px-5 pb-24">
         <div className="pt-10">
-          <p className="text-sm font-medium tracking-widest text-brass">FULL REPORT</p>
+          <p className="text-sm font-medium tracking-widest text-brass-ink">FULL REPORT</p>
           <h1 className="mt-3 font-serif text-2xl font-semibold leading-snug sm:text-3xl">
             {who}의 {category.name}
           </h1>
@@ -256,12 +262,17 @@ function Body({ order, id }: { order: Order; id: string }) {
 
         {/* 목차 */}
         <div className="mt-6 rounded-2xl border border-line bg-white/70 p-5">
-          <p className="text-xs font-medium text-ink-faint">이 리포트가 답하는 {sections.length}개 질문</p>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <p className="text-xs font-medium text-ink-faint">이 리포트가 답하는 {sections.length}개 질문</p>
+            <p className="text-[11.5px] text-ink-faint">
+              {chars.toLocaleString("ko-KR")}자 · 다 읽는 데 {minutes}분쯤
+            </p>
+          </div>
           <ol className="mt-3 grid gap-1.5 text-[13.5px] sm:grid-cols-2">
             {sections.map((s, i) => (
               <li key={s.question}>
-                <a href={`#q${i}`} className="text-ink-soft transition-colors hover:text-brass">
-                  <span className="mr-1.5 font-serif text-brass">{i + 1}</span>
+                <a href={`#q${i}`} className="text-ink-soft transition-colors hover:text-brass-ink">
+                  <span className="mr-1.5 font-serif text-brass-ink">{i + 1}</span>
                   {s.question}
                 </a>
               </li>
@@ -271,8 +282,12 @@ function Body({ order, id }: { order: Order; id: string }) {
 
         {/* 본문 */}
         {sections.map((s, i) => (
-          <section key={s.question} id={`q${i}`} className="mt-12 scroll-mt-20">
-            <p className="text-xs font-medium tracking-widest text-brass">
+          <section
+            key={s.question}
+            id={`q${i}`}
+            className="mt-14 scroll-mt-20 border-t border-line pt-10 first:border-t-0"
+          >
+            <p className="text-xs font-medium tracking-widest text-brass-ink">
               {String(i + 1).padStart(2, "0")} · {s.question}
             </p>
             <h2 className="mt-3 font-serif text-xl font-semibold leading-relaxed sm:text-[22px]">
@@ -283,20 +298,29 @@ function Body({ order, id }: { order: Order; id: string }) {
                 <div className="h-full rounded-full bg-brass" style={{ width: `${s.gauge}%` }} />
               </div>
             )}
+            {/* 첫 문단은 그 문항의 답이고, 뒤따르는 문단은 근거다.
+                1,400자가 같은 무게로 이어지면 어디가 답이었는지 놓친다.
+                답 쪽에 세로선을 하나 대서 훑을 때 눈이 걸리게 한다. */}
             <div className="mt-5 space-y-4 text-[15px] leading-[1.95] text-ink">
               {s.content
                 .split("\n\n")
                 .filter(Boolean)
-                .map((para, pi) => (
-                  <p key={pi}>{para}</p>
-                ))}
+                .map((para, pi) =>
+                  pi === 0 ? (
+                    <p key={pi} className="border-l-2 border-brass/40 pl-4">
+                      {para}
+                    </p>
+                  ) : (
+                    <p key={pi}>{para}</p>
+                  ),
+                )}
             </div>
           </section>
         ))}
 
         {/* 마무리 조언 */}
         <section className="mt-12 rounded-2xl border border-line bg-paper-warm/50 p-6">
-          <p className="text-xs font-medium tracking-widest text-brass">종합 조언</p>
+          <p className="text-xs font-medium tracking-widest text-brass-ink">종합 조언</p>
           <div className="mt-4 space-y-4 text-[15px] leading-[1.95] text-ink">
             {report.closingAdvice
               .split("\n\n")
@@ -335,7 +359,7 @@ function Body({ order, id }: { order: Order; id: string }) {
             <>
               <p className="mt-2 text-[14px] text-ink-soft">감사해요. 정말 도움이 됩니다.</p>
               <div className="mt-5 rounded-xl border border-brass/30 bg-paper-warm/40 p-4">
-                <p className="text-xs font-semibold text-brass">추가 질문 1회 사용 가능</p>
+                <p className="text-xs font-semibold text-brass-ink">추가 질문 1회 사용 가능</p>
                 {!extraAnswer ? (
                   <div className="mt-3 flex gap-2">
                     <input

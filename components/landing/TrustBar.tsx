@@ -9,7 +9,7 @@ export default function TrustBar() {
         {metrics.map((m) => (
           <div key={m.label} className="py-8 text-center sm:py-10">
             <div className="font-serif text-2xl font-semibold sm:text-4xl">
-              <CountUp value={m.value} suffix={m.suffix} decimals={m.decimals ?? 0} />
+              <CountUp value={m.value} suffix={m.suffix} decimals={0} />
             </div>
             <div className="mt-1.5 text-xs text-ink-faint sm:text-sm">{m.label}</div>
           </div>

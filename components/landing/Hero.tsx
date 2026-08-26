@@ -8,7 +8,7 @@ function Constellation() {
     [30, 150], [95, 96], [170, 118], [232, 52], [300, 84], [352, 30],
   ];
   return (
-    <svg viewBox="0 0 380 180" className="w-full max-w-md text-brass" fill="none" aria-hidden>
+    <svg viewBox="0 0 380 180" className="w-full max-w-md text-brass-ink" fill="none" aria-hidden>
       <motion.path
         d={`M ${pts.map((p) => p.join(" ")).join(" L ")}`}
         stroke="currentColor"
@@ -42,7 +42,7 @@ export default function Hero() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6 }}
-            className="mb-5 text-sm font-medium tracking-widest text-brass"
+            className="mb-5 text-sm font-medium tracking-widest text-brass-ink"
           >
             자미두수 · 사주명리 · 서양점성술
           </motion.p>
@@ -60,11 +60,11 @@ export default function Hero() {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-6 max-w-md text-[17px] leading-relaxed text-ink-soft"
+            className="mt-6 max-w-md break-keep text-[17px] leading-relaxed text-ink-soft"
           >
             연애의 방향, 관계의 온도, 일과 돈의 흐름.
             <br />
-            생년월일 하나면 1분 안에 확인할 수 있습니다.
+            생년월일 하나면 1분, 수치마다 근거까지.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 14 }}
@@ -96,18 +96,18 @@ export default function Hero() {
                 { label: "나의 타고난 인기", value: "상위 14%" },
                 { label: "결혼 예상 나이", value: "31세" },
                 { label: "운명의 상대의 특징과 외모", value: "말수 적은 실행형" },
-                { label: "나와 상대방의 바람기 지수", value: "낮음 / 중간" },
-                { label: "궁합 총점", value: "82 / 100" },
-                { label: "총 연애 횟수", value: "4회" },
+                { label: "궁합 총점", value: "76 / 100" },
+                { label: "마음의 무게", value: "4 : 6" },
+                { label: "연애운이 가장 좋은 달", value: "2027년 8월" },
                 { label: "헤어진 진짜 이유", value: "타이밍" },
-                { label: "재회 가능성", value: "61%" },
+                { label: "재회 가능성", value: "66%" },
               ].map((item) => (
                 <div
                   key={item.label}
                   className="flex items-center gap-2 rounded-full border border-line bg-white/80 px-3.5 py-2 backdrop-blur-sm"
                 >
                   <span className="text-[12px] text-ink-faint">{item.label}</span>
-                  <span className="select-none text-[12px] font-semibold text-brass blur-[5px]">
+                  <span className="select-none text-[12px] font-semibold text-brass-ink blur-[5px]">
                     {item.value}
                   </span>
                 </div>
@@ -115,7 +115,7 @@ export default function Hero() {
             </div>
             <a
               href="#readings"
-              className="mt-5 inline-flex items-center gap-1.5 text-[13.5px] font-medium text-brass underline decoration-brass/40 underline-offset-4 transition-colors hover:text-ink"
+              className="mt-5 inline-flex items-center gap-1.5 text-[13.5px] font-medium text-brass-ink underline decoration-brass/40 underline-offset-4 transition-colors hover:text-ink"
             >
               무료로 한 가지 항목 보러가기 →
             </a>

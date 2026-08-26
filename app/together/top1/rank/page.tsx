@@ -95,7 +95,7 @@ export default function Top1RankPage() {
           <span className="block text-[13.5px] font-semibold text-ink">내 연애와 관련된 모든 것 보러가기</span>
           <span className="mt-0.5 block text-[11.5px] text-ink-soft">평생 연애 총론 — 매력부터 결혼 시기까지 한번에</span>
         </span>
-        <IconArrow className="h-4 w-4 shrink-0 text-brass" />
+        <IconArrow className="h-4 w-4 shrink-0 text-brass-ink" />
       </Link>
 
       <Link

@@ -183,7 +183,7 @@ export const loveRules: Rule[] = [
       const cand = [...f.years].sort((a, b) => b.score + (b.group === want ? 12 : 0) - (a.score + (a.group === want ? 12 : 0)));
       const top = cand[0];
       const hit = top.group === want;
-      return `앞으로 10년 중 인연이 가장 크게 움직이는 해는 ${top.year}년(${top.ganji})입니다. ${
+      return `인연이 가장 크게 움직이는 해로는 ${top.year}년(${top.ganji})이 걸립니다. ${
         hit
           ? `이 해에 들어오는 ${top.tenGodStem}${eun(top.tenGodStem)} ${f.isMale ? "남성" : "여성"} 명식에서 배우자를 보는 자리라, 만남이 실제 관계로 이어질 확률이 다른 해보다 높습니다.`
           : `배우자를 직접 가리키는 기운은 아니지만 전체 흐름이 가장 트이는 해라(${top.score}점), 이 무렵 시작된 인연이 오래 남기 쉽습니다.`

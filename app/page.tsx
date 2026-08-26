@@ -1,6 +1,7 @@
 import Header from "@/components/landing/Header";
 import Hero from "@/components/landing/Hero";
 import Evidence from "@/components/landing/Evidence";
+import TrustBar from "@/components/landing/TrustBar";
 import Bubbles from "@/components/landing/Bubbles";
 import PromoBanner from "@/components/landing/PromoBanner";
 import CategoryGrid from "@/components/landing/CategoryGrid";
@@ -17,6 +18,7 @@ export default function Home() {
     <main>
       <Header />
       <Hero />
+      <TrustBar />
       <Evidence />
       <Bubbles />
       <PromoBanner />
