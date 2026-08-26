@@ -672,7 +672,7 @@ export default function Flow({ category }: { category: Category }) {
       {/* 상단 바 + 진행 단계 */}
       <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-sm">
         <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-5">
-          <Link href="/" className="font-serif text-lg font-semibold">
+          <Link href="/" className="-mx-2 flex min-h-11 items-center px-2 font-serif text-lg font-semibold">
             별:결
           </Link>
           <ol className="flex items-center gap-2 text-xs">

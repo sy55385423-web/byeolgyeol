@@ -188,7 +188,7 @@ function Body({ order, id }: { order: Order; id: string }) {
     <div className="min-h-dvh bg-paper">
       <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur-sm">
         <div className="mx-auto flex h-14 max-w-2xl items-center gap-2 px-5">
-          <Link href="/" className="shrink-0" aria-label="별:결 홈으로">
+          <Link href="/" className="-mx-2 flex min-h-11 shrink-0 items-center px-2" aria-label="별:결 홈으로">
             <span className="font-serif text-lg font-semibold">별:결</span>
           </Link>
           {/* 진행률 · 현재 문항 · 목차 — 13,000자를 읽는 동안 길을 잃지 않게 */}
@@ -282,7 +282,11 @@ function Body({ order, id }: { order: Order; id: string }) {
 
         {/* 본문 */}
         {sections.map((s, i) => (
-          <section key={s.question} id={`q${i}`} className="mt-12 scroll-mt-20">
+          <section
+            key={s.question}
+            id={`q${i}`}
+            className="mt-14 scroll-mt-20 border-t border-line pt-10 first:border-t-0"
+          >
             <p className="text-xs font-medium tracking-widest text-brass-ink">
               {String(i + 1).padStart(2, "0")} · {s.question}
             </p>
@@ -294,13 +298,22 @@ function Body({ order, id }: { order: Order; id: string }) {
                 <div className="h-full rounded-full bg-brass" style={{ width: `${s.gauge}%` }} />
               </div>
             )}
+            {/* 첫 문단은 그 문항의 답이고, 뒤따르는 문단은 근거다.
+                1,400자가 같은 무게로 이어지면 어디가 답이었는지 놓친다.
+                답 쪽에 세로선을 하나 대서 훑을 때 눈이 걸리게 한다. */}
             <div className="mt-5 space-y-4 text-[15px] leading-[1.95] text-ink">
               {s.content
                 .split("\n\n")
                 .filter(Boolean)
-                .map((para, pi) => (
-                  <p key={pi}>{para}</p>
-                ))}
+                .map((para, pi) =>
+                  pi === 0 ? (
+                    <p key={pi} className="border-l-2 border-brass/40 pl-4">
+                      {para}
+                    </p>
+                  ) : (
+                    <p key={pi}>{para}</p>
+                  ),
+                )}
             </div>
           </section>
         ))}
