@@ -160,18 +160,24 @@ export const timing2Rules: Rule[] = [
     tag: "시기-정리",
     prefer: ["마음이 정리되는", "연락 타이밍"],
     text: (f) => {
-      // 이별 시점을 알면 거기서부터 잰다. 명식마다 회복에 걸리는 기간이 다르다 —
-      // 인성이 두꺼우면 품고 곱씹어 오래 가고, 식상이 두꺼우면 털어내 빠르다.
+      // 이별 시점을 아는 경우, 회복에 걸리는 기간은 본문이 이미 계산해서 말한다.
+      // 여기서 같은 값을 되풀이하면 한 섹션이 같은 말을 두 번 하게 된다. 그래서
+      // 규칙은 다른 각도를 맡는다 — 정리를 매듭짓거나 도로 묶는 "사건"의 자리다.
+      //   일지 충  배우자궁이 흔들리는 해. 흐지부지 넘어가지 않는다
+      //   일지 합  배우자궁이 묶이는 해. 끊으려 해도 잘 안 끊긴다
       if (f.breakup) {
         const b = f.breakup;
-        const g = f.a.groupWeight;
-        const why =
-          g.인성 >= 2 ? `인성이 두꺼워(무게 ${g.인성.toFixed(1)}) 안으로 품고 되새기는 명식이라 남들보다 오래 걸립니다`
-          : g.식상 >= 2 ? `식상이 두꺼워(무게 ${g.식상.toFixed(1)}) 밖으로 풀어내는 명식이라 회복이 빠른 편입니다`
-          : !f.a.strong ? `신약(${f.a.strengthScore}점)이라 마음이 제자리를 찾는 데 시간이 더 듭니다`
-          : `기운이 버텨 주는 명식이라 회복은 평균 속도입니다`;
-        const settle = b.settle ? `${b.settle.year}년 ${b.settle.month}월` : "앞으로 1년 안";
-        return `${b.y}년 ${b.m}월에 헤어졌으니 지금까지 ${b.monthsSince}개월이 지났습니다. 이 명식은 ${why}. 이별에서 마음이 실제로 가라앉기까지 ${b.heal}개월 정도로 보고, 그 뒤 용신이 드는 달을 짚으면 ${settle}입니다.${b.monthsSince >= b.heal ? " 이미 그 구간은 지났습니다. 아직 무겁다면 시간이 부족해서가 아니라 정리할 계기가 없었던 쪽입니다." : ` 아직 ${Math.max(1, b.heal - b.monthsSince)}개월 남았습니다. 그 전까지는 정리된 척해도 속으로는 남아 있는 게 정상입니다.`}`;
+        const after = f.years.filter((y) => y.year >= b.y);
+        const clash2 = after.find((y) => y.clashes.some((c) => c.startsWith("일지")));
+        const combo2 = after.find((y) => y.combos.some((c) => c.startsWith("일지")));
+        if (clash2 && combo2)
+          return `이별 이후의 세운에는 두 자리가 다 들어 있습니다. ${fmt(combo2)}에 배우자궁인 ${combo2.combos.join("·")}${ga(combo2.combos[combo2.combos.length - 1])} 합으로 묶이고, ${fmt(clash2)}에는 ${clash2.clashes.join("·")}${ga(clash2.clashes[clash2.clashes.length - 1])} 충을 맞습니다. 묶이는 해에는 정리하려 해도 잘 안 되고, 충이 드는 해에 형태가 한 번 정해집니다. 마음이 가라앉는 것과 관계가 결론 나는 것은 다른 자리라는 뜻입니다.`;
+        if (clash2)
+          return `정리에 매듭이 지어지는 자리는 배우자궁이 흔들리는 해입니다. ${fmt(clash2)}에 원국의 ${clash2.clashes.join("·")}${ga(clash2.clashes[clash2.clashes.length - 1])} 충을 맞습니다. 이 해에 관계의 형태가 한 번 바뀝니다. 붙잡고 있던 것을 놓게 되든 반대로 결론을 내게 되든, 흐지부지 넘어가지는 않습니다.`;
+        if (combo2)
+          return `이별 이후 세운을 보면 ${fmt(combo2)}에 배우자궁인 ${combo2.combos.join("·")}${ga(combo2.combos[combo2.combos.length - 1])} 합으로 묶입니다. 합은 붙드는 자리라, 이 해에는 끊어 내려 해도 잘 안 됩니다. 정리가 안 되는 걸 의지 부족으로 읽지 않아도 됩니다.`;
+        const good2 = after.slice().sort((x, y) => y.score - x.score)[0];
+        return `이별 이후의 세운에는 배우자궁을 직접 흔드는 충도, 묶는 합도 없습니다. 관계가 사건으로 정리되는 명식이 아니라는 뜻이라, 계기를 기다리기보다 시간이 답을 만듭니다. 전체 흐름이 가장 나은 ${fmt(good2)} 무렵이면 지금의 무게가 확실히 가벼워져 있습니다.`;
       }
       const clash = f.years.find((y) => y.clashes.some((c) => c.startsWith("일지")));
       const combo = f.years.find((y) => y.combos.length > 0);
