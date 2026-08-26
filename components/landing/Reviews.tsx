@@ -5,7 +5,7 @@ export default function Reviews() {
   return (
     <section className="mx-auto max-w-5xl px-5 py-20 sm:py-24">
       <Reveal>
-        <p className="text-sm font-medium tracking-widest text-brass">VOICES</p>
+        <p className="text-sm font-medium tracking-widest text-brass-ink">VOICES</p>
         <h2 className="mt-3 font-serif text-3xl font-semibold tracking-tight">
           이런 대목에서 멈칫하게 됩니다
         </h2>

@@ -17,7 +17,7 @@ export default function PromoBanner() {
                 key={item.text}
                 className="flex flex-1 items-center gap-3 py-5 sm:justify-center sm:px-6 sm:py-7"
               >
-                <span className="text-sm text-brass">{item.icon}</span>
+                <span className="text-sm text-brass-ink">{item.icon}</span>
                 <span className="text-[13.5px] leading-snug text-ink-soft">{item.text}</span>
               </div>
             ))}

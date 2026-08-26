@@ -35,8 +35,8 @@ function ReportCard({ c }: { c: Category }) {
         <span className="line-clamp-1 break-keep text-[10px] leading-snug text-paper/50">{c.questions[0]}</span>
       </p>
       <div className="mt-auto pt-2">
-        <p className="text-[9px] whitespace-nowrap text-paper/35">
-          {["love-life", "love-compatibility", "love-reunion", "life-overview"].includes(c.id) ? "1만자 이상" : "3천자 이상"}
+        <p className="text-[9px] whitespace-nowrap text-paper/55">
+          {c.tier === "deep" ? "13,000자 안팎" : "7,000자 안팎"}
         </p>
         <p className="mt-0.5 whitespace-nowrap text-right font-serif text-[13.5px] font-bold text-brass-soft">
           {c.price.toLocaleString("ko-KR")}원
@@ -52,7 +52,7 @@ export default function ReportsPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-5 pb-16 pt-10 sm:pt-14">
-      <p className="text-sm font-medium tracking-widest text-brass">별:결 PREMIUM REPORT</p>
+      <p className="text-sm font-medium tracking-widest text-brass-ink">별:결 PREMIUM REPORT</p>
       <p className="mt-3 text-[13px] text-ink-soft">사주+자미두수+점성술을 결합한 프리미엄 리포트</p>
       <h1 className="mt-2 font-serif text-2xl font-semibold tracking-tight sm:text-3xl">
         지금 궁금한 것 하나를 고르세요

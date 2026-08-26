@@ -44,7 +44,7 @@ export default function SajuCharts({ me, name }: { me: BirthInput; name?: string
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-xs font-medium text-brass">
+        <p className="text-xs font-medium text-brass-ink">
           {name ? `${name}님의 명반` : "당신의 명반"} · 세 가지 기법으로 세웠어요
         </p>
       </div>

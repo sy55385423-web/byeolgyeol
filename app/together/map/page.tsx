@@ -120,7 +120,7 @@ export default function PersonaMapPage() {
 
   return (
     <main className="mx-auto max-w-lg px-5 pb-20 pt-10 sm:pt-14">
-      <p className="text-sm font-medium tracking-widest text-brass">MATCH</p>
+      <p className="text-sm font-medium tracking-widest text-brass-ink">MATCH</p>
       <h1 className="mt-3 font-serif text-2xl font-semibold tracking-tight sm:text-3xl">
         {me.name}님의 궁합 순위
       </h1>

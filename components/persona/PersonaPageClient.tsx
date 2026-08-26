@@ -87,7 +87,7 @@ export default function PersonaPageClient() {
 
   return (
     <main className="mx-auto max-w-lg px-5 pb-20 pt-10 sm:pt-14">
-      <p className="text-sm font-medium tracking-widest text-brass">MY 별:결</p>
+      <p className="text-sm font-medium tracking-widest text-brass-ink">MY 별:결</p>
       <h1 className="mt-3 font-serif text-2xl font-semibold tracking-tight sm:text-3xl">
         나는 어떤 결의 사람일까요
       </h1>
@@ -97,13 +97,13 @@ export default function PersonaPageClient() {
 
       {sharedResult && sharedFrom && (
         <div className="mt-8">
-          <p className="text-xs font-medium text-brass">{sharedFrom.n || "친구"}님이 공유한 결과예요</p>
+          <p className="text-xs font-medium text-brass-ink">{sharedFrom.n || "친구"}님이 공유한 결과예요</p>
           <div className="mt-3">
             <PersonaCard result={sharedResult} name={sharedFrom.n} />
           </div>
           {myResult && (
             <div className="mt-3 flex items-center gap-4 rounded-xl border border-brass/40 bg-brass-faint/40 p-4">
-              <p className="font-serif text-3xl font-bold text-brass">
+              <p className="font-serif text-3xl font-bold text-brass-ink">
                 {compatScore(myResult, sharedResult)}
                 <span className="text-base font-medium">%</span>
               </p>

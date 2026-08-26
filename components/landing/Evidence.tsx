@@ -26,7 +26,7 @@ export default function Evidence() {
   return (
     <section className="mx-auto max-w-5xl px-5 py-20 sm:py-28">
       <Reveal>
-        <p className="text-sm font-medium tracking-widest text-brass">METHOD</p>
+        <p className="text-sm font-medium tracking-widest text-brass-ink">METHOD</p>
         <h2 className="mt-3 font-serif text-3xl font-semibold leading-snug tracking-tight sm:text-4xl">
           세 체계가 각각
           <br />
@@ -42,7 +42,7 @@ export default function Evidence() {
         {bases.map((b, i) => (
           <Reveal key={b.t} delay={i * 0.07}>
             <div className="h-full rounded-2xl border border-line bg-white/70 p-6">
-              <p className="text-xs font-medium text-brass">{b.role}</p>
+              <p className="text-xs font-medium text-brass-ink">{b.role}</p>
               <h3 className="mt-1.5 font-serif text-xl font-semibold">{b.t}</h3>
               <p className="mt-3 text-[13.5px] leading-relaxed text-ink-soft">{b.d}</p>
             </div>

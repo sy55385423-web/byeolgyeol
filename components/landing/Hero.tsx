@@ -8,7 +8,7 @@ function Constellation() {
     [30, 150], [95, 96], [170, 118], [232, 52], [300, 84], [352, 30],
   ];
   return (
-    <svg viewBox="0 0 380 180" className="w-full max-w-md text-brass" fill="none" aria-hidden>
+    <svg viewBox="0 0 380 180" className="w-full max-w-md text-brass-ink" fill="none" aria-hidden>
       <motion.path
         d={`M ${pts.map((p) => p.join(" ")).join(" L ")}`}
         stroke="currentColor"
@@ -42,7 +42,7 @@ export default function Hero() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6 }}
-            className="mb-5 text-sm font-medium tracking-widest text-brass"
+            className="mb-5 text-sm font-medium tracking-widest text-brass-ink"
           >
             자미두수 · 사주명리 · 서양점성술
           </motion.p>
@@ -60,11 +60,11 @@ export default function Hero() {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-6 max-w-md text-[17px] leading-relaxed text-ink-soft"
+            className="mt-6 max-w-md break-keep text-[17px] leading-relaxed text-ink-soft"
           >
             연애의 방향, 관계의 온도, 일과 돈의 흐름.
             <br />
-            생년월일을 넣으면 1분 안에, 수치마다 계산 근거까지.
+            생년월일 하나면 1분, 수치마다 근거까지.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 14 }}
@@ -107,7 +107,7 @@ export default function Hero() {
                   className="flex items-center gap-2 rounded-full border border-line bg-white/80 px-3.5 py-2 backdrop-blur-sm"
                 >
                   <span className="text-[12px] text-ink-faint">{item.label}</span>
-                  <span className="select-none text-[12px] font-semibold text-brass blur-[5px]">
+                  <span className="select-none text-[12px] font-semibold text-brass-ink blur-[5px]">
                     {item.value}
                   </span>
                 </div>
@@ -115,7 +115,7 @@ export default function Hero() {
             </div>
             <a
               href="#readings"
-              className="mt-5 inline-flex items-center gap-1.5 text-[13.5px] font-medium text-brass underline decoration-brass/40 underline-offset-4 transition-colors hover:text-ink"
+              className="mt-5 inline-flex items-center gap-1.5 text-[13.5px] font-medium text-brass-ink underline decoration-brass/40 underline-offset-4 transition-colors hover:text-ink"
             >
               무료로 한 가지 항목 보러가기 →
             </a>

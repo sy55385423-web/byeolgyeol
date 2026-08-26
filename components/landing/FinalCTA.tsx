@@ -26,11 +26,11 @@ export default function FinalCTA() {
           </Reveal>
         </div>
       </section>
-      <footer className="bg-night pb-10 text-paper/30">
+      <footer className="bg-night pb-10 text-paper/50">
         <div className="mx-auto flex max-w-5xl flex-col gap-2 border-t border-night-line px-5 pt-8 text-xs sm:flex-row sm:justify-between">
           <span className="flex items-baseline gap-2">
             <span className="font-serif text-sm text-paper/50">별:결</span>
-            <span className="text-[10px] uppercase tracking-[0.2em] text-paper/30">bazistar</span>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-paper/50">bazistar</span>
           </span>
           <span className="flex flex-wrap gap-x-3 gap-y-1">
             <span>리딩 결과는 참고용이며, 중요한 결정은 스스로의 판단을 따르세요.</span>

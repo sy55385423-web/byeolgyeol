@@ -204,7 +204,7 @@ function Body({ order, id }: { order: Order; id: string }) {
 
       <main className="mx-auto max-w-2xl px-5 pb-24">
         <div className="pt-10">
-          <p className="text-sm font-medium tracking-widest text-brass">FULL REPORT</p>
+          <p className="text-sm font-medium tracking-widest text-brass-ink">FULL REPORT</p>
           <h1 className="mt-3 font-serif text-2xl font-semibold leading-snug sm:text-3xl">
             {who}의 {category.name}
           </h1>
@@ -271,8 +271,8 @@ function Body({ order, id }: { order: Order; id: string }) {
           <ol className="mt-3 grid gap-1.5 text-[13.5px] sm:grid-cols-2">
             {sections.map((s, i) => (
               <li key={s.question}>
-                <a href={`#q${i}`} className="text-ink-soft transition-colors hover:text-brass">
-                  <span className="mr-1.5 font-serif text-brass">{i + 1}</span>
+                <a href={`#q${i}`} className="text-ink-soft transition-colors hover:text-brass-ink">
+                  <span className="mr-1.5 font-serif text-brass-ink">{i + 1}</span>
                   {s.question}
                 </a>
               </li>
@@ -283,7 +283,7 @@ function Body({ order, id }: { order: Order; id: string }) {
         {/* 본문 */}
         {sections.map((s, i) => (
           <section key={s.question} id={`q${i}`} className="mt-12 scroll-mt-20">
-            <p className="text-xs font-medium tracking-widest text-brass">
+            <p className="text-xs font-medium tracking-widest text-brass-ink">
               {String(i + 1).padStart(2, "0")} · {s.question}
             </p>
             <h2 className="mt-3 font-serif text-xl font-semibold leading-relaxed sm:text-[22px]">
@@ -307,7 +307,7 @@ function Body({ order, id }: { order: Order; id: string }) {
 
         {/* 마무리 조언 */}
         <section className="mt-12 rounded-2xl border border-line bg-paper-warm/50 p-6">
-          <p className="text-xs font-medium tracking-widest text-brass">종합 조언</p>
+          <p className="text-xs font-medium tracking-widest text-brass-ink">종합 조언</p>
           <div className="mt-4 space-y-4 text-[15px] leading-[1.95] text-ink">
             {report.closingAdvice
               .split("\n\n")
@@ -346,7 +346,7 @@ function Body({ order, id }: { order: Order; id: string }) {
             <>
               <p className="mt-2 text-[14px] text-ink-soft">감사해요. 정말 도움이 됩니다.</p>
               <div className="mt-5 rounded-xl border border-brass/30 bg-paper-warm/40 p-4">
-                <p className="text-xs font-semibold text-brass">추가 질문 1회 사용 가능</p>
+                <p className="text-xs font-semibold text-brass-ink">추가 질문 1회 사용 가능</p>
                 {!extraAnswer ? (
                   <div className="mt-3 flex gap-2">
                     <input

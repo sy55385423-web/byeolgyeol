@@ -13,7 +13,7 @@ export default function TogetherPage() {
   const examplePersona = personaFromChoice(1, "사자자리"); // 불꽃파워 사자 — 오행 배경색·캐릭터 예시용
   return (
     <main className="mx-auto max-w-lg px-5 pb-16 pt-10 sm:pt-14">
-      <p className="text-sm font-medium tracking-widest text-brass">TOGETHER</p>
+      <p className="text-sm font-medium tracking-widest text-brass-ink">TOGETHER</p>
       <h1 className="mt-3 font-serif text-2xl font-semibold tracking-tight sm:text-3xl">
         우리끼리
       </h1>

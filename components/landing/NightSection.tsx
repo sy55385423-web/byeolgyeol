@@ -26,10 +26,10 @@ export default function NightSection() {
             <Reveal key={c.before} delay={i * 0.06}>
               <div className="grid gap-0 overflow-hidden rounded-xl border border-night-line sm:grid-cols-2">
                 <div className="bg-night-soft/50 p-5 sm:p-6">
-                  <p className="text-[11px] font-medium tracking-wider text-paper/30">
+                  <p className="text-[11px] font-medium tracking-wider text-paper/50">
                     어디서나 듣는 말
                   </p>
-                  <p className="mt-2 text-[15px] leading-relaxed text-paper/40 line-through decoration-paper/20">
+                  <p className="mt-2 text-[15px] leading-relaxed text-paper/60 line-through decoration-paper/20">
                     “{c.before}”
                   </p>
                 </div>
@@ -46,7 +46,7 @@ export default function NightSection() {
           ))}
         </div>
         <Reveal delay={0.1}>
-          <p className="mt-5 text-sm text-paper/40">
+          <p className="mt-5 text-sm text-paper/60">
             * 별:결 문장은 일반화된 예시입니다. 당신의 문장은 생년월일을 입력한 뒤에 완성됩니다.
           </p>
         </Reveal>
@@ -64,8 +64,11 @@ export default function NightSection() {
             </p>
           </Reveal>
           <Reveal delay={0.08}>
+            {/* 좁은 화면에서는 3열이 안 된다. 375px에서 한 칸이 130px 남짓이라
+                한국어 한 문장이 대여섯 줄로 눌린다. 모바일에서는 항목마다
+                위아래로 쌓고, sm 이상에서만 표로 세운다. */}
             <div className="mt-8 overflow-hidden rounded-2xl border border-night-line">
-              <div className="grid grid-cols-[1fr_1.2fr_1.5fr] border-b border-night-line bg-night-soft px-4 py-3 text-[12px] font-semibold sm:px-6">
+              <div className="hidden border-b border-night-line bg-night-soft px-6 py-3 text-[12px] font-semibold sm:grid sm:grid-cols-[1fr_1.2fr_1.5fr]">
                 <span className="text-paper/50">항목</span>
                 <span className="text-paper/50">다른 사주 앱</span>
                 <span className="text-brass-soft">별:결</span>
@@ -73,11 +76,17 @@ export default function NightSection() {
               {compareRows.map((r) => (
                 <div
                   key={r.label}
-                  className="grid grid-cols-[1fr_1.2fr_1.5fr] items-center gap-x-2 border-b border-night-line px-4 py-4 text-[13px] last:border-0 sm:px-6"
+                  className="border-b border-night-line px-4 py-4 text-[13px] last:border-0 sm:grid sm:grid-cols-[1fr_1.2fr_1.5fr] sm:items-center sm:gap-x-3 sm:px-6"
                 >
-                  <span className="font-medium text-paper/70">{r.label}</span>
-                  <span className="pr-1 leading-relaxed text-paper/40">{r.others}</span>
-                  <span className="leading-relaxed text-paper/90">{r.ours}</span>
+                  <span className="block font-medium text-paper/70">{r.label}</span>
+                  <span className="mt-2 flex gap-2 leading-relaxed text-paper/60 sm:mt-0 sm:block sm:pr-1">
+                    <span className="shrink-0 text-paper/50 sm:hidden">다른 앱</span>
+                    {r.others}
+                  </span>
+                  <span className="mt-1.5 flex gap-2 leading-relaxed text-paper/90 sm:mt-0 sm:block">
+                    <span className="shrink-0 text-brass-soft sm:hidden">별:결</span>
+                    {r.ours}
+                  </span>
                 </div>
               ))}
             </div>
@@ -130,7 +139,7 @@ export default function NightSection() {
                 <span className="font-serif text-sm font-semibold text-paper/80">
                   연애 궁합 총론
                 </span>
-                <span className="rounded-full border border-night-line px-2.5 py-0.5 text-[11px] text-paper/40">
+                <span className="rounded-full border border-night-line px-2.5 py-0.5 text-[11px] text-paper/60">
                   샘플
                 </span>
               </div>

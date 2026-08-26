@@ -104,7 +104,7 @@ export default function ReportNav({ questions }: { questions: string[] }) {
                     i === active ? "bg-brass-faint text-ink" : "text-ink-soft hover:bg-paper-warm"
                   }`}
                 >
-                  <span className={`font-serif ${i === active ? "text-brass" : "text-ink-faint"}`}>
+                  <span className={`font-serif ${i === active ? "text-brass-ink" : "text-ink-faint"}`}>
                     {i + 1}
                   </span>
                   {q}

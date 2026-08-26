@@ -627,12 +627,20 @@ export default function Flow({ category }: { category: Category }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  /* 사회적 증거 토스트 — ⚠️ 실시간 데이터 연동 전 플레이스홀더 */
+  /* 입력 중 안내 토스트.
+   *
+   *  예전에는 "조금 전 다른 분이 이 리포트를 확인했어요"를 띄웠다. 일어나지도
+   *  않은 일을 사실처럼 말하는 문구였다. 수치마다 근거를 대는 것이 이 서비스의
+   *  요점인데 입력 화면에서 지어낸 말을 하면 앞뒤가 안 맞는다.
+   *
+   *  대신 이 자리에서 실제로 도움이 되는 것을 알려 준다 — 태어난 시간을 아는
+   *  것이 결과를 얼마나 바꾸는지. 시간을 모르면 여덟 글자 중 두 글자가 비고
+   *  시주에 걸린 궁위가 통째로 빠진다. 입력 전에 알아야 의미가 있는 정보다. */
   const [toast, setToast] = useState(false);
   useEffect(() => {
     if (phase !== "form") return;
     const show = setTimeout(() => setToast(true), 6000);
-    const hide = setTimeout(() => setToast(false), 11000);
+    const hide = setTimeout(() => setToast(false), 13000);
     return () => {
       clearTimeout(show);
       clearTimeout(hide);
@@ -676,7 +684,7 @@ export default function Flow({ category }: { category: Category }) {
                     i === stage
                       ? "font-semibold text-ink"
                       : i < stage
-                        ? "text-brass"
+                        ? "text-brass-ink"
                         : "text-ink-faint"
                   }
                 >
@@ -820,7 +828,7 @@ export default function Flow({ category }: { category: Category }) {
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
             className="pt-10"
           >
-            <p className="text-sm font-medium tracking-widest text-brass">READING COMPLETE</p>
+            <p className="text-sm font-medium tracking-widest text-brass-ink">READING COMPLETE</p>
             <h1 className="mt-3 font-serif text-2xl font-semibold leading-snug">
               {name ? `${name} 님의` : "당신의"} {category.name}이 완성됐어요
             </h1>
@@ -855,7 +863,7 @@ export default function Flow({ category }: { category: Category }) {
                 {/* 카드뉴스형 미리보기 — 전 항목 기본 포함, 수치만 가림 */}
                 <div className="mt-6">
                   <div className="mb-3 flex items-center justify-between">
-                    <p className="text-xs font-medium text-brass">
+                    <p className="text-xs font-medium text-brass-ink">
                       리포트 미리보기 · 수치만 가려져 있어요
                     </p>
                     <p className="text-xs text-ink-faint">
@@ -873,7 +881,7 @@ export default function Flow({ category }: { category: Category }) {
               <>
                 {/* 핵심 결과 부분 공개 */}
                 <div className="mt-8 rounded-2xl border border-brass/40 bg-white p-6">
-                  <p className="text-xs font-medium text-brass">핵심 문장 미리보기</p>
+                  <p className="text-xs font-medium text-brass-ink">핵심 문장 미리보기</p>
                   <p className="mt-3 font-serif text-[19px] leading-relaxed">
                     "{category.previewLine}"
                   </p>
@@ -886,7 +894,7 @@ export default function Flow({ category }: { category: Category }) {
                       <li key={q} className="flex items-center justify-between px-5 py-4 text-[14.5px]">
                         <span className={i === 0 ? "text-ink" : "text-ink-faint"}>{q}</span>
                         {i === 0 ? (
-                          <span className="text-xs font-medium text-brass">공개됨</span>
+                          <span className="text-xs font-medium text-brass-ink">공개됨</span>
                         ) : (
                           <svg viewBox="0 0 24 24" className="h-4 w-4 text-ink-faint" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <rect x="5" y="11" width="14" height="9" rx="2" />
@@ -1017,9 +1025,11 @@ export default function Flow({ category }: { category: Category }) {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
-            className="fixed bottom-5 left-1/2 z-50 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 rounded-xl border border-line bg-white px-4 py-3 text-[13px] text-ink-soft shadow-[0_8px_30px_rgba(23,24,28,0.1)]"
+            role="status"
+            className="fixed bottom-5 left-1/2 z-50 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 rounded-xl border border-line bg-white px-4 py-3 text-[13px] leading-relaxed text-ink-soft shadow-[0_8px_30px_rgba(23,24,28,0.1)]"
           >
-            조금 전 다른 분이 <span className="font-medium text-ink">{category.name}</span> 리포트를 확인했어요
+            태어난 시간을 알면 여덟 글자가 다 채워져요. 모르면 두 글자가 비고, 시주에
+            걸린 자리는 분석에서 빠집니다.
           </motion.div>
         )}
       </AnimatePresence>

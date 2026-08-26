@@ -22,7 +22,7 @@ function StatBar({ label, value, tone }: { label: string; value: number; tone: "
     <div className="rounded-xl border border-line bg-white p-3">
       <div className="flex items-center justify-between text-[12px]">
         <span className="font-medium text-ink">{label}</span>
-        <span className={tone === "strong" ? "font-serif font-bold text-brass" : "font-serif font-bold text-ink-faint"}>
+        <span className={tone === "strong" ? "font-serif font-bold text-brass-ink" : "font-serif font-bold text-ink-faint"}>
           {value}
         </span>
       </div>
@@ -65,7 +65,7 @@ export default function PersonaCard({ result, name }: { result: PersonaResult; n
       </div>
 
       <div className="p-6 sm:p-8" style={{ background: type.badge.bg }}>
-        <p className="text-xs font-medium text-brass">강한 성향</p>
+        <p className="text-xs font-medium text-brass-ink">강한 성향</p>
         <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
           {strong.map((s) => (
             <StatBar key={s.label} label={s.label} value={s.value} tone="strong" />
