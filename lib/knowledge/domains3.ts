@@ -14,7 +14,7 @@ import {
   ELEMENTS, BRANCHES, STEMS, STEM_EL, BRANCH_EL, twelveStage, type ElIdx,
 } from "../core/ganji";
 import type { Rule, Facts } from "./types";
-import { ga, eun, eul, ro } from "./types";
+import { ga, eun, eul, ro, godLegend } from "./types";
 
 const el5 = (d: ElIdx) => ({
   비겁: d, 식상: ((d + 1) % 5) as ElIdx, 재성: ((d + 2) % 5) as ElIdx,
@@ -283,7 +283,7 @@ export const domain3Rules: Rule[] = [
         관성: "책임과 평가에서 옵니다. 잘 쉬지 못하는 쪽이라, 쉬는 것도 일정으로 잡아 두어야 실제로 쉽니다",
         인성: "생각이 멈추지 않아 옵니다. 정보를 더 넣는 방식은 역효과라, 혼자 조용히 있는 시간과 자는 시간을 먼저 확보해야 합니다",
       };
-      return `스트레스가 어디로 들어오는지는 가장 무거운 갈래가 정합니다. ${f.who}의 경우 ${top[0]}이 ${top[1].toFixed(1)}로 가장 두껍습니다. ${WAY[top[0]]}. 몸에서는 ${ELEMENTS[E[top[0] as keyof typeof E] ?? f.a.dayEl]}(${ORGAN[E[top[0] as keyof typeof E] ?? f.a.dayEl]}) 쪽에 먼저 신호가 옵니다.`;
+      return `${godLegend(f)} 스트레스가 어디로 들어오는지는 그중 가장 무거운 갈래가 정합니다. ${f.who}의 경우 가장 두꺼운 갈래는 ${top[0]}(${top[1].toFixed(1)})입니다. ${WAY[top[0]]}. 몸에서는 ${ELEMENTS[E[top[0] as keyof typeof E] ?? f.a.dayEl]}(${ORGAN[E[top[0] as keyof typeof E] ?? f.a.dayEl]}) 쪽에 먼저 신호가 옵니다.`;
     },
   },
   {

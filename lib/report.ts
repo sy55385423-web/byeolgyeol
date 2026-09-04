@@ -30,6 +30,7 @@ import { reunionTiming, reunionTimingFallback, type ReunionTiming } from "./core
 import { branchSix, branchClash, branchHarm, branchBreak, stemCombo, STEM_EL, BRANCH_EL, TRIPLE } from "./core/ganji";
 import { topicOf } from "./knowledge/topicMap";
 import type { Facts, Topic } from "./knowledge/types";
+import { jong } from "./knowledge/types";
 import { marriageAgeFromSeed } from "./top1";
 import { categories, type Category } from "@/data/categories";
 
@@ -1022,6 +1023,53 @@ function rulePassages(
 
 /* ───────────────────── 시기/흐름 문장 ───────────────────── */
 
+/** 인생 단계(초년·청년·중년·말년)의 흐름 문단.
+ *
+ *  예전에는 이 자리에도 flow()를 붙였다. flow()는 앞으로 14개월 중 좋은 달을
+ *  고르는 함수라, "초년운"을 물었는데 "2026년 10월 전후가 초년의 방향의
+ *  분기점"이라는 답이 나갔다. 초년은 이미 지나간 스무 해인데 두 달 뒤의 달을
+ *  댄 것이다. 나이를 묻는 질문에는 달이 아니라 대운으로 답해야 한다.
+ *
+ *  그 구간에 걸치는 대운을 뽑아 좋은 자리와 버거운 자리를 갈라 말한다.
+ *  이미 지나온 구간이면 과거형으로, 아직 안 온 구간이면 미래형으로 쓴다. */
+function stageFlow(c: Chart, from: number, to: number, label: string): string {
+  const A = analyzeTiming(c).analysis;
+  const ds = scoreDecadals(A, c.luck.list).filter((d) => d.age + 9 >= from && d.age <= to);
+  const age = new Date().getFullYear() - c.birthYear + 1;
+  const past = to < age;
+  const future = from > age;
+  const 지금 = past ? "지나온" : future ? "앞으로 올" : "지금 걸치는";
+
+  if (!ds.length)
+    return `${label}에 걸치는 대운은 ${c.luck.startAge}세부터 시작하는 흐름 밖에 있습니다. 이 구간은 대운이 밀어 주기보다 타고난 결이 그대로 드러나는 자리라고 보는 편이 정확합니다.`;
+
+  const best = ds.slice().sort((a, b) => b.score - a.score)[0];
+  const worst = ds.slice().sort((a, b) => a.score - b.score)[0];
+  const 범위 = (d: (typeof ds)[number]) => `${d.age}세부터 ${d.age + 9}세까지의 ${d.ko}`;
+
+  const head = `${label}(${from}~${to}세)에 ${지금} 대운은 ${ds.length}개입니다 — ${ds
+    .map((d) => `${d.age}세 ${d.ko}`)
+    .join(", ")}.`;
+
+  if (best.score === worst.score)
+    return `${head} 어느 쪽도 크게 밀어 주거나 누르지 않는 배치라, 이 구간의 결과는 대운보다 본인이 어디에 힘을 실었느냐로 갈립니다.`;
+
+  const 좋 = best.why.length ? `(${best.why.join(", ")})` : "";
+  const 힘 = worst.why.length ? `(${worst.why.join(", ")})` : "";
+  // 한 대운이 두 단계에 걸치면 같은 문장이 두 번 나가고, 그러면 뒤쪽 섹션에서
+  // 중복 제거에 통째로 걸려 사라진다. 단계 이름을 문장에 박아 서로 다르게 만든다.
+  const 좋문 = past
+    ? `${label}에서 가장 받쳐 주던 자리는 ${범위(best)}${jong(best.ko) ? "이었습니다" : "였습니다"}${좋}. 그때 벌여 둔 것이 지금까지 남아 있을 확률이 높습니다.`
+    : `${label}에서 가장 받쳐 주는 자리는 ${범위(best)}입니다${좋}. 큰 결정을 여기에 맞추면 힘이 덜 듭니다.`;
+  const 힘문 =
+    worst.score < 0
+      ? past
+        ? ` 반대로 ${범위(worst)}${neun(worst.ko)} 버거운 구간이었습니다${힘}. 그 시기의 고생을 실력 부족으로 기억하고 있다면, 자리가 그랬던 쪽입니다.`
+        : ` 반대로 ${범위(worst)}${neun(worst.ko)} 버거운 구간입니다${힘}. 새로 벌이기보다 이미 하던 것을 지키는 편이 낫습니다.`
+      : "";
+  return `${head} ${좋문}${힘문}`;
+}
+
 /** 시기 문단. 예전엔 템플릿이 3개뿐이라 리포트 안에서 같은 문장이 반복됐고, 넘겨받은
  *  topic(문항 주제)을 쓰지도 않아 어느 질문에 붙어도 똑같은 말이 나왔다. 이제 topic을
  *  문장에 박고, 좋은 달·주의할 달에 더해 "무엇이 달라지는지"까지 명반 값으로 갈라 쓴다. */
@@ -1625,14 +1673,14 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
     if (g.ascLove && sameMoon)
       return `태양궁과 달궁이 둘 다 ${g.sun}이고, 상승궁만 ${g.asc}입니다. 본질과 감정은 같은 온도인데 남에게 비치는 인상만 ${g.ascLove} 쪽으로 한 겹 덧씌워집니다. 속은 흔들림이 적은데 첫인상 때문에 다르게 읽히는 일이 반복됩니다.`;
     if (g.ascLove && g.asc === g.moon)
-      return `달궁과 상승궁이 둘 다 ${g.moon}입니다. 감정이 움직이는 방식이 그대로 인상에 드러나는 배치라, 기분이 겉으로 잘 숨겨지지 않습니다. 본질인 태양궁 ${g.sun}의 ${g.sunLove} 결은 그보다 안쪽에 있어서, 오래 겪은 사람만 그쪽을 봅니다.`;
+      return `달궁과 상승궁이 둘 다 ${g.moon}입니다. 감정이 움직이는 방식이 그대로 인상에 드러나는 배치라, 기분이 겉으로 잘 숨겨지지 않습니다. 본질은 그 안쪽에 따로 있습니다. 태양궁이 ${g.sun}이라 ${g.sunLove} 결인데, 이건 오래 겪은 사람만 봅니다.`;
     if (!g.ascLove && sameMoon)
       return `태양궁과 달궁이 둘 다 ${g.sun}입니다. 본질과 감정선이 같은 자리에 놓여, 마음먹은 것과 실제로 느끼는 것이 잘 어긋나지 않습니다. 대신 한번 방향이 정해지면 스스로 뒤집기가 어려워, ${g.sunLove} 결이 불리하게 작동하는 자리에서도 그대로 밀고 갑니다.`;
     return g.ascLove
     ? pick([
         `태양궁은 ${g.sun}, 상승궁은 ${g.asc}입니다. 본질은 ${g.sunLove} 쪽인데 첫인상은 ${g.ascLove} 쪽이라, 사람들이 처음 본 ${whoBase}${wa(whoBase)} 오래 겪은 ${whoBase}${eul(whoBase)} 서로 다르게 기억합니다. 첫 만남에서 오해를 사고 시간이 지나서야 진가를 인정받는 흐름이 반복될 확률이 높습니다.`,
-        `상승궁 ${g.asc}${ga(g.asc!)} 씌우는 ${g.ascLove} 인상과 태양궁 ${g.sun}의 ${g.sunLove} 본질 사이에 간극이 있습니다. 스스로 생각하는 나와 남이 말하는 내가 어긋난다면 이 구조 때문입니다.`,
-        `점성술 3대 지표가 태양궁 ${g.sun}, 달궁 ${g.moon}, 상승궁 ${g.asc}로 각각 다른 층을 맡습니다. 본질 ${g.sunLove} 결, 감정 ${g.moonLove} 결, 첫인상 ${g.ascLove} 결이 따로 작동합니다.`,
+        `상승궁은 ${g.asc}, 태양궁은 ${g.sun}입니다. 남에게 비치는 인상은 ${g.ascLove} 쪽이고, 본질은 ${g.sunLove} 쪽입니다. 스스로 생각하는 나와 남이 말하는 내가 어긋난다면 이 구조 때문입니다.`,
+        `점성술 3대 지표가 태양궁 ${g.sun}, 달궁 ${g.moon}, 상승궁 ${g.asc}로 각각 다른 층을 맡습니다. 본질은 ${g.sunLove} 쪽이고, 감정은 ${g.moonLove} 방식으로 움직이며, 첫인상은 ${g.ascLove} 쪽으로 비칩니다. 세 층이 따로 돕니다.`,
       ], seed)
     : pick([
         `태양궁은 ${g.sun}${ira(g.sun)} 본질은 ${g.sunLove} 쪽이고, 달궁 ${g.moon}${ga(g.moon)} 속마음은 ${g.moonLove} 방식으로 움직입니다. 겉으로 보이는 태도와 혼자 있을 때의 감정이 꽤 다르게 흐르는 구조입니다.`,
@@ -1678,7 +1726,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
         P("명반 근거", g.sunMoonAligned
           ? `태양궁과 달궁이 같은 계열이라 겉으로 드러나는 태도와 속마음이 비슷하게 흘러갑니다. 그래서 ${whoBase}${eul(whoBase)} 오래 겪지 않은 사람도 비교적 정확하게 파악하는 편입니다. 첫인상이 곧 본질에 가까운 드문 경우입니다.`
           : `태양궁 ${g.sun}${wa(g.sun)} 달궁 ${g.moon}${ga(g.moon)} 서로 다른 계열이라, 겉으로 보이는 태도와 실제 속마음이 다르게 움직입니다. 짧게 본 사람과 오래 본 사람의 평가가 갈리는 이유가 여기 있습니다.`),
-        P("점성술로 보면", `${astro(strHash(q))} 이 간극이 가장 선명하게 드러나는 지점이 바로 이 질문입니다.`),
+        P("점성술로 보면", `${astro(strHash(q))} 그래서 남이 말하는 ${whoBase}${wa(whoBase)} 스스로 아는 ${whoBase} 사이에 거리가 생깁니다.`),
         P("실제로는", `${rephrase(le.outerImage, g, me.seed + 5)} 하지만 스스로는 ${essenceCore(le)} 쪽에 가깝다고 느낍니다. 이 둘 사이의 거리를 본인이 가장 모르고 지내는 경우가 많고, 오히려 오래된 친구나 가족이 먼저 짚어주곤 합니다.`),
         P("자미두수로 보면", `${starGround(strHash(q))} 명궁이 곧 겉으로 드러나는 인상의 뿌리이고, 이 별의 기운이 강할수록 시간이 지나야 진짜 모습이 드러나는 경향이 큽니다.`),
         P("지금 할 것", `누군가 ${whoBase}${eul(whoBase)} 오해한다면, 그건 대개 첫인상만 보고 판단했기 때문입니다. 조급하게 해명하기보다 시간을 두고 겪게 하는 편이 유리하고, 반대로 ${whoBase} 자신도 남을 첫인상만으로 판단하지 않는 편이 결과적으로 이득입니다.`),
@@ -1691,7 +1739,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
         P("점성술로 보면", `${g.sunLove} 본질이 이 시기에 가장 여과 없이 드러나는 편이라, 어릴 때의 성향을 떠올려보면 지금과 크게 다르지 않았을 겁니다. 그 시절 주변에서 들었던 평가가 지금도 은근히 이어지고 있을 확률이 높습니다.`),
         P("실제로는", `${openerFor(g, me.seed + strHash(q) + 28)} 이 시기의 선택을 지금 기준으로 후회할 필요는 없습니다. 그때는 최선의 판단이었고, 그 경험이 지금의 감각을 만든 재료입니다.`),
         P("이미 그때부터", `${essenceCore(le)} 결은 이 시기부터 이미 있었습니다. 어릴 때 주변 어른들이 "이 아이는 좀 다르다"고 느꼈던 지점이 있다면, 그게 바로 지금까지 이어지는 본질입니다.`),
-        P("흐름", flow(me, 11, "초년의 방향")),
+        P("흐름", stageFlow(me, 1, 20, "초년")),
       ];
     case "나의 청년운":
       return [
@@ -1701,7 +1749,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
         P("실제로는", `이 시기의 성패를 지금 당장의 성과만으로 판단하지 마세요. ${g.domEl} 기운이 강한 만큼 초반의 굴곡은 나중에 방향을 다듬는 재료로 쓰일 확률이 높습니다. 남들과 속도를 비교하며 조급해지기 가장 쉬운 시기이기도 합니다.`),
         P("점성술로 보면", `${g.moonLove} 방식으로 감정이 움직이는 시기라, 이 무렵의 선택에는 논리보다 그때그때의 기분이 더 크게 작용했을 가능성이 있습니다.`),
         P("미리 알아두면", `${le.caution} 이 패턴이 가장 먼저 티가 나는 게 바로 이 시기입니다. 지금 알아채면, 중년 이후에는 같은 실수를 반복하지 않을 수 있습니다.`),
-        P("흐름", flow(me, 12, "청년기의 전환")),
+        P("흐름", stageFlow(me, 20, 35, "청년기")),
       ];
     case "나의 중년운":
       return [
@@ -1711,7 +1759,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
         P("점성술로 보면", `${astro(strHash(q))} 본질과 첫인상의 차이가 있었더라도, 중년기에는 오래 겪은 사람들의 평가가 더 크게 작용해 그 간극이 자연스럽게 줄어듭니다.`),
         P("실제로는", `${openerFor(g, me.seed + strHash(q) + 28)} 이 시기부터는 혼자 쌓아온 것을 사람들과 나누는 방식으로 무게중심이 옮겨갑니다. 여태 벌여둔 것 중 가장 튼튼한 하나가 이 무렵 실제 성과로 드러납니다.`),
         P("전성기와의 관계", `${le.peak} 중년기는 그 전성기가 준비되는 구간이라고 보면 정확합니다. 지금 당장 눈에 띄지 않아도, 쌓이고 있다는 신호로 받아들이세요.`),
-        P("흐름", flow(me, 13, "중년의 전환점")),
+        P("흐름", stageFlow(me, 36, 57, "중년기")),
       ];
     case "나의 말년운":
       return [
@@ -1721,7 +1769,7 @@ function lifeOverview(q: string, me: Chart, name: string, v: string, ledger?: Se
         P("실제로는", `직접 뛰어드는 역할에서 지켜보고 물려주는 역할로 옮겨가는 걸 밀려나는 것으로 받아들이지 마세요. ${g.lackEl} 기운이 약했던 자리를 그동안 곁에 둔 사람들이 채워주는 시기이기도 합니다.`),
         P("점성술로 보면", `${g.sunLove} 본질이 이 시기에는 조급함 없이 편안하게 드러납니다. 젊을 때 어색했던 표현이 이 무렵에는 자연스럽게 몸에 배어 있을 겁니다.`),
         P("돌아보면", `${essenceCore(le)} 결이 평생 이어졌다는 걸 이 시기에 와서야 온전히 받아들이게 됩니다. 애써 다른 사람이 되려 하지 않았던 선택이 결국 옳았다는 걸 확인하는 시기이기도 합니다.`),
-        P("흐름", flow(me, 14, "말년의 결실")),
+        P("흐름", stageFlow(me, 58, 85, "말년기")),
       ];
     case "대운이 바뀌는 시기":
       return [
