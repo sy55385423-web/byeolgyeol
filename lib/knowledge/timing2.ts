@@ -14,7 +14,7 @@
 
 import { ELEMENTS, BRANCHES, STEM_EL, BRANCH_EL, branchSix, type ElIdx } from "../core/ganji";
 import type { Rule, Facts } from "./types";
-import { ga, eun, eul } from "./types";
+import { ga, eun, eul, godLegend } from "./types";
 
 /** 십신 갈래별 오행 */
 const el5 = (d: ElIdx) => ({
@@ -206,7 +206,7 @@ export const timing2Rules: Rule[] = [
         관성: "신뢰와 약속입니다. 규칙이 흔들리는 걸 가장 싫어해서, 한 번의 거짓말이 열 번의 다정함을 지웁니다",
         인성: "이해받는 느낌입니다. 잘해 주는 것보다 알아주는 것에 마음이 열리고, 설명이 필요 없는 관계를 찾습니다",
       };
-      return `가치관은 여덟 글자에서 가장 무거운 십신 갈래가 정합니다. ${f.who}의 경우 ${top[0]}이 ${top[1].toFixed(1)}로 가장 두껍습니다(비겁 ${g.비겁.toFixed(1)} · 식상 ${g.식상.toFixed(1)} · 재성 ${g.재성.toFixed(1)} · 관성 ${g.관성.toFixed(1)} · 인성 ${g.인성.toFixed(1)}). 그래서 이 사람이 관계에서 가장 크게 치는 것은 ${desc[top[0]]}.`;
+      return `${godLegend(f)} 가치관은 그중 가장 두꺼운 자리가 정합니다. ${f.who}의 경우 가장 두꺼운 갈래는 ${top[0]}입니다(비겁 ${g.비겁.toFixed(1)} · 식상 ${g.식상.toFixed(1)} · 재성 ${g.재성.toFixed(1)} · 관성 ${g.관성.toFixed(1)} · 인성 ${g.인성.toFixed(1)}). 그래서 이 사람이 관계에서 가장 크게 치는 것은 ${desc[top[0]]}.`;
     },
   },
 
@@ -228,7 +228,7 @@ export const timing2Rules: Rule[] = [
         관성: "손해를 감수하고 참다가 한 번에 무너집니다. 책임을 지는 자리가 무거워, 못 하겠다고 말하는 것이 이 명식에는 가장 어려운 일입니다",
         인성: "생각이 행동을 앞질러 때를 놓칩니다. 준비가 부족해서가 아니라 준비만 하다가 지나갑니다",
       };
-      return `평생 반복되는 패턴은 가장 무거운 갈래에서 나옵니다. ${f.who}의 경우 ${top[0]}이 ${top[1].toFixed(1)}로 가장 두껍고 ${bot[0]}이 ${bot[1].toFixed(1)}로 가장 얇습니다(비겁 ${g.비겁.toFixed(1)} · 식상 ${g.식상.toFixed(1)} · 재성 ${g.재성.toFixed(1)} · 관성 ${g.관성.toFixed(1)} · 인성 ${g.인성.toFixed(1)}). ${HOW[top[0]]}. 성격을 고치라는 말이 아니라, 이 자리가 과해지는 순간을 알아채면 같은 실수가 반쯤 줄어든다는 뜻입니다.`;
+      return `${godLegend(f)} 평생 반복되는 패턴은 그중 가장 무거운 갈래에서 나옵니다. ${f.who}의 경우 가장 두꺼운 갈래는 ${top[0]}, 가장 얇은 갈래는 ${bot[0]}입니다(비겁 ${g.비겁.toFixed(1)} · 식상 ${g.식상.toFixed(1)} · 재성 ${g.재성.toFixed(1)} · 관성 ${g.관성.toFixed(1)} · 인성 ${g.인성.toFixed(1)}). ${HOW[top[0]]}. 성격을 고치라는 말이 아니라, 이 자리가 과해지는 순간을 알아채면 같은 실수가 반쯤 줄어든다는 뜻입니다.`;
     },
   },
   {
